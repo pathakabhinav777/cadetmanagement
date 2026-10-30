@@ -174,8 +174,8 @@
       #headerSub, #headerCadetCount { display: none; }
 
       /* Dialogs become sheets from the bottom edge; the roster editor fills the screen. */
-      #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #historyModal, #authModal { padding: 0 !important; align-items: flex-end !important; }
-      #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #historyModal > div, #authModal > div {
+      #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #historyModal, #authModal { padding: 0 !important; align-items: flex-end !important; }
+      #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #historyModal > div, #authModal > div {
         max-width: none !important; width: 100% !important; max-height: 94dvh !important; border-radius: 18px 18px 0 0 !important;
         border-left: 0; border-right: 0; border-bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; overflow-y: auto; }
       #rosterModal > div { height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; border-top: 0; overflow: hidden; }
@@ -277,6 +277,7 @@
     body:not(.can-edit) button[onclick*="openSpecialTaskModal"],
     body:not(.can-edit) button[onclick*="deleteSpecialTask"],
     body:not(.can-edit) button[onclick*="recordCallOut"],
+    body:not(.can-edit) button[onclick*="openTimetableEditor"],
     body:not(.can-edit) button[onclick*="deleteCallOut"],
     body:not(.can-edit) #restoreFileInput,
     body:not(.can-edit) .uni-edit { display: none !important; }
@@ -886,9 +887,9 @@
           <div>
             <p class="text-[10px] uppercase tracking-[.18em] font-black text-amber-400">NCC tools</p>
             <h2 id="availabilityHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Cadet Availability Finder</h2>
-            <p class="text-sm text-slate-400 mt-1">Find cadets free for a day and half, call them for work, and keep the load fair.</p>
+            <p class="text-sm text-slate-400 mt-1">Find cadets free for a day and half, call them for work, and keep the load fair. 3rd years are not included.</p>
           </div>
-          <span class="avail-note text-[11px] text-slate-500 border border-slate-700 rounded-lg px-3 py-2">Uses the current CadetFlow roster</span>
+          <button type="button" onclick="openTimetableEditor()" class="shrink-0 self-start px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit timetables</button>
         </div>
         <div class="grid grid-cols-2 gap-4 mt-6">
           <label class="text-xs font-bold text-slate-300">Day
@@ -904,7 +905,7 @@
         </div>
         <div id="availabilityFilters" class="mt-4 space-y-2 text-xs">
           <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Company</span><button type="button" data-af="company" data-val="all" onclick="setAvailFilter('company', 'all')" class="af-chip">All</button><button type="button" data-af="company" data-val="Jessami" onclick="setAvailFilter('company', 'Jessami')" class="af-chip">Jessami</button><button type="button" data-af="company" data-val="Kohima" onclick="setAvailFilter('company', 'Kohima')" class="af-chip">Kohima</button><button type="button" data-af="company" data-val="Naushera" onclick="setAvailFilter('company', 'Naushera')" class="af-chip">Naushera</button><button type="button" data-af="company" data-val="No company" onclick="setAvailFilter('company', 'No company')" class="af-chip">No company</button></div>
-          <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Year</span><button type="button" data-af="year" data-val="all" onclick="setAvailFilter('year', 'all')" class="af-chip">All</button><button type="button" data-af="year" data-val="1st" onclick="setAvailFilter('year', '1st')" class="af-chip">1st</button><button type="button" data-af="year" data-val="2nd" onclick="setAvailFilter('year', '2nd')" class="af-chip">2nd</button><button type="button" data-af="year" data-val="3rd" onclick="setAvailFilter('year', '3rd')" class="af-chip">3rd</button><button type="button" data-af="year" data-val="none" onclick="setAvailFilter('year', 'none')" class="af-chip">Not set</button></div>
+          <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Year</span><button type="button" data-af="year" data-val="all" onclick="setAvailFilter('year', 'all')" class="af-chip">All</button><button type="button" data-af="year" data-val="1st" onclick="setAvailFilter('year', '1st')" class="af-chip">1st</button><button type="button" data-af="year" data-val="2nd" onclick="setAvailFilter('year', '2nd')" class="af-chip">2nd</button><button type="button" data-af="year" data-val="none" onclick="setAvailFilter('year', 'none')" class="af-chip">Not set</button></div>
           <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Wing</span><button type="button" data-af="wing" data-val="all" onclick="setAvailFilter('wing', 'all')" class="af-chip">All</button><button type="button" data-af="wing" data-val="SD" onclick="setAvailFilter('wing', 'SD')" class="af-chip">SD</button><button type="button" data-af="wing" data-val="SW" onclick="setAvailFilter('wing', 'SW')" class="af-chip">SW</button></div>
           <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Cycle</span><button type="button" data-af="cycle" data-val="all" onclick="setAvailFilter('cycle', 'all')" class="af-chip">All</button><button type="button" data-af="cycle" data-val="yes" onclick="setAvailFilter('cycle', 'yes')" class="af-chip">Has cycle</button><button type="button" data-af="cycle" data-val="no" onclick="setAvailFilter('cycle', 'no')" class="af-chip">No cycle</button></div>
           <div class="flex flex-wrap items-center gap-1.5"><span class="w-16 text-[11px] font-bold uppercase tracking-wider text-slate-500">Sort</span><button type="button" data-af="sort" data-val="fewest" onclick="setAvailFilter('sort', 'fewest')" class="af-chip">Fewest calls first</button><button type="button" data-af="sort" data-val="name" onclick="setAvailFilter('sort', 'name')" class="af-chip">Name</button><button type="button" data-af="sort" data-val="company" onclick="setAvailFilter('sort', 'company')" class="af-chip">Company</button></div>
@@ -933,7 +934,7 @@
         <p class="text-xs text-slate-500 mt-1 mb-3">Cadets (matching the filters) without a timetable yet. These cadets are not assumed to be unavailable.</p>
         <div id="availabilityUnassigned" class="space-y-2"></div>
       </div>
-      <p class="text-[11px] text-slate-500 px-1">Availability is carried over from the original static list. A missing schedule means “not assigned/unknown”, not “unavailable”. Anyone can view this page; only approved editors can record call-outs or change cycle details.</p>
+      <p class="text-[11px] text-slate-500 px-1">Timetables can be edited by approved editors with “Edit timetables”. A missing schedule means “not assigned/unknown”, not “unavailable”. 3rd years are left out of availability. Anyone can view this page; only approved editors can record call-outs or change cycle details.</p>
     </section>
 
   </main>
@@ -1327,6 +1328,35 @@
         <div class="flex gap-2 ml-auto">
           <button type="button" onclick="app.closeModal('specialEventModal')" class="px-3 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800 rounded-xl">Cancel</button>
           <button type="button" id="specialSaveBtn" onclick="app.saveSpecialEvent()" class="px-4 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white rounded-xl">Create special event</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: edit a cadet's timetable (free halves) -->
+  <div id="timetableModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-[11px] font-semibold text-amber-400">Cadet Availability</p>
+          <h3 class="text-lg font-extrabold text-white mt-1">Edit timetable</h3>
+        </div>
+        <button type="button" onclick="app.closeModal('timetableModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="stepTimetable(-1)" class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Previous cadet">‹</button>
+        <select id="ttCadet" onchange="renderTimetableEditor()" aria-label="Cadet" class="flex-1 min-w-0 px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></select>
+        <button type="button" onclick="stepTimetable(1)" class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Next cadet">›</button>
+      </div>
+      <p class="text-xs text-slate-400">Tap a half to switch it between <span class="text-emerald-300 font-semibold">free</span> and busy. Changes save straight away.</p>
+      <div id="ttGrid" class="grid gap-1.5 text-xs" style="grid-template-columns: 5.5rem 1fr 1fr"></div>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+        <span id="ttSummary" class="text-[11px] text-slate-400"></span>
+        <div class="flex gap-2">
+          <button type="button" onclick="clearTimetable()" class="px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950/40 rounded-xl">Clear timetable</button>
+          <button type="button" onclick="app.closeModal('timetableModal')" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Done</button>
         </div>
       </div>
     </div>
@@ -1822,6 +1852,8 @@
         if (roster && !roster.classList.contains('hidden') && !roster.contains(document.activeElement)) this.renderModalRosterTable();
         const history = document.getElementById('historyModal');
         if (history && !history.classList.contains('hidden')) this.openHistoryModal();
+        const tt = document.getElementById('timetableModal');
+        if (tt && !tt.classList.contains('hidden') && typeof renderTimetableEditor === 'function') { if (timetableCadet()) { fillTimetableSelect(timetableCadet().id); renderTimetableEditor(); } else this.closeModal('timetableModal'); }
       }
 
       // ---------------------------------------------------------------------------
@@ -4289,7 +4321,10 @@
         .map(c => [c.id, LEGACY_AVAILABILITY[c.name]])
     );
 
+    const SLOT_ORDER = ['MON1', 'MON2', 'TUE1', 'TUE2', 'WED1', 'WED2', 'THU1', 'THU2', 'FRI1', 'FRI2', 'SAT1', 'SAT2'];
+    /** Free halves of a cadet. A timetable edited on the website (cadet.free) replaces the old built-in one. */
     function getCadetAvailability(cadet) {
+      if (cadet && Array.isArray(cadet.free)) return cadet.free;
       if (cadet && cadet.id && Object.prototype.hasOwnProperty.call(LEGACY_AVAILABILITY_BY_ID, cadet.id)) {
         return LEGACY_AVAILABILITY_BY_ID[cadet.id];
       }
@@ -4586,7 +4621,8 @@
           name: String(c.name ?? '').trim() || 'Unnamed cadet',
           rank: RANKS.includes(String(c.rank || '').toUpperCase()) ? String(c.rank).toUpperCase() : 'CDT',
           wing: c.wing === 'SW' ? 'SW' : 'SD',
-          company: COMPANY_CHOICES.includes(c.company) ? c.company : (c.company ? String(c.company) : 'Jessami') };
+          company: COMPANY_CHOICES.includes(c.company) ? c.company : (c.company ? String(c.company) : 'Jessami'),
+          ...(c.free !== undefined ? { free: Array.isArray(c.free) ? ['MON1', 'MON2', 'TUE1', 'TUE2', 'WED1', 'WED2', 'THU1', 'THU2', 'FRI1', 'FRI2', 'SAT1', 'SAT2'].filter(sl => c.free.includes(sl)) : [] } : {}) };
       });
     }
     function normalizeEvent(ev) {
@@ -4796,8 +4832,10 @@
       renderAvailabilityResults();
     }
 
+    /** Cadets that take part in availability: everyone except 3rd years. */
     function availCadets() {
-      return (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) ? app.state.cadets : [...USER_EXACT_37_CADETS];
+      const all = (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) ? app.state.cadets : [...USER_EXACT_37_CADETS];
+      return all.filter(c => c.year !== '3rd');
     }
     function availDuties() {
       return (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.duties)) ? app.state.duties : [];
@@ -4922,7 +4960,8 @@
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${c.wing === 'SD' ? 'bg-sky-900/40 text-sky-400 border-sky-700/50' : 'bg-rose-900/40 text-rose-400 border-rose-700/50'}">${esc(c.wing || '')}</span>
               ${cycleBadgeHtml(c)}
-              ${canEdit ? `<button type="button" onclick="app.recordCallOut(['${c.id}'])" class="ml-auto text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30" title="Record that ${esc(c.name)} was called for work">+1 called</button>` : ''}
+              ${canEdit ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="ml-auto text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">Timetable</button>` : ''}
+              ${canEdit ? `<button type="button" onclick="app.recordCallOut(['${c.id}'])" class="text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30" title="Record that ${esc(c.name)} was called for work">+1 called</button>` : ''}
             </div>
           </div>
         </div>`;
@@ -4934,10 +4973,74 @@
 
       const unassigned = availCadets().filter(c => passesAvailFilters(c) && getCadetAvailability(c).length === 0);
       document.getElementById('availabilityUnassignedCount').textContent = unassigned.length;
-      document.getElementById('availabilityUnassigned').innerHTML = unassigned.length ? unassigned.map(c => `<div class="rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2"><p class="text-sm font-semibold text-slate-200">${esc(c.name)}</p><p class="text-[11px] text-slate-500">${esc(c.company || 'Company not set')} · ${esc(yearLabel(c.year))} · no schedule assigned</p></div>`).join('') : `<p class="text-xs text-slate-500">All cadets matching the filters have a schedule.</p>`;
+      document.getElementById('availabilityUnassigned').innerHTML = unassigned.length ? unassigned.map(c => `<div class="rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2 flex items-center justify-between gap-2"><div class="min-w-0"><p class="text-sm font-semibold text-slate-200">${esc(c.name)}</p><p class="text-[11px] text-slate-500">${esc(c.company || 'Company not set')} · ${esc(yearLabel(c.year))} · no schedule assigned</p></div>${canEdit ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30">Set timetable</button>` : ''}</div>`).join('') : `<p class="text-xs text-slate-500">All cadets matching the filters have a schedule.</p>`;
 
       renderDutyLeaderboard();
       renderDutyLog();
+    }
+
+    // ---- Timetable editor (approved editors). Saved on the cadet as `free`: the halves they are free.
+    function timetableCadets() {
+      return availCadets().slice().sort((a, b) => (COMPANY_ORDER[a.company] ?? 3) - (COMPANY_ORDER[b.company] ?? 3) || a.name.localeCompare(b.name));
+    }
+    function openTimetableEditor(cadetId) {
+      if (!app?.canEdit?.()) { app?.showToast?.('Only approved CadetFlow editors can edit timetables.'); return; }
+      const list = timetableCadets();
+      if (!list.length) { app.showToast('No cadets to edit.'); return; }
+      const sel = document.getElementById('ttCadet');
+      const keep = cadetId && list.some(c => c.id === cadetId) ? cadetId : (list.find(c => c.id === sel.value)?.id || list[0].id);
+      fillTimetableSelect(keep);
+      document.getElementById('timetableModal').classList.remove('hidden');
+      renderTimetableEditor();
+    }
+    function fillTimetableSelect(selectedId) {
+      const sel = document.getElementById('ttCadet');
+      sel.innerHTML = timetableCadets().map(c => `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${escapeHtml(c.rank || 'CDT')} ${escapeHtml(c.name)} · ${escapeHtml(c.company)}${getCadetAvailability(c).length ? '' : ' · no timetable'}</option>`).join('');
+    }
+    function timetableCadet() {
+      const id = document.getElementById('ttCadet').value;
+      return (app?.state?.cadets || []).find(c => c.id === id) || null;
+    }
+    function renderTimetableEditor() {
+      const c = timetableCadet();
+      const grid = document.getElementById('ttGrid');
+      if (!c) { grid.innerHTML = ''; return; }
+      const free = new Set(getCadetAvailability(c));
+      const cell = slot => `<button type="button" onclick="toggleTimetableSlot('${slot}')" aria-pressed="${free.has(slot)}" aria-label="${DAY_NAMES[slot.slice(0, 3)]} ${slot.endsWith('1') ? 'first' : 'second'} half: ${free.has(slot) ? 'free' : 'busy'}"
+          class="py-2.5 rounded-lg border font-bold transition-colors ${free.has(slot) ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-500 hover:border-slate-500'}">${free.has(slot) ? 'Free' : 'Busy'}</button>`;
+      grid.innerHTML = `<span></span><span class="text-center text-[11px] font-bold text-slate-400">First half</span><span class="text-center text-[11px] font-bold text-slate-400">Second half</span>` +
+        Object.keys(DAY_NAMES).map(d => `<span class="self-center font-semibold text-slate-300">${DAY_NAMES[d]}</span>${cell(d + '1')}${cell(d + '2')}`).join('');
+      document.getElementById('ttSummary').textContent = free.size ? `Free in ${free.size} of 12 halves` : 'No timetable set (shown as “Schedule not assigned”)';
+    }
+    function saveCadetTimetable(c, slots, detail) {
+      c.free = SLOT_ORDER.filter(s => slots.has(s));
+      app.logHistory('timetable-edited', c.id, `${c.name}: ${detail}`);
+      app.saveStorage();
+      const keep = c.id;
+      fillTimetableSelect(keep);
+      renderTimetableEditor();
+      renderAvailabilityResults();
+      renderHomeStats();
+    }
+    function toggleTimetableSlot(slot) {
+      if (!app?.canEdit?.()) return;
+      const c = timetableCadet(); if (!c || !SLOT_ORDER.includes(slot)) return;
+      const slots = new Set(getCadetAvailability(c));
+      const nowFree = !slots.has(slot);
+      if (nowFree) slots.add(slot); else slots.delete(slot);
+      saveCadetTimetable(c, slots, `${DAY_NAMES[slot.slice(0, 3)]} ${slot.endsWith('1') ? 'first' : 'second'} half set to ${nowFree ? 'free' : 'busy'}`);
+    }
+    function clearTimetable() {
+      if (!app?.canEdit?.()) return;
+      const c = timetableCadet(); if (!c || !getCadetAvailability(c).length) return;
+      if (!confirm(`Clear ${c.name}'s timetable? They will show under “Schedule not assigned”.`)) return;
+      saveCadetTimetable(c, new Set(), 'timetable cleared');
+    }
+    function stepTimetable(dir) {
+      const list = timetableCadets();
+      const i = list.findIndex(c => c.id === document.getElementById('ttCadet').value);
+      const next = list[(i + dir + list.length) % list.length];
+      if (next) { document.getElementById('ttCadet').value = next.id; renderTimetableEditor(); }
     }
 
     function renderDutyLeaderboard() {
@@ -5318,7 +5421,7 @@
       if (day === 'SUN') set('homeStatAvail', '–', 'no timetable on Sundays');
       else {
         const half = now.getHours() < 13 ? '1' : '2';
-        const free = cadets.filter(c => getCadetAvailability(c).includes(day + half)).length;
+        const free = availCadets().filter(c => getCadetAvailability(c).includes(day + half)).length;
         set('homeStatAvail', free, `free this ${half === '1' ? 'first' : 'second'} half`);
       }
       const ongoing = (typeof app !== 'undefined' && app && app.state ? app.state.events || [] : []).filter(ev => !ev.archived).length;
