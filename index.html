@@ -101,6 +101,10 @@
 
     /* Filter chips */
     #uniPickList, #newPickList, #editPickList { max-height: 15rem; overflow-y: auto; }
+    .tt-layout { display: grid; gap: 1.25rem; }
+    .tt-list { max-height: 22rem; overflow-y: auto; }
+    @media (min-width: 768px) { .tt-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); } .tt-list { max-height: 26rem; } }
+    @media (max-width: 767px) { .tt-list { max-height: 12rem; } }
     .cf-seg { color: var(--muted); font-weight: 550; transition: background-color .2s var(--snap), color .2s var(--snap); }
     .cf-seg:hover { color: var(--ink); }
     .cf-seg:has(input:checked) { background: var(--brass); color: var(--navy); font-weight: 650; }
@@ -1335,29 +1339,47 @@
 
   <!-- Modal: edit a cadet's timetable (free halves) -->
   <div id="timetableModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
         <div>
           <p class="text-[11px] font-semibold text-amber-400">Cadet Availability</p>
-          <h3 class="text-lg font-extrabold text-white mt-1">Edit timetable</h3>
+          <h3 class="text-lg font-extrabold text-white mt-1">Edit timetables</h3>
         </div>
         <button type="button" onclick="app.closeModal('timetableModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="flex items-center gap-2">
-        <button type="button" onclick="stepTimetable(-1)" class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Previous cadet">‹</button>
-        <select id="ttCadet" onchange="renderTimetableEditor()" aria-label="Cadet" class="flex-1 min-w-0 px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></select>
-        <button type="button" onclick="stepTimetable(1)" class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Next cadet">›</button>
-      </div>
-      <p class="text-xs text-slate-400">Tap a half to switch it between <span class="text-emerald-300 font-semibold">free</span> and busy. Changes save straight away.</p>
-      <div id="ttGrid" class="grid gap-1.5 text-xs" style="grid-template-columns: 5.5rem 1fr 1fr"></div>
-      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
-        <span id="ttSummary" class="text-[11px] text-slate-400"></span>
-        <div class="flex gap-2">
-          <button type="button" onclick="clearTimetable()" class="px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950/40 rounded-xl">Clear timetable</button>
-          <button type="button" onclick="app.closeModal('timetableModal')" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Done</button>
+      <input type="hidden" id="ttCadet" value="">
+      <div class="tt-layout">
+        <!-- Find a cadet -->
+        <div class="space-y-2 min-w-0">
+          <input type="search" id="ttSearch" oninput="renderTimetableList()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); pickFirstTimetableCadet(); }" placeholder="Search name or rank…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          <div class="grid gap-1.5" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <select id="ttCoy" onchange="renderTimetableList()" aria-label="Company" class="min-w-0 px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"><option value="all">All coys</option><option>Jessami</option><option>Kohima</option><option>Naushera</option><option>No company</option></select>
+            <select id="ttYear" onchange="renderTimetableList()" aria-label="Year" class="min-w-0 px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"><option value="all">All years</option><option value="1st">1st year</option><option value="2nd">2nd year</option><option value="none">Year not set</option></select>
+            <select id="ttShow" onchange="renderTimetableList()" aria-label="Timetable" class="min-w-0 px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"><option value="all">Everyone</option><option value="missing">No timetable</option><option value="set">Has timetable</option></select>
+          </div>
+          <p id="ttListCount" class="text-[11px] text-slate-500"></p>
+          <div id="ttList" class="tt-list border border-slate-700 rounded-xl bg-slate-950 divide-y divide-slate-800" role="listbox" aria-label="Cadets"></div>
         </div>
+        <!-- Timetable of the chosen cadet -->
+        <div class="space-y-3 min-w-0">
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="stepTimetable(-1)" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Previous cadet in the list">‹</button>
+            <div class="min-w-0 flex-1 text-center">
+              <p id="ttName" class="text-sm font-bold text-white truncate"></p>
+              <p id="ttMeta" class="text-[11px] text-slate-500 truncate"></p>
+            </div>
+            <button type="button" onclick="stepTimetable(1)" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700" aria-label="Next cadet in the list">›</button>
+          </div>
+          <p class="text-xs text-slate-400">Tap a half to switch it between <span class="text-emerald-300 font-semibold">free</span> and busy. Changes save straight away.</p>
+          <div id="ttGrid" class="grid gap-1.5 text-xs" style="grid-template-columns: 5.5rem 1fr 1fr"></div>
+          <p id="ttSummary" class="text-[11px] text-slate-400"></p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="clearTimetable()" class="px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950/40 rounded-xl">Clear this timetable</button>
+        <button type="button" onclick="app.closeModal('timetableModal')" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Done</button>
       </div>
     </div>
   </div>
@@ -1853,7 +1875,7 @@
         const history = document.getElementById('historyModal');
         if (history && !history.classList.contains('hidden')) this.openHistoryModal();
         const tt = document.getElementById('timetableModal');
-        if (tt && !tt.classList.contains('hidden') && typeof renderTimetableEditor === 'function') { if (timetableCadet()) { fillTimetableSelect(timetableCadet().id); renderTimetableEditor(); } else this.closeModal('timetableModal'); }
+        if (tt && !tt.classList.contains('hidden') && typeof renderTimetableEditor === 'function') { if (timetableCadet()) { renderTimetableList(); renderTimetableEditor(); } else this.closeModal('timetableModal'); }
       }
 
       // ---------------------------------------------------------------------------
@@ -4985,18 +5007,57 @@
     }
     function openTimetableEditor(cadetId) {
       if (!app?.canEdit?.()) { app?.showToast?.('Only approved CadetFlow editors can edit timetables.'); return; }
-      const list = timetableCadets();
-      if (!list.length) { app.showToast('No cadets to edit.'); return; }
-      const sel = document.getElementById('ttCadet');
-      const keep = cadetId && list.some(c => c.id === cadetId) ? cadetId : (list.find(c => c.id === sel.value)?.id || list[0].id);
-      fillTimetableSelect(keep);
+      const all = timetableCadets();
+      if (!all.length) { app.showToast('No cadets to edit.'); return; }
+      const cur = document.getElementById('ttCadet');
+      if (cadetId && all.some(c => c.id === cadetId)) {
+        // Opened from a cadet: show them even if the current search would hide them.
+        document.getElementById('ttSearch').value = '';
+        ['ttCoy', 'ttYear', 'ttShow'].forEach(id => { document.getElementById(id).value = 'all'; });
+        cur.value = cadetId;
+      } else if (!all.some(c => c.id === cur.value)) cur.value = all[0].id;
       document.getElementById('timetableModal').classList.remove('hidden');
+      renderTimetableList();
       renderTimetableEditor();
+      if (!cadetId) setTimeout(() => document.getElementById('ttSearch')?.focus(), 50);
     }
-    function fillTimetableSelect(selectedId) {
-      const sel = document.getElementById('ttCadet');
-      sel.innerHTML = timetableCadets().map(c => `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? 'selected' : ''}>${escapeHtml(c.rank || 'CDT')} ${escapeHtml(c.name)} · ${escapeHtml(c.company)}${getCadetAvailability(c).length ? '' : ' · no timetable'}</option>`).join('');
+    /** Cadets matching the search and filters in the editor. */
+    function timetableFiltered() {
+      const q = document.getElementById('ttSearch').value.toLowerCase().trim();
+      const coy = document.getElementById('ttCoy').value, year = document.getElementById('ttYear').value, show = document.getElementById('ttShow').value;
+      return timetableCadets().filter(c => {
+        if (coy !== 'all' && c.company !== coy) return false;
+        if (!yearMatches(c, year)) return false;
+        const has = getCadetAvailability(c).length > 0;
+        if (show === 'missing' && has) return false;
+        if (show === 'set' && !has) return false;
+        return !q || c.name.toLowerCase().includes(q) || (c.rank || '').toLowerCase().includes(q);
+      });
     }
+    function renderTimetableList() {
+      const host = document.getElementById('ttList'); if (!host) return;
+      const list = timetableFiltered();
+      const cur = document.getElementById('ttCadet').value;
+      const total = timetableCadets().length, missing = timetableCadets().filter(c => !getCadetAvailability(c).length).length;
+      document.getElementById('ttListCount').textContent = `${list.length === total ? `${total} cadets` : `${list.length} of ${total} cadets`} · ${missing} without a timetable`;
+      host.innerHTML = list.length ? list.map(c => {
+        const n = getCadetAvailability(c).length, on = c.id === cur;
+        return `<button type="button" role="option" aria-selected="${on}" data-id="${escapeHtml(c.id)}" onclick="selectTimetableCadet(this.dataset.id)" class="w-full text-left px-3 py-2 flex items-center gap-2 ${on ? 'bg-amber-950/40' : 'hover:bg-slate-900'}">
+          <span class="min-w-0 flex-1"><span class="block text-sm font-semibold ${on ? 'text-amber-200' : 'text-white'} truncate">${escapeHtml(c.rank || 'CDT')} ${escapeHtml(c.name)}</span>
+          <span class="block text-[11px] text-slate-500 truncate">${escapeHtml(c.company)} · ${escapeHtml(yearLabel(c.year))}</span></span>
+          <span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${n ? 'border-emerald-700/50 text-emerald-300' : 'border-amber-700/60 text-amber-300'}">${n ? `${n} free` : 'Not set'}</span>
+        </button>`;
+      }).join('') : '<p class="p-4 text-center text-xs text-slate-500">No cadets match.</p>';
+    }
+    function selectTimetableCadet(id, fromList = true) {
+      document.getElementById('ttCadet').value = id;
+      renderTimetableList();
+      renderTimetableEditor();
+      // On a phone the timetable sits below the list: bring it into view after picking someone.
+      if (fromList && window.innerWidth < 768) document.getElementById('ttName')?.closest('div.space-y-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function pickFirstTimetableCadet() { const first = timetableFiltered()[0]; if (first) selectTimetableCadet(first.id); }
+    function fillTimetableSelect() { renderTimetableList(); } // kept for older callers
     function timetableCadet() {
       const id = document.getElementById('ttCadet').value;
       return (app?.state?.cadets || []).find(c => c.id === id) || null;
@@ -5004,7 +5065,9 @@
     function renderTimetableEditor() {
       const c = timetableCadet();
       const grid = document.getElementById('ttGrid');
-      if (!c) { grid.innerHTML = ''; return; }
+      document.getElementById('ttName').textContent = c ? `${c.rank || 'CDT'} ${c.name}` : 'Pick a cadet';
+      document.getElementById('ttMeta').textContent = c ? `${c.company} · ${yearLabel(c.year)}` : '';
+      if (!c) { grid.innerHTML = ''; document.getElementById('ttSummary').textContent = ''; return; }
       const free = new Set(getCadetAvailability(c));
       const cell = slot => `<button type="button" onclick="toggleTimetableSlot('${slot}')" aria-pressed="${free.has(slot)}" aria-label="${DAY_NAMES[slot.slice(0, 3)]} ${slot.endsWith('1') ? 'first' : 'second'} half: ${free.has(slot) ? 'free' : 'busy'}"
           class="py-2.5 rounded-lg border font-bold transition-colors ${free.has(slot) ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-500 hover:border-slate-500'}">${free.has(slot) ? 'Free' : 'Busy'}</button>`;
@@ -5016,8 +5079,7 @@
       c.free = SLOT_ORDER.filter(s => slots.has(s));
       app.logHistory('timetable-edited', c.id, `${c.name}: ${detail}`);
       app.saveStorage();
-      const keep = c.id;
-      fillTimetableSelect(keep);
+      renderTimetableList();
       renderTimetableEditor();
       renderAvailabilityResults();
       renderHomeStats();
@@ -5036,11 +5098,14 @@
       if (!confirm(`Clear ${c.name}'s timetable? They will show under “Schedule not assigned”.`)) return;
       saveCadetTimetable(c, new Set(), 'timetable cleared');
     }
+    /** Previous / next cadet within the searched and filtered list. */
     function stepTimetable(dir) {
-      const list = timetableCadets();
+      const list = timetableFiltered();
+      if (!list.length) return;
       const i = list.findIndex(c => c.id === document.getElementById('ttCadet').value);
-      const next = list[(i + dir + list.length) % list.length];
-      if (next) { document.getElementById('ttCadet').value = next.id; renderTimetableEditor(); }
+      const next = list[i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length];
+      selectTimetableCadet(next.id, false);
+      document.querySelector(`#ttList [data-id="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' });
     }
 
     function renderDutyLeaderboard() {
