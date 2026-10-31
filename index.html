@@ -285,6 +285,12 @@
     body:not(.can-edit) button[onclick*="deleteCallOut"],
     body:not(.can-edit) #restoreFileInput,
     body:not(.can-edit) .uni-edit { display: none !important; }
+    /* Administrator-only controls (roster, timetables, data import, deleting tasks) are hidden from seniors too. */
+    body:not(.is-admin) button[onclick*="openRosterModal"],
+    body:not(.is-admin) button[onclick*="openTimetableEditor"],
+    body:not(.is-admin) button[onclick*="handleDeleteCurrentEventDirectly"],
+    body:not(.is-admin) button[onclick*="restoreFileInput"],
+    body:not(.is-admin) .admin-only { display: none !important; }
     /* Read-only status badges shown to visitors in place of editor toggles. */
     body.can-edit .viewer-only { display: none !important; }
   </style>
@@ -1705,9 +1711,20 @@
         if (this.remoteReady && this.canEdit()) this.queueRemoteSave();
       }
 
-      canEdit() {
-        return !!this.user && ['admin', 'editor'].includes(this.userRole);
+      // Three kinds of people:
+      //   administrator (role 'admin')            – everything, including the roster, timetables, data import and deleting tasks
+      //   senior (role 'editor' or 'senior')       – tasks, marks, call-outs, uniform requests, updates
+      //   viewer (signed out, or no/other role)    – can look, can't change anything
+      accessLevel() {
+        if (!this.user) return 'viewer';
+        if (this.userRole === 'admin') return 'admin';
+        if (this.userRole === 'editor' || this.userRole === 'senior') return 'senior';
+        return 'viewer';
       }
+      /** Seniors and administrators can make changes. */
+      canEdit() { return this.accessLevel() !== 'viewer'; }
+      /** Only administrators can change the roster, timetables, restore data or delete tasks. */
+      isAdmin() { return this.accessLevel() === 'admin'; }
 
       setupAuthUI() {
         const form = document.getElementById('authForm');
@@ -1801,7 +1818,7 @@
             this.remoteReady = true;
             this.saveLocalCacheOnly();
             this.rerenderAfterRemote();
-            this.setAccessUI(this.canEdit() ? `Commander Access` : (this.user ? 'View only' : 'Public view'), this.canEdit() ? 'Changes sync to the shared CadetFlow roster.' : 'Read-only access. Sign in with an approved editor account to make changes.');
+            this.applyAccessUI();
           } else if (this.canEdit()) {
             this.applyState(this.localSeedState || this.serializableState());
             this.applyAccessUI();
@@ -1820,7 +1837,7 @@
             this.remoteVersion = seededRow.updated_at ?? null;
             this.remoteReady = true;
             this.rerenderAfterRemote();
-            this.setAccessUI(`Commander Access`, 'Existing roster copied into the shared CadetFlow database.');
+            this.setAccessUI(this.isAdmin() ? 'Administrator' : 'Senior access', 'Existing roster copied into the shared CadetFlow database.');
           } else {
             this.applyState({ cadets: [], events: [], activeEventId: null, history: [] });
             this.applyAccessUI();
@@ -1920,7 +1937,7 @@
                 this.syncBase = payload;
                 this.remoteVersion = data.updated_at ?? null;
                 this.hasUnsyncedChanges = !stateEqual(this.serializableState(), payload);
-                this.setAccessUI(`Commander Access`, 'All changes are saved to the shared roster.');
+                this.setAccessUI(this.isAdmin() ? 'Administrator' : 'Senior access', 'All changes are saved to the shared roster.');
                 return;
               }
               // Someone else saved first: bring in their changes, then retry with the merged state.
@@ -2038,7 +2055,9 @@
 
       applyAccessUI() {
         const approvedEditor = this.canEdit();
+        const level = this.accessLevel();
         document.body.classList.toggle('can-edit', approvedEditor);
+        document.body.classList.toggle('is-admin', level === 'admin');
         document.body.classList.toggle('signed-in', !!this.user);
         if (typeof renderUniformPage === 'function') renderUniformPage();
         const buttonLabel = document.getElementById('authButtonLabel');
@@ -2052,13 +2071,13 @@
         const rankName = matchedCadet ? `${matchedCadet.rank || 'CDT'} ${matchedCadet.name}` : (meta.rank ? `${meta.rank} ${displayName}` : displayName);
         if (buttonLabel) buttonLabel.textContent = this.user ? rankName : 'Sign in';
         if (accountName) accountName.textContent = this.user ? rankName : 'Guest';
-        if (accountRole) accountRole.textContent = approvedEditor ? 'Approved editor' : (this.user ? 'Signed in · view only' : 'Public view');
+        if (accountRole) accountRole.textContent = level === 'admin' ? 'Administrator' : level === 'senior' ? 'Senior' : (this.user ? 'Signed in · viewer' : 'Public view');
         if (accountAction) accountAction.textContent = this.user ? 'Sign out' : 'Sign in';
-        const label = approvedEditor ? 'Commander Access' : (this.user ? 'View only' : 'Public view');
+        const label = level === 'admin' ? 'Administrator' : level === 'senior' ? 'Senior access' : (this.user ? 'View only' : 'Public view');
         const message = approvedEditor
-          ? 'Changes sync to the shared roster.'
+          ? (level === 'admin' ? 'Changes sync to the shared roster.' : 'You can manage tasks, call-outs and uniform requests. The roster and timetables are changed by administrators.')
           : (this.user
-              ? 'This account is not approved to edit CadetFlow. Contact the administrator if you need editor access.'
+              ? 'This account can view only. Ask an administrator if you need senior access.'
               : 'Anyone with the link can view; editing requires an approved account.');
         this.setAccessUI(label, message);
       }
@@ -2907,7 +2926,7 @@
       // Edits save immediately and update the row in place, so the table never jumps,
       // loses scroll position or steals focus while you work down the list.
       openRosterModal() {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can edit the roster.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can edit the roster.'); return; }
         this.resetRosterFilters(false);
         this.rosterUI.ticked.clear();
         this.renderModalRosterTable();
@@ -2993,7 +3012,7 @@
 
       /** Save one field from the table and restyle just that cell. */
       rosterEdit(id, field, value, el) {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can edit cadet details.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can edit cadet details.'); return; }
         const cadet = this.state.cadets.find(c => c.id === id);
         if (!cadet) return;
         let v = String(value ?? '').trim();
@@ -3034,7 +3053,7 @@
 
       /** Kept for older callers: change one field (redraws the table). */
       updateCadetField(id, field, value) {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can edit cadet details.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can edit cadet details.'); return; }
         const cadet = this.state.cadets.find(c => c.id === id);
         if (!cadet) return;
         cadet[field] = field === 'cycle' ? (String(value).trim() === 'yes' ? 'yes' : 'no') : String(value).trim();
@@ -3092,7 +3111,7 @@
       }
 
       applyRosterBulk() {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can edit cadet details.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can edit cadet details.'); return; }
         const field = document.getElementById('rosterBulkField').value;
         const value = document.getElementById('rosterBulkValue').value;
         const label = document.getElementById('rosterBulkValue').selectedOptions[0]?.textContent || value;
@@ -3108,7 +3127,7 @@
       }
 
       removeTickedCadets() {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can remove cadets.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can remove cadets.'); return; }
         const targets = this.state.cadets.filter(c => this.rosterUI.ticked.has(c.id));
         if (!targets.length) return;
         if (targets.length >= this.state.cadets.length) { this.showToast('The roster must keep at least one cadet.'); return; }
@@ -3125,7 +3144,7 @@
       }
 
       addCadetFromForm() {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can add a cadet.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can add a cadet.'); return; }
         const val = id => document.getElementById(id).value;
         const name = val('addCadetName').trim().replace(/\s+/g, ' ');
         if (!name) { this.showToast('Enter the cadet’s name.'); document.getElementById('addCadetName').focus(); return; }
@@ -3147,7 +3166,7 @@
       }
 
       removeCadet(id) {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can remove a cadet.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can remove a cadet.'); return; }
         if (this.state.cadets.length <= 1) { this.showToast("Roster must have at least one cadet."); return; }
         const removedCadet = this.state.cadets.find(c => c.id === id);
         if (!removedCadet) return;
@@ -3189,7 +3208,7 @@
       }
 
       applyBatchPaste() {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can import cadets.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can import cadets.'); return; }
         const text = document.getElementById('batchPasteArea').value;
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         if (lines.length === 0) {
@@ -3493,7 +3512,7 @@
       }
 
       handleDeleteCurrentEventDirectly(eventId) {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can delete the task.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can delete the task.'); return; }
         const ev = this.eventForAction(eventId);
         if (!ev) return;
         if (this.state.events.length <= 1) {
@@ -4228,7 +4247,7 @@
       }
 
       restoreBackupFile(file) {
-        if (!this.canEdit()) { this.showToast('Only approved CadetFlow editors can restore a backup.'); return; }
+        if (!this.isAdmin()) { this.showToast('Only administrators can restore a backup.'); return; }
         if (!file) return;
         const reader = new FileReader();
         reader.onload = () => {
@@ -4982,8 +5001,8 @@
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${c.wing === 'SD' ? 'bg-sky-900/40 text-sky-400 border-sky-700/50' : 'bg-rose-900/40 text-rose-400 border-rose-700/50'}">${esc(c.wing || '')}</span>
               ${cycleBadgeHtml(c)}
-              ${canEdit ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="ml-auto text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">Timetable</button>` : ''}
-              ${canEdit ? `<button type="button" onclick="app.recordCallOut(['${c.id}'])" class="text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30" title="Record that ${esc(c.name)} was called for work">+1 called</button>` : ''}
+              ${app?.isAdmin?.() ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="ml-auto text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">Timetable</button>` : ''}
+              ${canEdit ? `<button type="button" onclick="app.recordCallOut(['${c.id}'])" class="${app?.isAdmin?.() ? '' : 'ml-auto '}text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30" title="Record that ${esc(c.name)} was called for work">+1 called</button>` : ''}
             </div>
           </div>
         </div>`;
@@ -4995,7 +5014,7 @@
 
       const unassigned = availCadets().filter(c => passesAvailFilters(c) && getCadetAvailability(c).length === 0);
       document.getElementById('availabilityUnassignedCount').textContent = unassigned.length;
-      document.getElementById('availabilityUnassigned').innerHTML = unassigned.length ? unassigned.map(c => `<div class="rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2 flex items-center justify-between gap-2"><div class="min-w-0"><p class="text-sm font-semibold text-slate-200">${esc(c.name)}</p><p class="text-[11px] text-slate-500">${esc(c.company || 'Company not set')} · ${esc(yearLabel(c.year))} · no schedule assigned</p></div>${canEdit ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30">Set timetable</button>` : ''}</div>`).join('') : `<p class="text-xs text-slate-500">All cadets matching the filters have a schedule.</p>`;
+      document.getElementById('availabilityUnassigned').innerHTML = unassigned.length ? unassigned.map(c => `<div class="rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2 flex items-center justify-between gap-2"><div class="min-w-0"><p class="text-sm font-semibold text-slate-200">${esc(c.name)}</p><p class="text-[11px] text-slate-500">${esc(c.company || 'Company not set')} · ${esc(yearLabel(c.year))} · no schedule assigned</p></div>${app?.isAdmin?.() ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30">Set timetable</button>` : ''}</div>`).join('') : `<p class="text-xs text-slate-500">All cadets matching the filters have a schedule.</p>`;
 
       renderDutyLeaderboard();
       renderDutyLog();
@@ -5006,7 +5025,7 @@
       return availCadets().slice().sort((a, b) => (COMPANY_ORDER[a.company] ?? 3) - (COMPANY_ORDER[b.company] ?? 3) || a.name.localeCompare(b.name));
     }
     function openTimetableEditor(cadetId) {
-      if (!app?.canEdit?.()) { app?.showToast?.('Only approved CadetFlow editors can edit timetables.'); return; }
+      if (!app?.isAdmin?.()) { app?.showToast?.('Only administrators can edit timetables.'); return; }
       const all = timetableCadets();
       if (!all.length) { app.showToast('No cadets to edit.'); return; }
       const cur = document.getElementById('ttCadet');
@@ -5085,7 +5104,7 @@
       renderHomeStats();
     }
     function toggleTimetableSlot(slot) {
-      if (!app?.canEdit?.()) return;
+      if (!app?.isAdmin?.()) return;
       const c = timetableCadet(); if (!c || !SLOT_ORDER.includes(slot)) return;
       const slots = new Set(getCadetAvailability(c));
       const nowFree = !slots.has(slot);
@@ -5093,7 +5112,7 @@
       saveCadetTimetable(c, slots, `${DAY_NAMES[slot.slice(0, 3)]} ${slot.endsWith('1') ? 'first' : 'second'} half set to ${nowFree ? 'free' : 'busy'}`);
     }
     function clearTimetable() {
-      if (!app?.canEdit?.()) return;
+      if (!app?.isAdmin?.()) return;
       const c = timetableCadet(); if (!c || !getCadetAvailability(c).length) return;
       if (!confirm(`Clear ${c.name}'s timetable? They will show under “Schedule not assigned”.`)) return;
       saveCadetTimetable(c, new Set(), 'timetable cleared');
