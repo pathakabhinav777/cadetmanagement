@@ -106,6 +106,19 @@
     .tt-list { max-height: 22rem; overflow-y: auto; }
     @media (min-width: 768px) { .tt-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); } .tt-list { max-height: 26rem; } }
     @media (max-width: 767px) { .tt-list { max-height: 12rem; } }
+    .cf-name-link { border-radius: 4px; }
+    .cf-name-link:hover span, .cf-name-link:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(201,154,53,.6); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .cal-day { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; font-variant-numeric: tabular-nums; color: #6B7F9C; border: 1px solid transparent; }
+    .cal-day.has { color: #fff; font-weight: 700; cursor: pointer; }
+    .cal-day.attended { background: #1F7A55; border-color: #35996E; }
+    .cal-day.missed { background: #9B1C2E; border-color: #C8102E; }
+    .cal-day.excused { background: #9A7420; border-color: #C99A35; color: #0C1626; }
+    .cal-day.unmarked { background: #1B2B45; border-color: #3E5476; }
+    .cal-day.upcoming { background: transparent; border: 1px dashed #6CB4E4; color: #6CB4E4; }
+    .cal-day.today { box-shadow: inset 0 0 0 1px #E5C46C; }
+    .cal-day.sel { outline: 2px solid #E5C46C; outline-offset: 1px; }
+    .cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
     .cf-seg { color: var(--muted); font-weight: 550; transition: background-color .2s var(--snap), color .2s var(--snap); }
     .cf-seg:hover { color: var(--ink); }
     .cf-seg:has(input:checked) { background: var(--brass); color: var(--navy); font-weight: 650; }
@@ -179,8 +192,8 @@
       #headerSub, #headerCadetCount { display: none; }
 
       /* Dialogs become sheets from the bottom edge; the roster editor fills the screen. */
-      #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #historyModal, #authModal { padding: 0 !important; align-items: flex-end !important; }
-      #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #historyModal > div, #authModal > div {
+      #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #profileModal, #historyModal, #authModal { padding: 0 !important; align-items: flex-end !important; }
+      #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #profileModal > div, #historyModal > div, #authModal > div {
         max-width: none !important; width: 100% !important; max-height: 94dvh !important; border-radius: 18px 18px 0 0 !important;
         border-left: 0; border-right: 0; border-bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; overflow-y: auto; }
       #rosterModal > div { height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; border-top: 0; overflow: hidden; }
@@ -1380,6 +1393,19 @@
     </div>
   </div>
 
+  <!-- Modal: cadet profile -->
+  <div id="profileModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div id="profileHead" class="min-w-0"></div>
+        <button type="button" onclick="app.closeModal('profileModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="profileBody" class="space-y-4"></div>
+    </div>
+  </div>
+
   <!-- Modal: create / edit a parade -->
   <div id="paradeModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
@@ -2225,6 +2251,7 @@
         document.body.classList.toggle('signed-in', !!this.user);
         if (typeof renderUniformPage === 'function') renderUniformPage();
         if (typeof renderParadePage === 'function') renderParadePage();
+        if (typeof renderCadetProfile === 'function') renderCadetProfile();
         const buttonLabel = document.getElementById('authButtonLabel');
         const accountName = document.getElementById('accountName');
         const accountRole = document.getElementById('accountRole');
@@ -2438,6 +2465,7 @@
         document.getElementById('specialEventView')?.classList.toggle('hidden', !isSpecial);
         if (typeof renderUniformPage === 'function') renderUniformPage();
         if (typeof renderParadePage === 'function') renderParadePage();
+        if (typeof renderCadetProfile === 'function') renderCadetProfile();
         if (isSpecial) { this.renderSpecialEventView(ev); return; }
         const groupMode = isGroupTask(ev);
         this.renderGroupTaskCard(groupMode ? ev : null);
@@ -5008,7 +5036,7 @@
           ${people.length ? `<ul class="divide-y divide-slate-800/60">${people.map(c => `
             <li class="px-4 py-2.5 flex items-center gap-2 flex-wrap">
               <span class="px-1.5 py-0.5 rounded text-[10px] border font-mono font-bold ${(RANK_CONFIG[c.rank] || RANK_CONFIG.CDT).badgeClass}">${escapeHtml(c.rank || 'CDT')}</span>
-              <span class="text-sm font-semibold text-white">${escapeHtml(c.name)}</span>
+              <button type="button" onclick="openCadetProfile('${escapeHtml(c.id)}')" class="cf-name-link text-left " title="Open profile"><span class="text-sm font-semibold text-white">${escapeHtml(c.name)}</span></button>
               <span class="ml-auto flex items-center gap-1.5">
                 <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${c.wing === 'SD' ? 'bg-sky-900/40 text-sky-400 border-sky-700/50' : 'bg-rose-900/40 text-rose-400 border-rose-700/50'}">${escapeHtml(c.wing || '')}</span>
                 ${yearBadgeHtml(c.year)}
@@ -5165,7 +5193,7 @@
           ${canEdit ? `<input type="checkbox" class="cadet-cb mt-0.5 shrink-0" ${AVAIL.ticked.has(c.id) ? 'checked' : ''} onchange="toggleAvailTick('${c.id}', this.checked); renderAvailabilityResults()" aria-label="Tick ${esc(c.name)}">` : ''}
           <div class="min-w-0 flex-1">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-sm font-bold text-white">${esc(c.name)}</p>
+              <button type="button" onclick="openCadetProfile('${esc(c.id)}')" class="cf-name-link text-left " title="Open profile"><span class="text-sm font-bold text-white">${esc(c.name)}</span></button>
               <span class="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded border ${n ? 'border-amber-700/60 text-amber-300 bg-amber-900/20' : 'border-slate-700 text-slate-500'}" title="${n ? `Last called ${esc(fmtDate(last[c.id]))}` : 'Never called'}">Called ${n}×</span>
             </div>
             <p class="text-[11px] text-slate-500 mt-1">${esc(c.rank || 'CDT')} · ${esc(c.company || 'Company not set')} · ${esc(yearLabel(c.year))}</p>
@@ -5318,7 +5346,7 @@
           <li class="flex items-center gap-3 rounded-lg ${r.place <= 3 && r.n ? 'bg-amber-950/20 border border-amber-800/40' : 'bg-slate-950/60 border border-slate-800'} px-3 py-2">
             <span class="w-8 text-center font-mono-num ${r.place <= 3 && r.n ? 'text-base font-semibold text-amber-300' : 'text-xs text-slate-500'}">${r.n ? medal(r.place) : '–'}</span>
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-white truncate">${escapeHtml(r.c.rank || 'CDT')} ${escapeHtml(r.c.name)}</p>
+              <p class="text-sm font-semibold text-white truncate"><button type="button" onclick="openCadetProfile('${escapeHtml(r.c.id)}')" class="cf-name-link text-left " title="Open profile">${escapeHtml(r.c.rank || 'CDT')} ${escapeHtml(r.c.name)}</button></p>
               <div class="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-1.5 bg-amber-500 rounded-full" style="width:${max ? Math.round(r.n / max * 100) : 0}%"></div></div>
             </div>
             <span class="hidden sm:inline text-[11px] text-slate-500 whitespace-nowrap">${escapeHtml(r.c.company)} · ${escapeHtml(YEARS.includes(r.c.year) ? r.c.year + ' yr' : 'yr ?')}${r.last ? ' · last ' + escapeHtml(fmtDate(r.last)) : ''}</span>
@@ -5506,7 +5534,7 @@
         const m = pd.marks?.[c.id], r = paradeReportOf(pd, c.id);
         return `<li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5">
           <div class="min-w-0">
-            <p class="text-sm text-white"><span class="font-semibold">${esc(c.rank || 'CDT')} ${esc(c.name)}</span> <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span></p>
+            <p class="text-sm text-white"><button type="button" onclick="openCadetProfile('${esc(c.id)}')" class="cf-name-link text-left " title="Open profile"><span class="font-semibold">${esc(c.rank || 'CDT')} ${esc(c.name)}</span></button> <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span></p>
             ${r ? `<p class="text-[11px] ${r.kind === 'absent' ? 'text-rose-300' : 'text-sky-300'} mt-0.5">${r.kind === 'absent' ? "Said they can't come" : 'Said they will be late'}: ${esc(r.reason)} · informed ${esc(informerName(r.informedTo))}</p>` : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
@@ -5765,6 +5793,149 @@
     }
     // Keep the "open until / closed" state fresh while the page is open.
     setInterval(() => { const pg = document.getElementById('paradePage'); if (pg && !pg.classList.contains('hidden') && !document.activeElement?.closest?.('#paradeDetailView')) renderParadePage(); }, 30000);
+
+    // ==================== CADET PROFILE ====================
+    // Attendance: Present or Late = attended (green); Absent without a report = missed (red);
+    // Absent / not coming with a reason reported before the parade = excused (yellow, not counted either way).
+    const PROF = { id: null, year: 0, month: 0, day: null };
+    function profileParadeStatus(pd, cadetId) {
+      const st = paradeStatus(pd, cadetId);
+      if (st === 'present' || st === 'late') return 'attended';
+      if (st === 'excused') return 'excused';
+      if (st === 'absent') return paradeReportOf(pd, cadetId) ? 'excused' : 'missed';
+      return pd.reportAt > Date.now() ? 'upcoming' : 'unmarked';
+    }
+    function cadetParades(cadetId) {
+      const c = (app?.state?.cadets || []).find(x => x.id === cadetId);
+      if (!c) return [];
+      return paradeList().filter(pd => paradeCadets(pd).some(x => x.id === cadetId))
+        .map(pd => ({ pd, st: profileParadeStatus(pd, cadetId), rep: paradeReportOf(pd, cadetId), mark: pd.marks?.[cadetId] || null }));
+    }
+    function dayKey(ts) { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+    function openCadetProfile(id) {
+      const c = (app?.state?.cadets || []).find(x => x.id === id);
+      if (!c) return;
+      PROF.id = id; PROF.day = null;
+      // Start on the month of the most recent parade they were part of (or this month).
+      const past = cadetParades(id).filter(x => x.pd.reportAt <= Date.now());
+      const ref = new Date(past.length ? past[past.length - 1].pd.reportAt : Date.now());
+      PROF.year = ref.getFullYear(); PROF.month = ref.getMonth();
+      document.getElementById('profileModal').classList.remove('hidden');
+      renderCadetProfile();
+    }
+    function profileMonth(step) {
+      const d = new Date(PROF.year, PROF.month + step, 1);
+      PROF.year = d.getFullYear(); PROF.month = d.getMonth(); PROF.day = null;
+      renderCadetProfile();
+    }
+    function profileDay(key) { PROF.day = PROF.day === key ? null : key; renderCadetProfile(); }
+    function renderCadetProfile() {
+      const modal = document.getElementById('profileModal');
+      if (!modal || modal.classList.contains('hidden')) return;
+      const c = (app?.state?.cadets || []).find(x => x.id === PROF.id);
+      if (!c) { app.closeModal('profileModal'); return; }
+      const esc = escapeHtml;
+      document.getElementById('profileHead').innerHTML = `
+        <p class="text-[11px] font-semibold text-amber-400">Cadet profile</p>
+        <h3 class="text-xl font-extrabold text-white mt-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)}</h3>
+        <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span class="px-2 py-0.5 rounded border border-slate-700 text-slate-300">${esc(c.company)}</span>
+          <span class="px-2 py-0.5 rounded border border-slate-700 text-slate-300">${esc(yearLabel(c.year))}</span>
+          <span class="px-2 py-0.5 rounded border ${c.wing === 'SW' ? 'border-rose-700/50 text-rose-300' : 'border-sky-700/50 text-sky-300'}">${esc(c.wing || '')}</span>
+          ${cycleBadgeHtml(c)}
+        </div>`;
+
+      // ---- attendance
+      const all = cadetParades(c.id);
+      const attended = all.filter(x => x.st === 'attended').length, missed = all.filter(x => x.st === 'missed').length;
+      const excused = all.filter(x => x.st === 'excused').length, unmarked = all.filter(x => x.st === 'unmarked').length;
+      const late = all.filter(x => x.mark === 'late').length;
+      const counted = attended + missed;
+      const pct = counted ? Math.round(attended / counted * 100) : null;
+      const tone = pct == null ? 'text-slate-400' : pct >= 75 ? 'text-emerald-300' : pct >= 50 ? 'text-amber-300' : 'text-rose-300';
+
+      // ---- calendar
+      const first = new Date(PROF.year, PROF.month, 1);
+      const daysIn = new Date(PROF.year, PROF.month + 1, 0).getDate();
+      const lead = (first.getDay() + 6) % 7; // Monday first
+      const byDay = new Map();
+      all.forEach(x => { const k = dayKey(x.pd.reportAt); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(x); });
+      const rankOrder = ['missed', 'excused', 'unmarked', 'attended', 'upcoming'];
+      const todayKey = dayKey(Date.now());
+      let cells = '';
+      for (let i = 0; i < lead; i++) cells += '<span></span>';
+      for (let d = 1; d <= daysIn; d++) {
+        const key = `${PROF.year}-${PROF.month}-${d}`;
+        const items = byDay.get(key);
+        const st = items ? rankOrder.find(r => items.some(x => x.st === r)) : '';
+        const label = items ? items.map(x => `${x.pd.title}: ${({ attended: x.mark === 'late' ? 'attended (late)' : 'attended', missed: 'missed', excused: 'missed with reason', unmarked: 'not marked yet', upcoming: 'upcoming' })[x.st]}`).join('; ') : '';
+        cells += items
+          ? `<button type="button" onclick="profileDay('${key}')" class="cal-day has ${st} ${key === todayKey ? 'today' : ''} ${PROF.day === key ? 'sel' : ''}" title="${esc(label)}" aria-label="${d}: ${esc(label)}">${d}</button>`
+          : `<span class="cal-day ${key === todayKey ? 'today' : ''}">${d}</span>`;
+      }
+      const monthName = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      const sel = PROF.day ? (byDay.get(PROF.day) || []) : [];
+      const detailRow = x => {
+        const text = { attended: x.mark === 'late' ? 'Attended, late' : 'Attended', missed: 'Missed', excused: 'Missed with reason (not counted)', unmarked: 'Attendance not marked yet', upcoming: 'Upcoming' }[x.st];
+        return `<li class="px-3 py-2">
+          <button type="button" onclick="app.closeModal('profileModal'); switchCadetFlowPage('parades'); openParadeDetail('${esc(x.pd.id)}')" class="text-left text-sm font-semibold text-white hover:underline underline-offset-2">${esc(x.pd.title)}</button>
+          <p class="text-[11px] text-slate-400">${esc(paradeDay(x.pd.reportAt))}, ${esc(paradeClock(x.pd.reportAt))}${x.pd.venue ? ' · ' + esc(x.pd.venue) : ''} · <span class="${x.st === 'attended' ? 'text-emerald-300' : x.st === 'missed' ? 'text-rose-300' : x.st === 'excused' ? 'text-amber-300' : 'text-slate-300'} font-semibold">${text}</span></p>
+          ${x.rep ? `<p class="text-[11px] text-slate-500">${x.rep.kind === 'absent' ? "Can't come" : 'Coming late'}: ${esc(x.rep.reason)} · informed ${esc(informerName(x.rep.informedTo))}</p>` : ''}
+        </li>`;
+      };
+      const attendance = `
+        <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h4 class="font-extrabold text-white">Parade attendance</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">Late counts as attended. Missing with a reason reported before the parade doesn't count against them.</p>
+            </div>
+            <div class="text-right"><b class="text-3xl font-black ${tone} font-mono-num">${pct == null ? '–' : pct + '%'}</b><p class="text-[11px] text-slate-500">${counted ? `${attended} of ${counted} attended` : 'No marked parades yet'}</p></div>
+          </div>
+          <div class="mt-3 flex flex-wrap text-[11px] text-slate-300" style="column-gap:1rem;row-gap:.3rem">
+            <span><i class="cal-dot" style="background:#1F7A55"></i>Attended ${attended}${late ? ` (${late} late)` : ''}</span>
+            <span><i class="cal-dot" style="background:#9B1C2E"></i>Missed ${missed}</span>
+            <span><i class="cal-dot" style="background:#9A7420"></i>With reason ${excused}</span>
+            ${unmarked ? `<span><i class="cal-dot" style="background:#1B2B45;border:1px solid #3E5476"></i>Not marked ${unmarked}</span>` : ''}
+            <span><i class="cal-dot" style="border:1px dashed #6CB4E4"></i>Upcoming</span>
+          </div>
+          <div class="mt-4 max-w-sm">
+            <div class="flex items-center justify-between mb-2">
+              <button type="button" onclick="profileMonth(-1)" class="px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Previous month">‹</button>
+              <span class="text-sm font-bold text-white">${esc(monthName)}</span>
+              <button type="button" onclick="profileMonth(1)" class="px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Next month">›</button>
+            </div>
+            <div class="cal-grid mb-1">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => `<span class="text-center text-[10px] font-bold text-slate-500">${w}</span>`).join('')}</div>
+            <div class="cal-grid" id="profileCalendar">${cells}</div>
+          </div>
+          ${sel.length ? `<ul class="mt-3 border border-slate-800 rounded-xl divide-y divide-slate-800">${sel.map(detailRow).join('')}</ul>` : '<p class="mt-3 text-[11px] text-slate-500">Tap a coloured date to see that parade.</p>'}
+          ${all.length ? `<details class="mt-3 text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">All parades (${all.length})</summary><ul class="mt-2 border border-slate-800 rounded-xl divide-y divide-slate-800">${all.slice().reverse().map(detailRow).join('')}</ul></details>` : ''}
+        </section>`;
+
+      // ---- work call-outs
+      const duties = availDuties().filter(d => (d.cadetIds || []).includes(c.id)).sort((a, b) => (b.at || 0) - (a.at || 0));
+      const work = `
+        <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+          <div class="flex items-center justify-between gap-3"><h4 class="font-extrabold text-white">Called for work</h4><span class="text-sm font-black text-amber-300 font-mono-num">${duties.length}×</span></div>
+          ${duties.length ? `<ul class="mt-2 space-y-1.5">${duties.slice(0, 10).map(d => `<li class="text-xs"><span class="text-slate-200 font-semibold">${esc(d.work || 'Work call-out')}</span> <span class="text-slate-500">· ${esc(fmtWhen(d.at))}${d.slot ? ' · ' + esc(DAY_NAMES[d.slot.slice(0, 3)] || '') + ' ' + (d.slot.endsWith('1') ? 'first half' : 'second half') : ''}${d.by ? ' · by ' + esc(d.by) : ''}</span></li>`).join('')}</ul>${duties.length > 10 ? `<p class="text-[11px] text-slate-500 mt-1">Latest 10 of ${duties.length}.</p>` : ''}` : '<p class="text-xs text-slate-500 mt-1">Not called for work yet.</p>'}
+        </section>`;
+
+      // ---- tasks still pending and uniform requests
+      const pending = (app.state.events || []).filter(ev => !ev.archived && app.eventCadets(ev).some(x => x.id === c.id) && app.cadetStatus(c.id, ev) === 'pending');
+      const uni = uniformRequests().filter(r => r.cadetId === c.id && r.status !== 'received');
+      const other = `
+        <div class="grid sm:grid-cols-2 gap-4">
+          <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <h4 class="font-extrabold text-white">Pending tasks <span class="text-sm text-slate-500 font-mono-num">${pending.length}</span></h4>
+            ${pending.length ? `<ul class="mt-2 space-y-1">${pending.map(ev => `<li class="text-xs text-slate-300">${esc(ev.title)}${ev.deadline ? ` <span class="text-slate-500">· due ${esc(app.formatDate(ev.deadline))}</span>` : ''}</li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">Nothing pending.</p>'}
+          </section>
+          <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <h4 class="font-extrabold text-white">Uniform requests <span class="text-sm text-slate-500 font-mono-num">${uni.length}</span></h4>
+            ${uni.length ? `<ul class="mt-2 space-y-1">${uni.map(r => `<li class="text-xs text-slate-300">${esc(uniformLabel(r))}${r.qty > 1 ? ' ×' + r.qty : ''} <span class="text-slate-500">· ${esc(r.status)}${r.amount != null ? ' · ' + esc(rupees(r.amount)) + (r.paid ? ' paid' : ' not paid') : ''}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">Nothing waiting.</p>'}
+          </section>
+        </div>`;
+      document.getElementById('profileBody').innerHTML = attendance + work + other;
+    }
 
     // ==================== UNIFORM REQUESTS (CQMS) ====================
     // app.state.uniform: one entry per cadet per item.
