@@ -1520,6 +1520,7 @@ test('parades: create, late/absence reports with cutoff, company-wise attendance
     switchCadetFlowPage('parades');
     openParadeModal();
     const at = new Date(Date.now() + 2 * 3600000); const pad = n => String(n).padStart(2, '0');
+    setParadeKind('custom');
     document.getElementById('paradeTitle').value = 'Saturday parade';
     document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
     document.getElementById('paradeTime').value = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
@@ -1769,4 +1770,96 @@ test('uniform prices: edited on the page, bill per order, placed orders keep the
   assert.equal(await v.isVisible('#uniformPage button:has-text("Save prices")'), false);
   assert.equal(await v.isVisible('#uniBill'), true);
   noErrors(a, b, v);
+}));
+
+test('parade type: Shooting, Drill, Classroom or a custom name', () => withBrowser(async browser => {
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  const create = (kind, name) => run(a, ({ kind, name }) => {
+    switchCadetFlowPage('parades');
+    openParadeModal();
+    if (kind) setParadeKind(kind);
+    if (name != null) document.getElementById('paradeTitle').value = name;
+    document.getElementById('paradeDate').value = '2030-01-05';
+    document.getElementById('paradeTime').value = '07:00';
+    saveParade();
+    return { n: app.state.parades.length, err: document.getElementById('paradeModalError').textContent, nameShown: !document.getElementById('paradeTitleWrap').classList.contains('hidden') };
+  }, { kind, name });
+  // The type must be picked
+  let r = await create(null);
+  assert.equal(r.n, 0); assert.match(r.err, /Pick the type/);
+  await run(a, () => app.closeModal('paradeModal'));
+  // Preset types use their own name, the name box stays hidden
+  r = await create('shooting');
+  assert.equal(r.n, 1); assert.equal(r.nameShown, false);
+  // Custom needs a name
+  r = await create('custom', '');
+  assert.equal(r.n, 1); assert.match(r.err, /Write a name/); assert.equal(r.nameShown, true);
+  await run(a, () => app.closeModal('paradeModal'));
+  r = await create('custom', 'Map reading');
+  await flush(a);
+  assert.deepEqual(db.row.state.parades.map(p => [p.kind, p.title]).sort(), [['custom', 'Map reading'], ['shooting', 'Shooting']]);
+  // Editing shows the saved type; older parades without a type count as custom
+  const shoot = db.row.state.parades.find(p => p.kind === 'shooting').id;
+  await run(a, id => { openParadeModal(id); setParadeKind('drill'); saveParade(); }, shoot);
+  assert.equal(await run(a, id => findParade(id).title, shoot), 'Drill');
+  await run(a, id => openParadeModal(id), shoot);
+  assert.equal(await a.getAttribute('#paradeKinds [data-kind="drill"]', 'aria-pressed'), 'true');
+  assert.equal(await run(a, () => normalizeParades([{ id: 'old', reportAt: 1, title: 'Old parade' }])[0].kind), 'custom');
+  noErrors(a);
+}));
+
+test('after updating a cadet found by search, the search clears and the cursor goes back into it', () => withBrowser(async browser => {
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  const name = await run(a, () => app.state.cadets.find(c => c.id === 'cadet-2').name);
+  // Task Master: search, mark done
+  await run(a, () => { switchCadetFlowPage('roster'); showTaskMasterSection('workspace'); });
+  await a.fill('#searchInput', name);
+  const shown = () => a.locator('#cadetListContainer button[onclick*="toggleCadetStatus"]').count();
+  assert.equal(await shown(), 1);
+  await a.click('#cadetListContainer button[onclick*="toggleCadetStatus(\'cadet-2\'"]');
+  assert.equal(await a.inputValue('#searchInput'), '');
+  assert.equal(await run(a, () => document.activeElement.id), 'searchInput');
+  assert.ok(await shown() > 1, 'everyone is listed again');
+  assert.equal(await run(a, id => app.peekRecord('cadet-2', app.findEvent(id)).done, await run(a, () => app.state.activeEventId)), true);
+  // Typing goes straight into the box
+  await a.keyboard.type('zz');
+  assert.equal(await a.inputValue('#searchInput'), 'zz');
+  // Giving a reason clears it too
+  await setPrompt(a, 'Sick');
+  await a.fill('#searchInput', name);
+  await a.click('#cadetListContainer button[onclick*="promptReason(\'cadet-2\'"]');
+  assert.equal(await a.inputValue('#searchInput'), '');
+  // Without a search, nothing grabs the cursor
+  await run(a, () => document.activeElement.blur());
+  await a.click('#cadetListContainer button[onclick*="toggleCadetStatus(\'cadet-3\'"]');
+  assert.notEqual(await run(a, () => document.activeElement.id), 'searchInput');
+
+  // Parade attendance
+  const pid = await run(a, () => {
+    switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('drill');
+    document.getElementById('paradeDate').value = '2020-01-05'; document.getElementById('paradeTime').value = '07:00';
+    saveParade(); return app.state.parades[0].id;
+  });
+  await run(a, id => openParadeDetail(id), pid);
+  await a.fill('#paradeSearch', name);
+  await a.click(`#paradeAttendanceList button[onclick*="'cadet-2', 'present'"]`);
+  assert.equal(await run(a, id => findParade(id).marks['cadet-2'], pid), 'present');
+  assert.equal(await a.inputValue('#paradeSearch'), '');
+  assert.equal(await run(a, () => document.activeElement.id), 'paradeSearch');
+
+  // Pickers: new task and uniform
+  await run(a, () => { switchCadetFlowPage('roster'); app.openNewEventModal(); app.setTaskWho('new', 'pick'); });
+  await a.fill('#newPickSearch', name);
+  await a.check('#newPickList input[value="cadet-2"]');
+  assert.equal(await a.inputValue('#newPickSearch'), '');
+  assert.equal(await run(a, () => document.activeElement.id), 'newPickSearch');
+  assert.equal(await run(a, () => app.taskPick.new.ids.has('cadet-2')), true);
+  await run(a, () => { app.closeModal('newEventModal'); switchCadetFlowPage('uniform'); });
+  await a.fill('#uniPickSearch', name);
+  await a.check('#uniPickList input[value="cadet-2"]');
+  assert.equal(await a.inputValue('#uniPickSearch'), '');
+  assert.equal(await run(a, () => document.activeElement.id), 'uniPickSearch');
+  noErrors(a);
 }));

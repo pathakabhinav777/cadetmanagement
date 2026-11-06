@@ -1438,9 +1438,18 @@
         </button>
       </div>
       <div class="space-y-3.5">
-        <label class="block text-xs font-bold text-slate-300">Name
-          <input type="text" id="paradeTitle" maxlength="80" placeholder="e.g. Saturday parade, Republic Day rehearsal" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
-        </label>
+        <div>
+          <span class="block text-xs font-bold text-slate-300 mb-1">Type</span>
+          <div id="paradeKinds" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5" role="group" aria-label="Parade type">
+            <button type="button" data-kind="shooting" onclick="setParadeKind('shooting')" aria-pressed="false" class="af-chip text-xs justify-center">Shooting</button>
+            <button type="button" data-kind="drill" onclick="setParadeKind('drill')" aria-pressed="false" class="af-chip text-xs justify-center">Drill</button>
+            <button type="button" data-kind="classroom" onclick="setParadeKind('classroom')" aria-pressed="false" class="af-chip text-xs justify-center">Classroom</button>
+            <button type="button" data-kind="custom" onclick="setParadeKind('custom')" aria-pressed="false" class="af-chip text-xs justify-center">Custom</button>
+          </div>
+          <label id="paradeTitleWrap" class="hidden block mt-2 text-xs font-bold text-slate-300">Name
+            <input type="text" id="paradeTitle" maxlength="80" placeholder="e.g. Republic Day rehearsal, Map reading" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          </label>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-xs font-bold text-slate-300">Date
             <input type="date" id="paradeDate" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
@@ -2768,6 +2777,13 @@
         this.renderAll();
       }
 
+      /** Called after a cadet's mark changes from the Task Master list: clear the search for the next name. */
+      clearTaskSearch() {
+        if (!this.state.filters.search) return;
+        this.state.filters.search = '';
+        clearSearchForNext('searchInput'); // renderAll follows in the caller
+      }
+
       handleSearch(val) {
         this.state.filters.search = val;
         this.renderAll();
@@ -2904,9 +2920,10 @@
         const task = ev.type === 'special' ? this.resolveSpecialTask(ev, cadetId, taskId) : null;
         if (ev.type === 'special' && !task) return;
         // Group tasks have one mark for the whole group (or team), not one per cadet.
-        if (ev.type !== 'special' && isGroupTask(ev)) { this.setGroupDone(ev.id, !normalRecord(ev, cadetId).done); return; }
+        if (ev.type !== 'special' && isGroupTask(ev)) { this.clearTaskSearch(); this.setGroupDone(ev.id, !normalRecord(ev, cadetId).done); return; }
         if (task && isGroupTask(task)) {
           const team = specialTeamOf(ev, cadetId);
+          this.clearTaskSearch();
           if (team) this.setTeamDone(team.id, !taskRecord(ev, task, cadetId).done, ev.id, task.id);
           return;
         }
@@ -2919,6 +2936,7 @@
         if (rec.done && rec.note) rec.note = '';
         this.logHistory('status-change', cadetId, `${cadet ? cadet.name : cadetId}: ${wasDone ? 'Done → Pending' : 'Pending → Done'} on ${ev.title || 'task'}${task ? ' – ' + task.title : ''}`, ev.id);
         this.saveStorage();
+        this.clearTaskSearch();
         this.renderAll();
       }
 
@@ -2956,6 +2974,7 @@
         if (trimmed && rec.done) { rec.done = false; rec.completedAt = null; }
         this.logHistory(trimmed ? 'reason-set' : 'reason-cleared', cadetId, `${cadet.name}: ${trimmed ? 'reason “' + trimmed + '”' : 'reason cleared'} on ${what}`, ev.id);
         this.saveStorage();
+        this.clearTaskSearch();
         this.renderAll();
       }
 
@@ -3598,11 +3617,14 @@
         if (on) st.ids.add(id); else st.ids.delete(id);
         el?.closest('label')?.classList.toggle('bg-amber-950/20', on);
         this.updatePickCount(prefix);
+        clearSearchForNext(`${prefix}PickSearch`, () => this.renderTaskPicker(prefix));
       }
 
       pickAllShown(prefix, on) {
         const st = this.taskPick?.[prefix]; if (!st) return;
         (st.shown || []).forEach(id => on ? st.ids.add(id) : st.ids.delete(id));
+        const box = document.getElementById(`${prefix}PickSearch`);
+        if (box && box.value.trim()) clearSearchForNext(`${prefix}PickSearch`);
         this.renderTaskPicker(prefix);
       }
 
@@ -4970,6 +4992,19 @@
       const coy = !scope || scope === 'All' ? 'All companies' : `${scope} Company`;
       return years && years.length ? `${coy} · ${years.join(' & ')} year` : coy;
     }
+    /**
+     * After updating a cadet that was found with a search box: empty the box, redraw the list,
+     * and put the cursor back in it so the next name can be typed straight away.
+     * Does nothing when the box is already empty (so phones don't pop up the keyboard on every tap).
+     */
+    function clearSearchForNext(inputId, redraw) {
+      const el = document.getElementById(inputId);
+      if (!el || !el.value.trim()) return false;
+      el.value = '';
+      if (redraw) redraw();
+      document.getElementById(inputId)?.focus(); // the box may have been redrawn
+      return true;
+    }
     function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 
     function toggleMemoryMenu() {
@@ -5408,12 +5443,15 @@
     // Late/absence reports close 15 minutes before reporting time (administrators can still add after that).
     const PARADE_CUTOFF_MIN = 15;
     const INFORM_RANKS = ['SUO', 'JUO', 'CSM', 'CQMS', 'SGT'];
-    const PAR = { openId: null, coy: 'all', q: '', reportParadeId: null, editId: null };
+    const PAR = { openId: null, coy: 'all', q: '', reportParadeId: null, editId: null, kind: null };
+    const PARADE_KINDS = [{ key: 'shooting', label: 'Shooting' }, { key: 'drill', label: 'Drill' }, { key: 'classroom', label: 'Classroom' }, { key: 'custom', label: 'Custom' }];
     function normalizeParades(list) {
       if (!Array.isArray(list)) return [];
       const seen = new Set();
       return list.filter(pd => pd && pd.id && Number.isFinite(Number(pd.reportAt)) && !seen.has(pd.id) && seen.add(pd.id)).map(pd => {
         const out = { ...pd, reportAt: Number(pd.reportAt), title: String(pd.title || '').trim() || 'Parade' };
+        // Type: shooting, drill, classroom, or custom (own name). Older parades without one count as custom.
+        if (!PARADE_KINDS.some(k => k.key === out.kind)) out.kind = 'custom';
         out.reports = (Array.isArray(pd.reports) ? pd.reports : []).filter(r => r && r.id && r.cadetId);
         const marks = {};
         Object.entries(pd.marks && typeof pd.marks === 'object' ? pd.marks : {}).forEach(([k, v]) => { if (['present', 'late', 'absent'].includes(v)) marks[k] = v; });
@@ -5609,6 +5647,13 @@
     }
 
     // ---- Create / edit
+    /** Pick the parade type in the dialog; Custom shows the name box. */
+    function setParadeKind(kind, focus = true) {
+      PAR.kind = PARADE_KINDS.some(k => k.key === kind) ? kind : null;
+      document.querySelectorAll('#paradeKinds [data-kind]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kind === PAR.kind)));
+      document.getElementById('paradeTitleWrap').classList.toggle('hidden', PAR.kind !== 'custom');
+      if (focus && PAR.kind === 'custom') document.getElementById('paradeTitle').focus();
+    }
     function openParadeModal(id) {
       if (!app?.canEdit?.()) { app?.showToast?.('Only seniors and administrators can create parades.'); return; }
       const pd = id ? findParade(id) : null;
@@ -5618,7 +5663,8 @@
       document.getElementById('paradeSaveBtn').textContent = pd ? 'Save changes' : 'Create parade';
       const at = pd ? new Date(pd.reportAt) : null;
       const pad = n => String(n).padStart(2, '0');
-      document.getElementById('paradeTitle').value = pd ? pd.title : 'Parade';
+      document.getElementById('paradeTitle').value = pd && pd.kind === 'custom' ? pd.title : '';
+      setParadeKind(pd ? pd.kind || 'custom' : null, false);
       document.getElementById('paradeDate').value = at ? `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}` : '';
       document.getElementById('paradeTime').value = at ? `${pad(at.getHours())}:${pad(at.getMinutes())}` : '';
       document.getElementById('paradeVenue').value = pd?.venue || '';
@@ -5629,13 +5675,16 @@
       app.resetTaskPicker('parade', picked ? 'pick' : 'group', picked ? pd.cadetIds : []);
       document.getElementById('paradeModalError').classList.add('hidden');
       document.getElementById('paradeModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById(pd ? 'paradeTitle' : 'paradeDate')?.focus(), 50);
+      setTimeout(() => document.getElementById(pd && pd.kind === 'custom' ? 'paradeTitle' : 'paradeDate')?.focus(), 50);
     }
     function saveParade() {
       if (!app?.canEdit?.()) return;
       const err = document.getElementById('paradeModalError');
       const fail = m => { err.textContent = m; err.classList.remove('hidden'); };
-      const title = document.getElementById('paradeTitle').value.trim() || 'Parade';
+      const kind = PAR.kind;
+      if (!PARADE_KINDS.some(k => k.key === kind)) { fail('Pick the type: Shooting, Drill, Classroom or Custom.'); return; }
+      const title = kind === 'custom' ? document.getElementById('paradeTitle').value.trim() : PARADE_KINDS.find(k => k.key === kind).label;
+      if (!title) { fail('Write a name for the custom parade.'); document.getElementById('paradeTitle').focus(); return; }
       const date = document.getElementById('paradeDate').value, time = document.getElementById('paradeTime').value;
       if (!date || !time) { fail('Pick the date and reporting time.'); return; }
       const reportAt = new Date(`${date}T${time}`).getTime();
@@ -5652,12 +5701,12 @@
       if (PAR.editId) {
         pd = findParade(PAR.editId);
         if (!pd) { fail('This parade was deleted meanwhile.'); return; }
-        Object.assign(pd, { title, reportAt, venue, agenda });
+        Object.assign(pd, { kind, title, reportAt, venue, agenda });
         delete pd.years; delete pd.cadetIds; Object.assign(pd, audience);
         app.logHistory('parade-edited', null, `Edited parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast('Parade updated.');
       } else {
-        pd = { id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, title, reportAt, venue, agenda, ...audience, createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} };
+        pd = { id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, kind, title, reportAt, venue, agenda, ...audience, createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} };
         app.state.parades.push(pd);
         app.logHistory('parade-created', null, `Created parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast(`Created ${title}.`);
@@ -5766,7 +5815,12 @@
       if (pd.marks[cadetId] === status) delete pd.marks[cadetId]; else pd.marks[cadetId] = status;
       pd.markedAt = Date.now(); pd.markedBy = app.authorName();
       app.saveStorage();
-      renderParadeAttendanceKeepScroll();
+      paradeRedrawAfterMark();
+    }
+    /** Redraw after marking; if a search was used, clear it and put the cursor back in it. */
+    function paradeRedrawAfterMark() {
+      if (PAR.q.trim()) clearSearchForNext('paradeSearch', () => { PAR.q = ''; renderParadeAttendanceKeepScroll(); });
+      else renderParadeAttendanceKeepScroll();
     }
     function paradeBulkMark(paradeId, status) {
       if (!app?.canEdit?.()) return;
@@ -5780,7 +5834,7 @@
       pd.markedAt = Date.now(); pd.markedBy = app.authorName();
       app.logHistory('parade-attendance', null, `Marked ${targets.length} cadet(s) ${status} for ${pd.title} (${paradeDay(pd.reportAt)})`);
       app.saveStorage();
-      renderParadeAttendanceKeepScroll();
+      paradeRedrawAfterMark();
     }
     function renderParadeAttendanceKeepScroll() { const y = window.scrollY; renderParadePage(); window.scrollTo({ top: y }); }
 
@@ -6246,6 +6300,7 @@
       if (on) UNI.pick.add(id); else UNI.pick.delete(id);
       el?.closest('label')?.classList.toggle('bg-amber-950/20', on);
       updateUniformNewSummary();
+      clearSearchForNext('uniPickSearch', renderUniformPicker);
     }
     function renderUniformItemChips() {
       const host = document.getElementById('uniItemChips'); if (!host) return;
