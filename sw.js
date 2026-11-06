@@ -3,7 +3,7 @@
 //   away; the saved copy is used only when offline.
 // - Libraries and fonts from CDNs are served from the cache and refreshed in the background.
 // - Supabase (data and sign-in) is never cached.
-const VERSION = 'cadetflow-v1';
+const VERSION = 'cadetflow-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-48.png'];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -25,9 +25,10 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
 
   if (url.origin === self.location.origin) {
-    // Network first: fresh page when online, saved copy when offline.
+    // Network first: fresh page when online, saved copy when offline. `no-cache` asks GitHub
+    // whether the page changed (cheap when it hasn't) instead of trusting its 10-minute cache.
     event.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then(res => {
           if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
           return res;

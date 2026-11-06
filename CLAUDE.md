@@ -10,7 +10,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 
 ## App (install + Android)
 - Live at https://pathakabhinav777.github.io/cadetmanagement/ (GitHub Pages from `main`).
-- Installable web app: `manifest.webmanifest`, `sw.js` (network-first for the page, cache for CDN libs, never caches Supabase), `icons/`. The service worker only registers over https/localhost, not in tests (`file://`). Bump `VERSION` in `sw.js` if you change what it precaches.
+- Installable web app: `manifest.webmanifest`, `sw.js` (network-first for the page, cache for CDN libs, never caches Supabase), `icons/`. The service worker only registers over https/localhost, not in tests (`file://`). Bump `VERSION` in `sw.js` if you change what it precaches. Page requests use `cache: 'no-cache'` so a new push shows on the next open (GitHub Pages says max-age=600). `checkForNewVersion()` shows `#updateBanner` when the app returns to the screen and index.html changed.
 - Home page "Get the app" block (`#getApp`, `updateGetApp()`): hidden when running installed or inside the Android app (user agent contains `CadetFlowApp`).
 - Android: `android-app/` is a Capacitor shell that opens the live site, so website changes need no new APK. `.github/workflows/android-app.yml` builds it on changes to `android-app/` (or by hand) and publishes `CadetFlow.apk` on the `android-app` release. Signed with repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` when set (key kept outside the repo).
 

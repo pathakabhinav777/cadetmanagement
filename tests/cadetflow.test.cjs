@@ -1863,3 +1863,26 @@ test('after updating a cadet found by search, the search clears and the cursor g
   assert.equal(await run(a, () => document.activeElement.id), 'uniPickSearch');
   noErrors(a);
 }));
+
+test('app shows "new version ready" when the site changed while it was in the background', () => withBrowser(async browser => {
+  const root = path.resolve(__dirname, '..');
+  // The service worker asks GitHub for a fresh page instead of trusting its 10-minute cache
+  assert.match(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), /cache: 'no-cache'/);
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  assert.equal(await a.isVisible('#updateBanner'), false);
+  await run(a, async () => {
+    let v = 'etag-1'; window.siteVersion = async () => v;
+    siteCheck.lastAt = 0; await checkForNewVersion();           // remembers the version it started with
+    siteCheck.lastAt = 0; await checkForNewVersion();           // same version: nothing
+    window.__same = !document.getElementById('updateBanner').classList.contains('hidden');
+    v = 'etag-2'; siteCheck.lastAt = 0;
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));     // app comes back to the screen
+    await new Promise(r => setTimeout(r, 50));
+  });
+  assert.equal(await run(a, () => window.__same), false);
+  assert.equal(await a.isVisible('#updateBanner'), true);
+  assert.match(await a.textContent('#updateBanner'), /new version/);
+  noErrors(a);
+}));

@@ -190,6 +190,8 @@
 
     /* ---------- Phone layout (<=640px): bottom tab bar, sheet dialogs, card rows ---------- */
     #phoneNav { display: none; }
+    #updateBanner { bottom: 1.25rem; }
+    @media (max-width: 640px) { #updateBanner { bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); } }
     @media (max-width: 640px) {
       #phoneNav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
         padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); background: rgba(12,22,38,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line); }
@@ -1712,6 +1714,10 @@
   </div>
 
   <!-- Toast Notification Popup -->
+  <div id="updateBanner" class="hidden fixed left-4 right-4 sm:left-auto sm:right-5 sm:w-96 z-50 flex items-center gap-3 bg-slate-800 border border-amber-500/60 text-white px-4 py-3 rounded-xl shadow-2xl" role="status">
+    <span class="flex-1 text-sm">A new version of CadetFlow is ready.</span>
+    <button type="button" onclick="location.reload()" class="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg">Reload</button>
+  </div>
   <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2.5 bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold border border-slate-700">
     <div class="w-2 h-2 rounded-full bg-amber-400"></div>
     <span id="toastText">Action completed</span>
@@ -6826,6 +6832,29 @@
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
     }
+
+    // ---- New version check -------------------------------------------------------------
+    // An installed app (or the Android app) can stay open in the background for days. When it
+    // comes back to the screen, ask GitHub whether index.html changed; if so, offer a reload.
+    const siteCheck = { version: null, lastAt: 0 };
+    async function siteVersion() {
+      if (!/^https?:$/.test(location.protocol)) return null;
+      const res = await fetch(location.pathname, { method: 'HEAD', cache: 'no-store' });
+      return res.ok ? (res.headers.get('etag') || res.headers.get('last-modified')) : null;
+    }
+    async function checkForNewVersion() {
+      if (Date.now() - siteCheck.lastAt < 60000) return;
+      siteCheck.lastAt = Date.now();
+      try {
+        const v = await siteVersion();
+        if (!v) return;
+        if (!siteCheck.version) { siteCheck.version = v; return; }
+        if (v !== siteCheck.version) document.getElementById('updateBanner')?.classList.remove('hidden');
+        navigator.serviceWorker?.getRegistration?.().then(r => r?.update()).catch(() => {});
+      } catch (_) { /* offline */ }
+    }
+    window.addEventListener('load', () => { checkForNewVersion(); setInterval(checkForNewVersion, 10 * 60000); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForNewVersion(); });
   </script>
 </body>
 </html>
