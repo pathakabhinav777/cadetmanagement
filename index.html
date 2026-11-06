@@ -165,6 +165,7 @@
     .get-app { margin-top: 2rem; padding: 1rem 1.25rem; border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.5rem; }
     .get-app.hidden { display: none; }
+    .notify-box.get-app { margin-top: 1rem; }
     #uniOrderItems summary::-webkit-details-marker { display: none; }
     .get-app-title { font-weight: 600; color: var(--ink); }
     .get-app-hint { display: block; margin-top: .2rem; font-size: .85rem; color: var(--muted); }
@@ -431,8 +432,14 @@
         </div>
         <div class="get-app-actions">
           <button id="installAppBtn" type="button" onclick="installCadetFlowApp()" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-950">Install app</button>
-          <a id="apkLink" href="https://github.com/pathakabhinav777/cadetmanagement/releases/latest/download/CadetFlow.apk" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100">Download for Android (.apk)</a>
         </div>
+      </div>
+      <div class="notify-box get-app" data-notify aria-label="Parade notifications">
+        <div class="min-w-0">
+          <span class="get-app-title">Parade notifications</span>
+          <span class="get-app-hint" data-notify-text>Checking…</span>
+        </div>
+        <div class="get-app-actions" data-notify-actions></div>
       </div>
     </section>
     <nav id="moduleNav" class="hidden flex flex-wrap items-center gap-1 border-b border-slate-800 pb-2" aria-label="CadetFlow pages">
@@ -840,6 +847,13 @@
           </div>
           <button type="button" onclick="openParadeModal()" class="shrink-0 self-start px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New parade</button>
         </div>
+        <div class="notify-box get-app" data-notify aria-label="Parade notifications">
+        <div class="min-w-0">
+          <span class="get-app-title">Parade notifications</span>
+          <span class="get-app-hint" data-notify-text>Checking…</span>
+        </div>
+        <div class="get-app-actions" data-notify-actions></div>
+      </div>
         <div>
           <h3 class="font-extrabold text-white mb-2">Upcoming</h3>
           <div id="paradeUpcoming" class="grid md:grid-cols-2 gap-3"></div>
@@ -5716,6 +5730,7 @@
         app.state.parades.push(pd);
         app.logHistory('parade-created', null, `Created parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast(`Created ${title}.`);
+        if (reportAt > Date.now()) announceNewParade(pd.id); // notify every device with notifications on
       }
       app.state.parades = normalizeParades(app.state.parades);
       app.closeModal('paradeModal');
@@ -6798,11 +6813,11 @@
     window.addEventListener('DOMContentLoaded', () => { app = new CadetTrackerApp(); });
 
     // ---- Installable app ---------------------------------------------------------------
-    // The site can be installed from the browser (manifest.webmanifest + sw.js), and there is
-    // an Android .apk (built by .github/workflows/android-app.yml) that opens this same site.
+    // The site is installed from the browser (manifest.webmanifest + sw.js): Chrome's Install app
+    // on Android and computers, Add to Home Screen on iPhone.
     let deferredInstallPrompt = null;
     function runningAsApp() {
-      return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true || /CadetFlowApp/.test(navigator.userAgent);
+      return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
     }
     function updateGetApp() {
       const box = document.getElementById('getApp');
@@ -6810,12 +6825,11 @@
       if (runningAsApp()) { box.classList.add('hidden'); return; }
       const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       document.getElementById('installAppBtn').classList.toggle('hidden', !deferredInstallPrompt);
-      document.getElementById('apkLink').classList.toggle('hidden', ios);
       document.getElementById('getAppHint').textContent = ios
         ? 'On iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen.'
         : deferredInstallPrompt
           ? 'Install it on this device. It opens like any other app and stays up to date.'
-          : 'On Android, download the app below. On a computer, use Install in the browser address bar (Chrome or Edge).';
+          : 'On Android: open this page in Chrome, tap the three-dot menu, then Install app (or Add to Home screen). On a computer: use Install in the Chrome or Edge address bar.';
       box.classList.remove('hidden');
     }
     async function installCadetFlowApp() {
@@ -6854,6 +6868,131 @@
       } catch (_) { /* offline */ }
     }
     window.addEventListener('load', () => { checkForNewVersion(); setInterval(checkForNewVersion, 10 * 60000); });
+
+    // ---- Parade notifications (web push) ---------------------------------------------------
+    // Each device that turns notifications on is saved by the Supabase function "cadetflow-push"
+    // (supabase/functions/cadetflow-push). When a senior creates a parade, the site asks that
+    // function to announce it; it sends a push through Google/Apple/Mozilla to every saved device,
+    // and sw.js shows it as a normal phone notification, even when CadetFlow is closed.
+    const PUSH = { busy: false, state: null };
+    function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+    function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && /^https?:$/.test(location.protocol); }
+    async function pushApi(body) {
+      if (!app?.supabase?.functions) throw new Error('Not connected');
+      const { data, error } = await app.supabase.functions.invoke('cadetflow-push', { body });
+      if (error) {
+        let msg = error.message;
+        try { msg = (await error.context?.json?.())?.error || msg; } catch (_) {}
+        throw new Error(msg || 'Could not reach the notification server');
+      }
+      return data || {};
+    }
+    async function pushSubscription() {
+      const reg = await navigator.serviceWorker.ready;
+      return reg.pushManager.getSubscription();
+    }
+    /** 'on' | 'off' | 'blocked' | 'ios-install' | 'unsupported' */
+    async function pushState() {
+      if (!pushSupported()) return isIOS() && !runningAsApp() ? 'ios-install' : 'unsupported';
+      if (Notification.permission === 'denied') return 'blocked';
+      if (Notification.permission !== 'granted') return 'off';
+      try { return (await pushSubscription()) ? 'on' : 'off'; } catch (_) { return 'off'; }
+    }
+    async function renderNotifyBoxes() {
+      const seq = PUSH.seq = (PUSH.seq || 0) + 1;
+      const state = await pushState();
+      if (seq !== PUSH.seq) return; // a newer refresh started meanwhile: let that one draw
+      PUSH.state = state;
+      const text = {
+        on: 'On for this device. You will get a notification when a new parade is posted.',
+        off: 'Get a notification on this device whenever a new parade is posted, even when CadetFlow is closed.',
+        blocked: 'Notifications are blocked for CadetFlow on this device. Allow them in your browser or phone settings, then reload.',
+        'ios-install': 'On iPhone or iPad, add CadetFlow to the Home Screen first (Share, then Add to Home Screen), then open it from there to turn on notifications.',
+        unsupported: 'This browser cannot show notifications. Use Chrome on Android or a computer, or Safari after adding CadetFlow to the Home Screen on iPhone.'
+      }[state];
+      const btn = (fn, label, primary) => `<button type="button" onclick="${fn}" ${PUSH.busy ? 'disabled' : ''} class="${primary ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100'}">${label}</button>`;
+      const actions = state === 'off' ? btn('enableParadeNotifications()', PUSH.busy ? 'Turning on…' : 'Turn on notifications', true)
+        : state === 'on' ? btn('testParadeNotification()', 'Send a test') + btn('disableParadeNotifications()', 'Turn off') : '';
+      document.querySelectorAll('[data-notify]').forEach(box => {
+        box.querySelector('[data-notify-text]').textContent = text;
+        box.querySelector('[data-notify-actions]').innerHTML = actions;
+        box.dataset.state = state;
+      });
+    }
+    function base64UrlToBytes(s) {
+      const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from(b, c => c.charCodeAt(0));
+    }
+    async function enableParadeNotifications() {
+      if (PUSH.busy) return;
+      PUSH.busy = true; renderNotifyBoxes();
+      try {
+        // Ask first, straight from the tap (iPhone only allows it from a tap).
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') { app?.showToast?.(perm === 'denied' ? 'Notifications were blocked. Allow them in settings to turn them on.' : 'Notifications not turned on.'); return; }
+        const { publicKey } = await pushApi({ action: 'key' });
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) });
+        await pushApi({ action: 'subscribe', subscription: sub.toJSON() });
+        app?.showToast?.('Notifications are on for this device.');
+      } catch (e) {
+        app?.showToast?.(`Could not turn on notifications: ${e.message || e}`);
+      } finally { PUSH.busy = false; renderNotifyBoxes(); }
+    }
+    async function disableParadeNotifications() {
+      try {
+        const sub = await pushSubscription();
+        if (sub) { await pushApi({ action: 'unsubscribe', endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+        app?.showToast?.('Notifications are off for this device.');
+      } catch (e) { app?.showToast?.(`Could not turn off notifications: ${e.message || e}`); }
+      renderNotifyBoxes();
+    }
+    async function testParadeNotification() {
+      try {
+        const sub = await pushSubscription();
+        if (!sub) { renderNotifyBoxes(); return; }
+        await pushApi({ action: 'subscribe', subscription: sub.toJSON() }); // make sure the server still has it
+        const r = await pushApi({ action: 'test', endpoint: sub.endpoint });
+        app?.showToast?.(r.ok ? 'Test sent. It should arrive in a few seconds.' : 'The test could not be delivered. Turn notifications off and on again.');
+      } catch (e) { app?.showToast?.(`Could not send a test: ${e.message || e}`); }
+    }
+    /** After a new parade is saved: announce it to every device with notifications on. */
+    async function announceNewParade(paradeId) {
+      try {
+        await app.flushRemoteSave(); // the server reads the parade from the saved data
+        const r = await pushApi({ action: 'notify', paradeId });
+        if (r.sent) app.showToast(`Notification sent to ${r.sent} device${r.sent === 1 ? '' : 's'}.`);
+      } catch (e) { app?.showToast?.(`Parade saved, but the notification was not sent: ${e.message || e}`); }
+    }
+    /** Open the parade a notification was about (?parade=id, or a message from sw.js). */
+    function openParadeFromNotification(id) {
+      if (!id) return;
+      let tries = 0; // a brand-new parade may still be downloading: keep trying for ~10 s
+      const go = () => {
+        if (typeof app === 'undefined' || !app || !app.state) { if (tries++ < 50) setTimeout(go, 200); return; }
+        switchCadetFlowPage('parades');
+        if (findParade(id)) openParadeDetail(id);
+        else if (tries++ < 50) setTimeout(go, 200);
+      };
+      go();
+    }
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const id = params.get('parade');
+      if (id) {
+        params.delete('parade');
+        history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : '') + location.hash);
+        openParadeFromNotification(id);
+      }
+    })();
+    navigator.serviceWorker?.addEventListener?.('message', e => { if (e.data?.type === 'open-parade') openParadeFromNotification(e.data.id); });
+    window.addEventListener('load', async () => {
+      await renderNotifyBoxes();
+      // Keep the server's list current (it drops devices the push service reports as gone).
+      if (PUSH.state === 'on') pushSubscription().then(sub => sub && pushApi({ action: 'subscribe', subscription: sub.toJSON() })).catch(() => {});
+    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderNotifyBoxes(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForNewVersion(); });
   </script>
 </body>

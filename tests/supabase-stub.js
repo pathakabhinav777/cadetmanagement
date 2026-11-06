@@ -29,6 +29,13 @@
           signOut: async () => ({ error: null })
         },
         from: query,
+        // Edge functions: tests set window.__fn(name, body, user) to fake them; default does nothing.
+        functions: {
+          async invoke(name, { body } = {}) {
+            const data = window.__fn ? await window.__fn(name, body, user) : { sent: 0 };
+            return data && data.__error ? { data: null, error: { message: data.__error } } : { data, error: null };
+          }
+        },
         channel() {
           const ch = { cb: null, on(_type, _filter, cb) { ch.cb = cb; return ch; }, subscribe() { channels.push(ch); return ch; } };
           return ch;

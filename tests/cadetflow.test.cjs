@@ -43,9 +43,10 @@ function makeDb() {
   return db;
 }
 
-async function openAs(browser, db, userId) {
+async function openAs(browser, db, userId, { url = PAGE_URL, init } = {}) {
   const context = await browser.newContext();
   const page = await context.newPage();
+  if (init) await page.addInitScript(init);
   page.errors = [];
   page.on('pageerror', e => page.errors.push(e.message));
   page.on('dialog', d => d.accept());
@@ -54,7 +55,7 @@ async function openAs(browser, db, userId) {
   await page.route('**/supabase-js@2', r => r.fulfill({ contentType: 'application/javascript', body: STUB }));
   await page.route(/cdn\.tailwindcss\.com/, r => r.fulfill({ contentType: 'application/javascript', body: TAILWIND_STANDIN }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '' }));
-  await page.goto(PAGE_URL);
+  await page.goto(url);
   await page.waitForFunction(() => typeof app !== 'undefined' && app && app.remoteReady === true);
   db.pages.push(page);
   return page;
@@ -1652,18 +1653,16 @@ test('installable app: manifest, icons, service worker and the "Get the app" blo
   new Function(sw.replace(/self\.addEventListener/g, '(()=>{})'));
   const shell = JSON.parse(sw.match(/const SHELL = (\[[^\]]*\])/)[1].replace(/'/g, '"'));
   shell.filter(f => f !== './').forEach(f => assert.ok(fs.existsSync(path.join(root, f)), `${f} exists`));
-  // The Android app config points at the live site
-  const cap = JSON.parse(fs.readFileSync(path.join(root, 'android-app', 'capacitor.config.json'), 'utf8'));
-  assert.match(cap.server.url, /^https:\/\/pathakabhinav777\.github\.io\/cadetmanagement\/$/);
+  // Push notifications are shown by the service worker
+  assert.match(sw, /addEventListener\('push'/); assert.match(sw, /addEventListener\('notificationclick'/);
 
   const db = makeDb();
   const a = await openAs(browser, db, 'user-a');
   assert.equal(await a.getAttribute('link[rel="manifest"]', 'href'), 'manifest.webmanifest');
-  // In a normal browser the block shows the APK link; no install button until the browser offers one
+  // In a normal browser the block explains how to install; no install button until the browser offers one
   assert.equal(await a.isVisible('#getApp'), true);
-  assert.equal(await a.isVisible('#apkLink'), true);
   assert.equal(await a.isVisible('#installAppBtn'), false);
-  assert.match(await a.getAttribute('#apkLink', 'href'), /releases\/latest\/download\/CadetFlow\.apk$/);
+  assert.match(await a.textContent('#getAppHint'), /Install app/);
   // When the browser offers installation, the button appears and triggers the prompt
   await run(a, () => {
     const e = new Event('beforeinstallprompt', { cancelable: true });
@@ -1675,16 +1674,8 @@ test('installable app: manifest, icons, service worker and the "Get the app" blo
   assert.equal(await run(a, () => window.__prompted), true);
   assert.equal(await a.isVisible('#installAppBtn'), false);
 
-  // Inside the Android app (user agent marker) the block is hidden
-  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile CadetFlowApp', viewport: { width: 390, height: 800 } });
-  const p = await ctx.newPage(); p.errors = []; p.on('pageerror', e => p.errors.push(e.message));
-  await p.addInitScript(() => { window.__testUser = null; });
-  await p.exposeFunction('__db', q => db.handle(null, q));
-  await p.route('**/supabase-js@2', r => r.fulfill({ contentType: 'application/javascript', body: STUB }));
-  await p.route(/cdn\.tailwindcss\.com/, r => r.fulfill({ contentType: 'application/javascript', body: TAILWIND_STANDIN }));
-  await p.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '' }));
-  await p.goto(PAGE_URL);
-  await p.waitForFunction(() => typeof app !== 'undefined' && app && app.remoteReady === true);
+  // Once installed (opened from the home screen) the block is hidden
+  const p = await openAs(browser, db, null, { init: () => { Object.defineProperty(navigator, 'standalone', { value: true }); } });
   assert.equal(await p.isVisible('#getApp'), false);
   noErrors(a, p);
 }));
@@ -1885,4 +1876,83 @@ test('app shows "new version ready" when the site changed while it was in the ba
   assert.equal(await a.isVisible('#updateBanner'), true);
   assert.match(await a.textContent('#updateBanner'), /new version/);
   noErrors(a);
+}));
+
+/** Fake browser push support (the real thing needs https and a phone's push service). */
+const FAKE_PUSH = () => {
+  window.__sub = null; window.__perm = 'default'; window.__permAnswer = 'granted';
+  const sub = { endpoint: 'https://push.example/device-1', toJSON() { return { endpoint: this.endpoint, keys: { p256dh: 'p', auth: 'a' } }; }, async unsubscribe() { window.__sub = null; return true; } };
+  const pushManager = { async getSubscription() { return window.__sub; }, async subscribe(o) { window.__subOpts = o; window.__sub = sub; return sub; } };
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager }), addEventListener() {}, getRegistration: async () => null } });
+  window.PushManager = function () {};
+  window.Notification = { get permission() { return window.__perm; }, async requestPermission() { window.__perm = window.__permAnswer; return window.__perm; } };
+};
+
+test('parade notifications: turn on per device, new parades are announced, tapping opens the parade', () => withBrowser(async browser => {
+  const db = makeDb();
+  const calls = [];
+  const fakeServer = (name, body) => {
+    calls.push({ name, ...body });
+    if (body.action === 'key') return { publicKey: 'BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' };
+    if (body.action === 'notify') return db.row.state.parades.some(p => p.id === body.paradeId) ? { sent: 3, failed: 0 } : { __error: 'That parade is not saved yet.' };
+    if (body.action === 'test') return { ok: true, sent: 1 };
+    return { ok: true };
+  };
+  const open = async (user, opts) => {
+    const page = await openAs(browser, db, user, { init: FAKE_PUSH, ...opts });
+    await page.exposeFunction('__fnNode', fakeServer);
+    await run(page, async () => { window.__fn = (n, b) => window.__fnNode(n, b); window.pushSupported = () => true; await renderNotifyBoxes(); });
+    return page;
+  };
+
+  // Anyone (no sign-in needed) can turn notifications on for their device
+  const v = await open(null);
+  const box = '#homePage [data-notify]';
+  assert.match(await v.textContent(box), /Get a notification on this device/);
+  await v.click(`${box} button:has-text("Turn on notifications")`);
+  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'on');
+  assert.deepEqual(calls.map(c => c.action), ['key', 'subscribe']);
+  assert.equal(calls[1].subscription.endpoint, 'https://push.example/device-1');
+  assert.equal(await run(v, () => window.__subOpts.userVisibleOnly), true);
+  assert.match(await v.textContent('#paradePage [data-notify]'), /On for this device/, 'the Parades page shows it too');
+  // Test and turn off
+  await v.click(`${box} button:has-text("Send a test")`);
+  await v.waitForFunction(() => document.getElementById('toastText').textContent.includes('Test sent'));
+  assert.ok(calls.some(c => c.action === 'test' && c.endpoint === 'https://push.example/device-1'));
+  await v.click(`${box} button:has-text("Turn off")`);
+  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'off');
+  assert.ok(calls.some(c => c.action === 'unsubscribe'));
+  // Saying no to the permission request
+  await run(v, () => { window.__permAnswer = 'denied'; });
+  await v.click(`${box} button:has-text("Turn on notifications")`);
+  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'blocked');
+  assert.match(await v.textContent(box), /blocked/);
+  // iPhone in Safari (not added to the Home Screen) is told to add it first
+  assert.equal(await run(v, () => { window.pushSupported = () => false; window.isIOS = () => true; return pushState(); }), 'ios-install');
+
+  // A senior creates an upcoming parade: it is saved first, then announced
+  calls.length = 0;
+  const s = await open('user-s');
+  const make = (page, days) => run(page, days => {
+    switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('drill');
+    const at = new Date(Date.now() + days * 86400000); const pad = n => String(n).padStart(2, '0');
+    document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    document.getElementById('paradeTime').value = '07:00';
+    saveParade(); return PAR.openId;
+  }, days);
+  const pid = await make(s, 2);
+  await s.waitForFunction(() => document.getElementById('toastText').textContent.includes('Notification sent to 3 devices'));
+  assert.deepEqual(calls.filter(c => c.action === 'notify').map(c => c.paradeId), [pid]);
+  // Past parades (entered for the record) and edits are not announced
+  await make(s, -3);
+  await run(s, id => { openParadeModal(id); saveParade(); }, pid);
+  await flush(s);
+  assert.equal(calls.filter(c => c.action === 'notify').length, 1);
+
+  // Tapping the notification opens CadetFlow on that parade
+  const t = await openAs(browser, db, null, { url: PAGE_URL + '?parade=' + encodeURIComponent(pid) });
+  await t.waitForFunction(() => !document.getElementById('paradePage').classList.contains('hidden') && PAR.openId);
+  assert.equal(await run(t, () => PAR.openId), pid);
+  assert.equal(await run(t, () => location.search), '', 'the link is tidied up');
+  noErrors(v, s, t);
 }));
