@@ -6,8 +6,12 @@
 // POST { action: 'subscribe', subscription }      -> { ok }               save this device
 // POST { action: 'unsubscribe', endpoint }        -> { ok }               forget this device
 // POST { action: 'test', endpoint }               -> { ok }               test notification to one saved device
-// POST { action: 'notify', paradeId }  (signed-in senior/admin)  -> { sent, failed } | { alreadySent }
+// POST { action: 'notify', paradeId, again? }  (signed-in senior/admin)  -> { sent, failed, devices } | { alreadySent, sentAt }
 //   Announces a parade that is saved in cadetflow_state, once, to every saved device.
+//   again: true lets an administrator send it a second time.
+//
+// The service role needs table grants on this project: SELECT on cadetflow_profiles and
+// cadetflow_state, full access on the three push tables (see the cadetflow_push_* migrations).
 //
 // Tables (RLS on, no policies; only this function's service role uses them):
 //   cadetflow_push_subscriptions, cadetflow_push_keys, cadetflow_push_sent
@@ -126,34 +130,56 @@ Deno.serve(async (req) => {
         const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
         const { data: who } = await db.auth.getUser(token);
         if (!who?.user) return json({ error: "Sign in to send notifications." }, 401);
-        const { data: prof } = await db.from("cadetflow_profiles").select("role").eq("user_id", who.user.id).maybeSingle();
-        if (!["admin", "editor", "senior"].includes(String(prof?.role))) return json({ error: "Only seniors and administrators can send notifications." }, 403);
+        // Errors here are real problems (e.g. missing table grants), not "you are not allowed".
+        const { data: prof, error: profErr } = await db.from("cadetflow_profiles").select("role").eq("user_id", who.user.id).maybeSingle();
+        if (profErr) throw new Error("could not check your role: " + profErr.message);
+        const role = String(prof?.role || "");
+        if (!["admin", "editor", "senior"].includes(role)) return json({ error: "Only seniors and administrators can send notifications." }, 403);
 
         const paradeId = String(body.paradeId || "");
-        const { data: row } = await db.from("cadetflow_state").select("state").eq("id", 1).maybeSingle();
+        const { data: row, error: stateErr } = await db.from("cadetflow_state").select("state").eq("id", 1).maybeSingle();
+        if (stateErr) throw new Error("could not read the parades: " + stateErr.message);
         const pd = (row?.state?.parades || []).find((p: Record<string, unknown>) => p && p.id === paradeId);
-        if (!pd) return json({ error: "That parade is not saved yet." }, 404);
+        if (!pd) return json({ error: "That parade is not saved yet. Try again in a moment." }, 404);
         if (!(Number(pd.reportAt) > Date.now())) return json({ sent: 0, skipped: "past" });
 
-        // Claim the parade first so two clicks (or two seniors) never announce it twice.
-        const { error: claim } = await db.from("cadetflow_push_sent").insert({ parade_id: paradeId, sent_by: who.user.id });
-        if (claim) return claim.code === "23505" ? json({ alreadySent: true }) : json({ error: claim.message }, 500);
+        if (body.again === true && role === "admin") {
+          const { error } = await db.from("cadetflow_push_sent").upsert({ parade_id: paradeId, sent_by: who.user.id, sent_at: new Date().toISOString() }, { onConflict: "parade_id" });
+          if (error) throw new Error("could not record the send: " + error.message);
+        } else {
+          // Claim the parade first so two clicks (or two seniors) never announce it twice.
+          const { error: claim } = await db.from("cadetflow_push_sent").insert({ parade_id: paradeId, sent_by: who.user.id });
+          if (claim?.code === "23505") {
+            const { data: prev } = await db.from("cadetflow_push_sent").select("sent_at").eq("parade_id", paradeId).maybeSingle();
+            return json({ alreadySent: true, sentAt: prev?.sent_at || null });
+          }
+          if (claim) throw new Error("could not record the send: " + claim.message);
+        }
 
-        const { data: subs } = await db.from("cadetflow_push_subscriptions").select("endpoint, p256dh, auth");
-        const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", `For: ${audience(pd)}`].filter(Boolean);
-        const r = await sendTo(subs || [], {
-          title: `New parade: ${String(pd.title || "Parade")}`,
-          body: lines.join(" · "),
-          tag: `parade-${paradeId}`,
-          url: `${SITE}?parade=${encodeURIComponent(paradeId)}`,
-        });
+        let subs: Sub[] = [], r: { sent: number; failed: number; removed: number };
+        try {
+          const { data, error: subErr } = await db.from("cadetflow_push_subscriptions").select("endpoint, p256dh, auth");
+          if (subErr) throw new Error("could not read devices: " + subErr.message);
+          subs = data || [];
+          const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", `For: ${audience(pd)}`].filter(Boolean);
+          r = await sendTo(subs, {
+            title: `New parade: ${String(pd.title || "Parade")}`,
+            body: lines.join(" · "),
+            tag: `parade-${paradeId}`,
+            url: `${SITE}?parade=${encodeURIComponent(paradeId)}`,
+          });
+        } catch (e) {
+          // Nothing went out: release the claim so it can be sent again.
+          if (body.again !== true) await db.from("cadetflow_push_sent").delete().eq("parade_id", paradeId);
+          throw e;
+        }
         await db.from("cadetflow_push_sent").update({ delivered: r.sent, failed: r.failed }).eq("parade_id", paradeId);
-        return json(r);
+        return json({ ...r, devices: subs.length });
       }
     }
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
     console.error(e);
-    return json({ error: "Server error" }, 500);
+    return json({ error: "Server problem: " + String((e as Error)?.message || e).slice(0, 200) }, 500);
   }
 });

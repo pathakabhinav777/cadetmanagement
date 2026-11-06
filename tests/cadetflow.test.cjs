@@ -1891,10 +1891,16 @@ const FAKE_PUSH = () => {
 test('parade notifications: turn on per device, new parades are announced, tapping opens the parade', () => withBrowser(async browser => {
   const db = makeDb();
   const calls = [];
+  const announced = new Set();
   const fakeServer = (name, body) => {
     calls.push({ name, ...body });
     if (body.action === 'key') return { publicKey: 'BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' };
-    if (body.action === 'notify') return db.row.state.parades.some(p => p.id === body.paradeId) ? { sent: 3, failed: 0 } : { __error: 'That parade is not saved yet.' };
+    if (body.action === 'notify') {
+      if (!db.row.state.parades.some(p => p.id === body.paradeId)) return { __error: 'That parade is not saved yet.' };
+      if (announced.has(body.paradeId) && !body.again) return { alreadySent: true, sentAt: new Date().toISOString() };
+      announced.add(body.paradeId);
+      return { sent: 3, failed: 0, devices: 3 };
+    }
     if (body.action === 'test') return { ok: true, sent: 1 };
     return { ok: true };
   };
@@ -1949,10 +1955,28 @@ test('parade notifications: turn on per device, new parades are announced, tappi
   await flush(s);
   assert.equal(calls.filter(c => c.action === 'notify').length, 1);
 
+  // "Send notification" on an upcoming parade: a senior can't send it twice...
+  await run(s, id => openParadeDetail(id), pid);
+  assert.equal(await s.isVisible('#paradeDetailView button:has-text("Send notification")'), true);
+  await s.click('#paradeDetailView button:has-text("Send notification")');
+  await s.waitForFunction(() => document.getElementById('toastText').textContent.includes('Only an administrator can send it again'));
+  assert.equal(calls.filter(c => c.action === 'notify' && c.again).length, 0);
+  // ...an administrator can send it again
+  const adm = await open('user-a');
+  await run(adm, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  await adm.click('#paradeDetailView button:has-text("Send notification")');
+  await adm.waitForFunction(() => document.getElementById('toastText').textContent.includes('Notification sent to 3 devices'));
+  assert.equal(calls.filter(c => c.action === 'notify' && c.again === true && c.paradeId === pid).length, 1);
+  // Visitors don't get the button; nobody is told "sent" when no device has notifications on
+  const vis = await openAs(browser, db, null);
+  await run(vis, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.equal(await vis.isVisible('#paradeDetailView button:has-text("Send notification")'), false);
+  assert.match(await run(s, () => paradeNotifyResult({ sent: 0, failed: 0, devices: 0 })), /No device has notifications turned on/);
+
   // Tapping the notification opens CadetFlow on that parade
   const t = await openAs(browser, db, null, { url: PAGE_URL + '?parade=' + encodeURIComponent(pid) });
   await t.waitForFunction(() => !document.getElementById('paradePage').classList.contains('hidden') && PAR.openId);
   assert.equal(await run(t, () => PAR.openId), pid);
   assert.equal(await run(t, () => location.search), '', 'the link is tidied up');
-  noErrors(v, s, t);
+  noErrors(v, s, adm, vis, t);
 }));

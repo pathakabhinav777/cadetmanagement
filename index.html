@@ -5569,6 +5569,7 @@
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">
               <button type="button" onclick="copyParadeAnnouncement('${id}')" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy announcement</button>
+              ${pd.reportAt > Date.now() ? `<button type="button" onclick="sendParadeNotification('${id}')" class="senior-only px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Send notification</button>` : ''}
               <button type="button" onclick="openParadeModal('${id}')" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit</button>
               <button type="button" onclick="deleteParade('${id}')" class="px-3 py-2 text-xs font-bold border border-rose-900/60 text-rose-300 hover:bg-rose-950/40 rounded-xl">Delete</button>
             </div>
@@ -6958,12 +6959,34 @@
       } catch (e) { app?.showToast?.(`Could not send a test: ${e.message || e}`); }
     }
     /** After a new parade is saved: announce it to every device with notifications on. */
+    function paradeNotifyResult(r) {
+      if (r.alreadySent) return app.isAdmin() ? 'Already sent for this parade.' : 'Already sent for this parade. Only an administrator can send it again.';
+      if (r.skipped === 'past') return 'This parade has already started, so no notification was sent.';
+      if (!r.devices) return 'No device has notifications turned on yet, so nobody was notified.';
+      return `Notification sent to ${r.sent} device${r.sent === 1 ? '' : 's'}${r.failed ? ` (${r.failed} could not be reached)` : ''}.`;
+    }
     async function announceNewParade(paradeId) {
       try {
         await app.flushRemoteSave(); // the server reads the parade from the saved data
         const r = await pushApi({ action: 'notify', paradeId });
-        if (r.sent) app.showToast(`Notification sent to ${r.sent} device${r.sent === 1 ? '' : 's'}.`);
-      } catch (e) { app?.showToast?.(`Parade saved, but the notification was not sent: ${e.message || e}`); }
+        app.showToast(paradeNotifyResult(r));
+      } catch (e) { app?.showToast?.(`Parade saved, but the notification was not sent: ${e.message || e}. Use Send notification on the parade to try again.`); }
+    }
+    /** Send (or, for administrators, re-send) the notification for a parade by hand. */
+    async function sendParadeNotification(id) {
+      if (!app?.canEdit?.()) { app?.showToast?.('Only seniors and administrators can send notifications.'); return; }
+      const pd = findParade(id); if (!pd) return;
+      if (!confirm(`Send a notification about ${pd.title} (${paradeDay(pd.reportAt)}, ${paradeClock(pd.reportAt)}) to everyone who has notifications on?`)) return;
+      try {
+        await app.flushRemoteSave();
+        let r = await pushApi({ action: 'notify', paradeId: id });
+        if (r.alreadySent && app.isAdmin()) {
+          const when = r.sentAt ? ` on ${app.formatDate(new Date(r.sentAt).getTime())}` : '';
+          if (!confirm(`${pd.title} was already announced${when}. Send it again?`)) return;
+          r = await pushApi({ action: 'notify', paradeId: id, again: true });
+        }
+        app.showToast(paradeNotifyResult(r));
+      } catch (e) { app.showToast(`Notification not sent: ${e.message || e}`); }
     }
     /** Open the parade a notification was about (?parade=id, or a message from sw.js). */
     function openParadeFromNotification(id) {
