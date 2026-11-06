@@ -866,7 +866,27 @@
           </div>
           <div id="uniOrderHead"></div>
           <div id="uniOrderItems" class="border border-slate-800 rounded-xl divide-y divide-slate-800 overflow-hidden"></div>
+          <div id="uniBill" class="hidden border border-slate-800 rounded-xl bg-slate-950 p-3"></div>
           <div id="uniOrderActions" class="flex flex-wrap items-center gap-2"></div>
+        </div>
+
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniPriceHeading">
+          <div>
+            <h3 id="uniPriceHeading" class="font-extrabold text-white">Prices</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Price of one of each item in rupees, used for the bill. One price for all beret sizes. A placed order keeps the prices it was placed at.</p>
+          </div>
+          <div id="uniPriceList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+          <div class="uni-edit flex flex-wrap items-end gap-2 pt-1">
+            <label class="flex-1 min-w-[150px] text-[11px] font-bold text-slate-400">Custom item
+              <input type="text" id="uniPriceNewName" maxlength="60" placeholder="e.g. Whistle cord" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+            </label>
+            <label class="w-28 text-[11px] font-bold text-slate-400">Price (₹)
+              <input type="text" id="uniPriceNewValue" inputmode="decimal" maxlength="10" placeholder="0" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+            </label>
+            <button type="button" onclick="addUniformCustomPrice()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 rounded-xl">Add item</button>
+            <button type="button" onclick="saveUniformPrices()" class="ml-auto px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save prices</button>
+          </div>
+          <p id="uniPriceHint" class="text-[11px] text-slate-500"></p>
         </div>
 
         <div class="uni-edit bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniNewHeading">
@@ -884,7 +904,8 @@
             <div class="space-y-3 min-w-0">
               <span class="block text-xs font-bold text-slate-300">2 · What they need <span class="font-normal text-slate-500">(tick one or more)</span></span>
               <div id="uniItemChips" class="flex flex-wrap gap-1.5" role="group" aria-label="Items"></div>
-              <input type="text" id="uniCustom" maxlength="60" placeholder="What is it? e.g. Cap badge, whistle cord" class="hidden w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+              <datalist id="uniCustomList"></datalist>
+              <input type="text" id="uniCustom" list="uniCustomList" maxlength="60" placeholder="What is it? e.g. Cap badge, whistle cord" class="hidden w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
               <div id="uniSizes" class="hidden space-y-1.5">
                 <span class="block text-[11px] font-bold text-slate-400">Beret size for each cadet</span>
                 <div id="uniSizeList" class="grid sm:grid-cols-2 gap-1.5"></div>
@@ -1796,7 +1817,8 @@
           history: [],
           duties: [],   // work call-outs from the Availability page: { id, at, cadetIds, work, slot, by }
           parades: [],  // parades: { id, title, reportAt, venue, agenda, scope, years?, cadetIds?, reports: [...], marks: { cadetId: 'present'|'late'|'absent' } }
-          uniform: [],  // uniform requests for CQMS: { id, cadetId, item, custom?, qty, note?, status, requestedAt, requestedBy, orderedAt?, amount?, paid?, receivedAt? }
+          uniform: [],  // uniform requests for CQMS: see UNIFORM ORDERS below
+          uniformPrices: [],  // price per uniform item: { id: item key (e.g. 'beret', 'custom:whistle cord'), price, updatedAt?, updatedBy? }
           selectedCadets: new Set(),
           filters: {
             company: 'all',
@@ -1857,6 +1879,7 @@
             this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && d.id)
               .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
             this.state.uniform = normalizeUniform(data.uniform);
+            this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
             this.state.parades = normalizeParades(data.parades);
             this.state.events.forEach(ev => normalizeEvent(ev));
           } else {
@@ -1887,6 +1910,7 @@
           history: this.state.history || [],
           duties: this.state.duties || [],
           uniform: this.state.uniform || [],
+          uniformPrices: this.state.uniformPrices || [],
           parades: this.state.parades || []
         };
       }
@@ -2056,6 +2080,7 @@
         this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && d.id)
           .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
         this.state.uniform = normalizeUniform(data.uniform);
+        this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
         this.state.parades = normalizeParades(data.parades);
         this.state.events.forEach(ev => normalizeEvent(ev));
         // Drop ticked checkboxes for cadets that no longer exist.
@@ -4431,7 +4456,7 @@
       }
 
       backupAllData() {
-        const payload = { app: 'CadetFlow', schemaVersion: 2, exportedAt: new Date().toISOString(), cadets: this.state.cadets, events: this.state.events, activeEventId: this.state.activeEventId, history: this.state.history || [], duties: this.state.duties || [], uniform: this.state.uniform || [], parades: this.state.parades || [] };
+        const payload = { app: 'CadetFlow', schemaVersion: 2, exportedAt: new Date().toISOString(), cadets: this.state.cadets, events: this.state.events, activeEventId: this.state.activeEventId, history: this.state.history || [], duties: this.state.duties || [], uniform: this.state.uniform || [], uniformPrices: this.state.uniformPrices || [], parades: this.state.parades || [] };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob); const a = document.createElement('a');
         a.href = url; a.download = `CadetFlow_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -4455,6 +4480,7 @@
               .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
             // Older backups have no uniform requests: keep the current ones rather than wiping them.
             if (Array.isArray(data.uniform)) this.state.uniform = normalizeUniform(data.uniform);
+            if (Array.isArray(data.uniformPrices)) this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
             if (Array.isArray(data.parades)) this.state.parades = normalizeParades(data.parades);
             this.state.selectedCadets.clear();
             this.saveStorage(); this.renderEventDropdown(); this.renderAll(); renderOngoingTasks(); renderAvailabilityResults();
@@ -4736,18 +4762,19 @@
       return out;
     }
     function mergeSharedState(base, local, remote) {
-      const pick = s => ({ cadets: s?.cadets || [], events: s?.events || [], history: s?.history || [], duties: s?.duties || [], uniform: s?.uniform || [], parades: s?.parades || [] });
+      const pick = s => ({ cadets: s?.cadets || [], events: s?.events || [], history: s?.history || [], duties: s?.duties || [], uniform: s?.uniform || [], uniformPrices: s?.uniformPrices || [], parades: s?.parades || [] });
       const merged = mergeValue(pick(base), pick(local), pick(remote));
       merged.parades = normalizeParades(merged.parades);
       merged.duties = (merged.duties || []).sort((a, b) => (b.at || 0) - (a.at || 0));
       merged.uniform = normalizeUniform(merged.uniform);
+      merged.uniformPrices = normalizeUniformPrices(merged.uniformPrices);
       merged.history = (merged.history || []).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 3000);
       merged.events = (merged.events || []).map(ev => normalizeEvent(ev));
       return merged;
     }
     /** True when two saved states hold the same shared data (ignores which task is open). */
     function stateEqual(a, b) {
-      const pick = s => ({ cadets: s?.cadets, events: s?.events, history: s?.history, duties: s?.duties || [], uniform: s?.uniform || [], parades: s?.parades || [] });
+      const pick = s => ({ cadets: s?.cadets, events: s?.events, history: s?.history, duties: s?.duties || [], uniform: s?.uniform || [], uniformPrices: s?.uniformPrices || [], parades: s?.parades || [] });
       return deepEqual(pick(a), pick(b));
     }
 
@@ -5959,6 +5986,8 @@
         if (!UNIFORM_ITEMS.some(i => i.key === out.item)) { out.custom = String(out.custom || out.item || 'Other item'); out.item = 'custom'; }
         if (out.amount != null && !(Number.isFinite(Number(out.amount)) && Number(out.amount) >= 0)) delete out.amount;
         else if (out.amount != null) out.amount = Number(out.amount);
+        if (out.unitPrice != null && !(Number.isFinite(Number(out.unitPrice)) && Number(out.unitPrice) >= 0)) delete out.unitPrice;
+        else if (out.unitPrice != null) out.unitPrice = Number(out.unitPrice);
         if (uniformSized(out.item) && out.size != null && String(out.size).trim()) out.size = String(out.size).trim().slice(0, 12); else delete out.size;
         // Placed requests belong to an order. Older ones placed together share their ordered time.
         if (out.status === 'requested') delete out.orderId;
@@ -5978,6 +6007,56 @@
     function uniformCadetName(id) { const c = uniformCadet(id); return c ? `${c.rank || 'CDT'} ${c.name}` : 'Removed cadet'; }
     const uniformCount = list => list.reduce((s, r) => s + (r.qty || 1), 0);
     const uniPlural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
+    // ---- Prices (app.state.uniformPrices): one entry per item key, editable on the page by seniors.
+    //   { id: 'beret' | 'custom:whistle cord', price, label? (custom items), updatedAt?, updatedBy? }
+    // Requests in the next order use the current price. Placing an order copies each price onto its
+    // requests (unitPrice), so changing a price later doesn't change an old bill.
+    function normalizeUniformPrices(list) {
+      if (!Array.isArray(list)) return [];
+      const seen = new Set();
+      return list.filter(p => p && p.id && !seen.has(String(p.id)) && seen.add(String(p.id))).map(p => {
+        const out = { ...p, id: String(p.id) };
+        const n = Number(out.price);
+        if (out.price == null || out.price === '' || !Number.isFinite(n) || n < 0) delete out.price; else out.price = Math.round(n * 100) / 100;
+        return out;
+      }).filter(p => p.price != null);
+    }
+    function uniformPriceList() { return (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.uniformPrices)) ? app.state.uniformPrices : []; }
+    function uniformPriceOf(key) { const p = uniformPriceList().find(x => x.id === key); return p ? p.price : null; }
+    /** Price of one item on this request: placed requests keep the price they were placed at. */
+    function uniformUnitPrice(r) {
+      if (r.status !== 'requested' && r.unitPrice != null) return r.unitPrice;
+      if (r.status !== 'requested' && r.amount != null) return null; // older entry with a recorded total
+      return uniformPriceOf(uniformKey(r));
+    }
+    /** What this request costs, or null when there is no price for it yet. */
+    function uniformCost(r) {
+      const u = uniformUnitPrice(r);
+      if (u != null) return u * (r.qty || 1);
+      return r.status !== 'requested' && r.amount != null ? r.amount : null;
+    }
+    /** Bill for a list of requests: lines per item (berets split by price if it changed), total, per-cadet totals. */
+    function uniformBill(list) {
+      const lines = uniformGroups(list).map(g => {
+        const costs = g.requests.map(uniformCost);
+        const priced = costs.filter(c => c != null);
+        const each = [...new Set(g.requests.map(uniformUnitPrice).filter(p => p != null))];
+        return { label: g.label, qty: g.total, count: g.requests.length, each: each.length === 1 ? each[0] : null, amount: priced.reduce((s, c) => s + c, 0), missing: costs.length - priced.length };
+      });
+      const people = new Map();
+      list.forEach(r => {
+        const p = people.get(r.cadetId) || { cadetId: r.cadetId, amount: 0, missing: 0, items: [] };
+        const c = uniformCost(r);
+        if (c == null) p.missing++; else p.amount += c;
+        p.items.push(`${uniformFullLabel(r)}${r.qty > 1 ? ' ×' + r.qty : ''}`);
+        people.set(r.cadetId, p);
+      });
+      return {
+        lines, total: lines.reduce((s, l) => s + l.amount, 0), missing: lines.reduce((s, l) => s + l.missing, 0),
+        people: [...people.values()].sort((a, b) => uniformCadetName(a.cadetId).localeCompare(uniformCadetName(b.cadetId)))
+      };
+    }
 
     /** Placed orders, newest first, numbered from the first one ever placed. */
     function uniformOrders() {
@@ -6029,6 +6108,7 @@
       document.getElementById('uniformViewOnly').classList.toggle('hidden', app.canEdit());
       if (app.canEdit()) { renderUniformPicker(); renderUniformItemChips(); }
       renderUniformOrder();
+      renderUniformPrices();
     }
     function renderUniformHomeStat() {
       const el = document.getElementById('homeStatUniform'); if (!el) return;
@@ -6059,9 +6139,8 @@
         head.innerHTML = `<p class="text-sm text-slate-300"><b class="text-white">Next order</b> · ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(cadets, 'cadet')}</p>
           <p class="text-xs text-slate-500 mt-0.5">Not placed yet. Tap an item to see who needs it.</p>`;
       } else {
-        const priced = list.filter(r => r.amount != null), total = priced.reduce((s, r) => s + r.amount, 0), paid = priced.filter(r => r.paid).reduce((s, r) => s + r.amount, 0);
         head.innerHTML = `<p class="text-sm text-slate-300"><b class="text-white">Order ${order.number}</b> · ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(cadets, 'cadet')}</p>
-          <p class="text-xs text-slate-500 mt-0.5">Placed ${escapeHtml(app.formatDate(order.placedAt))}${order.placedBy ? ' by ' + escapeHtml(order.placedBy) : ''} · <span class="${order.received === list.length ? 'text-emerald-300' : 'text-sky-300'}">${order.received === list.length ? 'all received' : `${order.received} of ${list.length} received`}</span>${priced.length ? ` · amounts recorded ${escapeHtml(rupees(total))}, paid ${escapeHtml(rupees(paid))}` : ''}</p>`;
+          <p class="text-xs text-slate-500 mt-0.5">Placed ${escapeHtml(app.formatDate(order.placedAt))}${order.placedBy ? ' by ' + escapeHtml(order.placedBy) : ''} · <span class="${order.received === list.length ? 'text-emerald-300' : 'text-sky-300'}">${order.received === list.length ? 'all received' : `${order.received} of ${list.length} received`}</span></p>`;
       }
 
       const groups = uniformGroups(list);
@@ -6069,6 +6148,10 @@
         const open = UNI.open.has(`${order.id}|${g.key}`);
         const got = g.requests.filter(r => r.status === 'received').length;
         const sizes = g.sizes.length ? `<span class="block text-[11px] text-slate-400 mt-0.5">${g.sizes.map(([s, n]) => `${escapeHtml(s === 'Size not given' ? s : 'size ' + s)} ×${n}`).join(' · ')}</span>` : '';
+        const costs = g.requests.map(uniformCost), each = [...new Set(g.requests.map(uniformUnitPrice).filter(p => p != null))];
+        const amount = costs.some(c => c != null) ? costs.reduce((s, c) => s + (c || 0), 0) : null;
+        const price = amount == null ? '<span class="block text-[11px] text-slate-500">no price</span>'
+          : `<span class="block text-[11px] text-slate-400">${each.length === 1 ? escapeHtml(rupees(each[0])) + ' each · ' : ''}${escapeHtml(rupees(amount))}${costs.includes(null) ? ' + unpriced' : ''}</span>`;
         const people = g.sizes.length
           ? g.sizes.map(([s]) => `<p class="px-3 pt-2 text-[11px] font-bold text-slate-400">${escapeHtml(s === 'Size not given' ? s : 'Size ' + s)}</p>` + uniformPeople(g.requests.filter(r => (r.size || 'Size not given') === s), order)).join('')
           : uniformPeople(g.requests, order);
@@ -6076,21 +6159,52 @@
           <summary class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-900 list-none">
             <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-white">${escapeHtml(g.label)}</span>${sizes}
               <span class="block text-[11px] text-slate-500">${uniPlural(g.requests.length, 'cadet')}${order.placed ? ` · ${got === g.requests.length ? 'all received' : `${got} of ${g.requests.length} received`}` : ''}</span></span>
-            <b class="text-xl font-black text-amber-400 font-mono-num">${g.total}</b>
+            <span class="text-right"><b class="text-xl font-black text-amber-400 font-mono-num">${g.total}</b>${price}</span>
             <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </summary>
           <div class="border-t border-slate-800 bg-slate-900/40 pb-1">${people}</div>
         </details>`;
       }).join('') : `<p class="p-6 text-center text-sm text-slate-500">${order.placed ? 'This order has no items.' : 'Nothing in the next order yet. Requests added below show up here.'}</p>`;
 
+      renderUniformBill(order);
+
       const btn = 'px-3 py-2 text-xs font-bold rounded-xl';
-      const actions = [`<button type="button" onclick="copyUniformOrderList()" class="${btn} bg-emerald-600 hover:bg-emerald-500 text-white" ${list.length ? '' : 'disabled'}>Copy order list (WhatsApp)</button>`];
+      const actions = [`<button type="button" onclick="copyUniformOrderList()" class="${btn} bg-emerald-600 hover:bg-emerald-500 text-white" ${list.length ? '' : 'disabled'}>Copy order list (WhatsApp)</button>`,
+        `<button type="button" onclick="copyUniformBill()" class="${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100" ${list.length ? '' : 'disabled'}>Copy bill</button>`];
       if (!order.placed) actions.push(`<button type="button" onclick="placeUniformOrder()" class="uni-edit ${btn} bg-amber-500 hover:bg-amber-400 text-slate-950" ${list.length ? '' : 'disabled'}>Place order</button>`);
       else {
         if (order.received < list.length) actions.push(`<button type="button" onclick="markUniformOrderReceived()" class="uni-edit ${btn} bg-sky-900/40 border border-sky-700/60 text-sky-200">Mark all received</button>`);
         if (!order.received) actions.push(`<button type="button" onclick="undoUniformOrder()" class="uni-edit ${btn} bg-slate-800 border border-slate-700 text-slate-300">Undo placing</button>`);
+        if (list.some(r => { const now = uniformPriceOf(uniformKey(r)); return now != null && now !== r.unitPrice; }))
+          actions.push(`<button type="button" onclick="applyUniformPricesToOrder()" class="uni-edit ${btn} bg-slate-800 border border-slate-700 text-slate-300" title="Prices changed since this order was placed">Use current prices</button>`);
       }
       document.getElementById('uniOrderActions').innerHTML = actions.join('');
+    }
+    /** The bill under the order: item lines, total, and what each cadet owes. */
+    function renderUniformBill(order) {
+      const host = document.getElementById('uniBill'); if (!host) return;
+      const list = order.requests;
+      host.classList.toggle('hidden', !list.length);
+      if (!list.length) { host.innerHTML = ''; return; }
+      const bill = uniformBill(list);
+      const open = UNI.open.has(`${order.id}|bill-people`);
+      host.innerHTML = `<div class="flex items-baseline justify-between gap-3">
+          <h4 class="text-sm font-extrabold text-white">Bill</h4>
+          <b class="text-lg font-black text-white font-mono-num">${escapeHtml(rupees(bill.total))}</b>
+        </div>
+        <table class="w-full mt-2 text-xs">
+          <thead class="text-slate-500"><tr><th class="text-left font-semibold py-1">Item</th><th class="text-right font-semibold">Qty</th><th class="text-right font-semibold">Each</th><th class="text-right font-semibold">Amount</th></tr></thead>
+          <tbody class="text-slate-300">${bill.lines.map(l => `<tr class="border-t border-slate-800"><td class="py-1.5 pr-2">${escapeHtml(l.label)}</td><td class="text-right font-mono-num">${l.qty}</td>
+            <td class="text-right font-mono-num">${l.each != null ? escapeHtml(rupees(l.each)) : l.missing ? '<span class="text-amber-300">no price</span>' : 'mixed'}</td>
+            <td class="text-right font-mono-num">${escapeHtml(rupees(l.amount))}${l.missing && l.missing < l.count ? '<span class="text-amber-300">*</span>' : ''}</td></tr>`).join('')}</tbody>
+        </table>
+        ${bill.missing ? `<p class="mt-2 text-[11px] text-amber-300">${uniPlural(bill.missing, 'request')} ${bill.missing === 1 ? 'has' : 'have'} no price yet, so ${bill.missing === 1 ? 'it is' : 'they are'} not in the total. Set prices below.</p>` : ''}
+        <details class="mt-2" data-key="bill-people" ${open ? 'open' : ''} ontoggle="uniformToggleOpen(this)">
+          <summary class="cursor-pointer text-xs font-semibold text-slate-400 hover:text-slate-200">What each cadet pays (${bill.people.length})</summary>
+          <ul class="mt-1 divide-y divide-slate-800/70 text-xs">${bill.people.map(p => `<li class="flex items-start justify-between gap-3 py-1.5">
+            <span class="min-w-0"><span class="block text-slate-200 font-semibold">${escapeHtml(uniformCadetName(p.cadetId))}</span><span class="block text-[11px] text-slate-500">${escapeHtml(p.items.join(', '))}</span></span>
+            <span class="font-mono-num text-slate-200 whitespace-nowrap">${escapeHtml(rupees(p.amount))}${p.missing ? '<span class="text-amber-300">*</span>' : ''}</span></li>`).join('')}</ul>
+        </details>`;
     }
     /** Rows of who needs an item, with received / remove controls for editors. */
     function uniformPeople(list, order) {
@@ -6100,7 +6214,7 @@
         const meta = [c ? `${c.company} · ${yearLabel(c.year)}` : '', r.note || '', r.requestedBy ? `asked by ${r.requestedBy}` : ''].filter(Boolean).join(' · ');
         return `<li class="flex flex-wrap items-center gap-2 px-3 py-2">
           <span class="min-w-0 flex-1"><span class="block text-sm text-white"><button type="button" class="font-semibold hover:underline text-left" data-cadet="${escapeHtml(r.cadetId)}" onclick="openCadetProfile(this.dataset.cadet)">${escapeHtml(uniformCadetName(r.cadetId))}</button>${r.qty > 1 ? ` <span class="text-slate-400">×${r.qty}</span>` : ''}</span>
-            <span class="block text-[11px] text-slate-500">${escapeHtml(meta)}${r.amount != null ? ` · ${escapeHtml(rupees(r.amount))} ${r.paid ? 'paid' : 'not paid'}` : ''}</span></span>
+            <span class="block text-[11px] text-slate-500">${escapeHtml(meta)}${uniformCost(r) != null ? ` · ${escapeHtml(rupees(uniformCost(r)))}` : ''}${r.paid ? ' paid' : ''}</span></span>
           ${order.placed ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${done ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50' : 'bg-sky-900/30 text-sky-300 border-sky-700/50'}">${done ? 'Received' : 'Ordered'}</span>` : ''}
           <span class="uni-edit contents">
             ${order.placed ? `<button type="button" data-id="${id}" onclick="setUniformReceived(this.dataset.id, ${!done})" class="${btn} ${done ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-emerald-900/40 border-emerald-700/60 text-emerald-200'}">${done ? 'Not received' : 'Mark received'}</button>` : ''}
@@ -6137,6 +6251,7 @@
       const host = document.getElementById('uniItemChips'); if (!host) return;
       host.innerHTML = UNIFORM_ITEMS.map(i => `<button type="button" class="af-chip text-xs" aria-pressed="${UNI.items.has(i.key)}" onclick="toggleUniformItem('${i.key}')">${escapeHtml(i.label)}</button>`).join('');
       document.getElementById('uniCustom').classList.toggle('hidden', !UNI.items.has('custom'));
+      document.getElementById('uniCustomList').innerHTML = uniformPriceRows().filter(r => r.custom).map(r => `<option value="${escapeHtml(r.label)}"></option>`).join('');
       updateUniformNewSummary();
     }
     function toggleUniformItem(key) {
@@ -6226,7 +6341,10 @@
       if (!list.length) { app.showToast('Nothing in the next order.'); return; }
       if (!confirm(`Place this order? ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(new Set(list.map(r => r.cadetId)).size, 'cadet')}.\n\nRequests added after this go into the next order.`)) return;
       const now = Date.now(), by = app.authorName(), id = `order-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-      list.forEach(r => { r.status = 'ordered'; r.orderId = id; r.orderedAt = now; r.orderedBy = by; });
+      list.forEach(r => {
+        r.status = 'ordered'; r.orderId = id; r.orderedAt = now; r.orderedBy = by;
+        const price = uniformPriceOf(uniformKey(r)); if (price != null) r.unitPrice = price; else delete r.unitPrice;
+      });
       UNI.order = id;
       const n = uniformOrders().find(o => o.id === id)?.number;
       uniformSave('uniform-ordered', `Uniform order ${n} placed: ${uniformGroups(list).map(g => `${g.label} ${g.total}`).join(', ')}`);
@@ -6254,7 +6372,7 @@
       const order = uniformCurrentOrder(); if (!order.placed) return;
       if (order.received) { app.showToast('Some items in this order were already received.'); return; }
       if (!confirm(`Undo placing order ${order.number}? Its ${uniPlural(order.requests.length, 'request')} go back into the next order.`)) return;
-      order.requests.forEach(r => { r.status = 'requested'; delete r.orderId; delete r.orderedAt; delete r.orderedBy; });
+      order.requests.forEach(r => { r.status = 'requested'; delete r.orderId; delete r.orderedAt; delete r.orderedBy; delete r.unitPrice; });
       UNI.order = 'next';
       uniformSave('uniform-undo', `Uniform order ${order.number} moved back to the next order`);
     }
@@ -6266,6 +6384,128 @@
       app.state.uniform = uniformRequests().filter(r => !gone.has(r.id));
       uniformSave('uniform-deleted', list.length === 1 ? `Removed uniform request: ${uniformFullLabel(list[0])} for ${uniformCadetName(list[0].cadetId)}` : `Removed ${list.length} uniform requests`);
     }
+    // ---- Price list editor
+    /** Every item that can have a price: the standard items, then custom items (priced or requested). */
+    function uniformPriceRows() {
+      const rows = UNIFORM_ITEMS.filter(i => i.key !== 'custom').map(i => ({ key: i.key, label: i.label, custom: false }));
+      const custom = new Map();
+      uniformPriceList().filter(p => p.id.startsWith('custom:')).forEach(p => custom.set(p.id, p.label || p.id.slice(7)));
+      uniformRequests().filter(r => r.item === 'custom').forEach(r => { const k = uniformKey(r); if (!custom.has(k)) custom.set(k, uniformLabel(r)); });
+      [...custom].sort((a, b) => a[1].localeCompare(b[1])).forEach(([key, label]) => rows.push({ key, label, custom: true }));
+      return rows;
+    }
+    function renderUniformPrices() {
+      const host = document.getElementById('uniPriceList'); if (!host) return;
+      if (host.contains(document.activeElement)) return; // don't disturb someone typing a price
+      if (!UNI.priceDraft) UNI.priceDraft = {};
+      const edit = app.canEdit();
+      const rows = uniformPriceRows();
+      host.innerHTML = rows.map(r => {
+        const saved = uniformPriceOf(r.key);
+        const val = UNI.priceDraft[r.key] ?? (saved != null ? String(saved) : '');
+        const listed = uniformPriceList().some(p => p.id === r.key);
+        return `<div class="flex items-center gap-2 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl">
+          <span class="min-w-0 flex-1 text-sm text-slate-200 truncate">${escapeHtml(r.label)}${r.custom ? ' <span class="text-[10px] text-slate-500">custom</span>' : ''}</span>
+          ${edit ? `<span class="text-xs text-slate-500">₹</span><input type="text" inputmode="decimal" maxlength="10" data-key="${escapeHtml(r.key)}" data-label="${escapeHtml(r.label)}" value="${escapeHtml(val)}" placeholder="–" aria-label="Price of ${escapeHtml(r.label)}"
+              oninput="UNI.priceDraft[this.dataset.key] = this.value; UNI.priceLabels = { ...(UNI.priceLabels || {}), [this.dataset.key]: this.dataset.label }; updateUniformPriceHint()"
+              onkeydown="if (event.key === 'Enter') { event.preventDefault(); saveUniformPrices(); }"
+              class="w-20 px-2 py-1 bg-slate-900 border ${UNI.priceDraft[r.key] != null ? 'border-amber-500' : 'border-slate-700'} text-white text-right rounded-md text-sm font-mono-num focus:outline-none focus:border-amber-500">
+            ${r.custom && listed ? `<button type="button" data-key="${escapeHtml(r.key)}" onclick="removeUniformPrice(this.dataset.key)" class="text-[11px] text-rose-300 hover:underline" aria-label="Remove ${escapeHtml(r.label)} from the price list">Remove</button>` : ''}`
+          : `<span class="text-sm font-mono-num ${saved != null ? 'text-white' : 'text-slate-500'}">${saved != null ? escapeHtml(rupees(saved)) : 'no price'}</span>`}
+        </div>`;
+      }).join('');
+      updateUniformPriceHint();
+    }
+    function updateUniformPriceHint() {
+      const el = document.getElementById('uniPriceHint'); if (!el) return;
+      const n = Object.keys(UNI.priceDraft || {}).length;
+      const last = uniformPriceList().filter(p => p.updatedAt).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      el.innerHTML = n ? `<span class="text-amber-300">${uniPlural(n, 'price')} changed, not saved yet.</span>`
+        : last ? `Last changed ${escapeHtml(app.formatDate(last.updatedAt))}${last.updatedBy ? ' by ' + escapeHtml(last.updatedBy) : ''}.` : '';
+    }
+    /** Parse a typed price. Returns null for blank, NaN when it isn't a valid amount. */
+    function parseUniformPrice(raw) {
+      const t = String(raw ?? '').replace(/[₹,\s]/g, '');
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : NaN;
+    }
+    function setUniformPrice(key, label, price) {
+      if (!Array.isArray(app.state.uniformPrices)) app.state.uniformPrices = [];
+      const list = app.state.uniformPrices, i = list.findIndex(p => p.id === key);
+      if (price == null) { if (i >= 0) list.splice(i, 1); return; }
+      const entry = { id: key, price, ...(key.startsWith('custom:') ? { label } : {}), updatedAt: Date.now(), updatedBy: app.authorName() };
+      if (i >= 0) list[i] = entry; else list.push(entry);
+    }
+    function saveUniformPrices() {
+      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can change prices.'); return; }
+      const draft = UNI.priceDraft || {};
+      const rows = new Map(uniformPriceRows().map(r => [r.key, r.label]));
+      const changes = [];
+      for (const [key, raw] of Object.entries(draft)) {
+        const price = parseUniformPrice(raw);
+        const label = rows.get(key) || UNI.priceLabels?.[key] || key;
+        if (Number.isNaN(price)) { app.showToast(`Price of ${label} must be a number, e.g. 120`); document.querySelector(`#uniPriceList input[data-key="${CSS.escape(key)}"]`)?.focus(); return; }
+        if (price === uniformPriceOf(key)) continue;
+        changes.push({ key, label, price });
+      }
+      UNI.priceDraft = {};
+      if (!changes.length) { renderUniformPrices(); app.showToast('No price changes.'); return; }
+      changes.forEach(c => setUniformPrice(c.key, c.label, c.price));
+      document.activeElement?.blur?.();
+      uniformSave('uniform-prices', `Uniform prices: ${changes.map(c => `${c.label} ${c.price == null ? 'removed' : rupees(c.price)}`).join(', ')}`);
+      app.showToast(`Saved ${uniPlural(changes.length, 'price')}.`);
+    }
+    function addUniformCustomPrice() {
+      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can change prices.'); return; }
+      const nameEl = document.getElementById('uniPriceNewName'), valEl = document.getElementById('uniPriceNewValue');
+      const name = nameEl.value.trim().replace(/\s+/g, ' ');
+      const price = parseUniformPrice(valEl.value);
+      if (!name) { app.showToast('Write the name of the item.'); nameEl.focus(); return; }
+      if (price == null || Number.isNaN(price)) { app.showToast('Enter its price, e.g. 120'); valEl.focus(); return; }
+      const std = UNIFORM_ITEMS.find(i => i.key !== 'custom' && i.label.toLowerCase() === name.toLowerCase());
+      const key = std ? std.key : 'custom:' + name.toLowerCase();
+      setUniformPrice(key, std ? std.label : name, price);
+      if (UNI.priceDraft) delete UNI.priceDraft[key];
+      nameEl.value = ''; valEl.value = '';
+      uniformSave('uniform-prices', `Uniform price: ${std ? std.label : name} ${rupees(price)}`);
+      app.showToast(`${std ? std.label : name}: ${rupees(price)}`);
+    }
+    function removeUniformPrice(key) {
+      if (!app.canEdit()) return;
+      const p = uniformPriceList().find(x => x.id === key); if (!p) return;
+      const label = p.label || key.replace(/^custom:/, '');
+      if (!confirm(`Remove ${label} from the price list?`)) return;
+      setUniformPrice(key, label, null);
+      if (UNI.priceDraft) delete UNI.priceDraft[key];
+      uniformSave('uniform-prices', `Uniform price removed: ${label}`);
+    }
+    /** Re-price a placed order with today's prices (e.g. the shop's price changed). */
+    function applyUniformPricesToOrder() {
+      if (!app.canEdit()) return;
+      const order = uniformCurrentOrder(); if (!order.placed) return;
+      const list = order.requests.filter(r => { const now = uniformPriceOf(uniformKey(r)); return now != null && now !== r.unitPrice; });
+      if (!list.length) return;
+      const before = uniformBill(order.requests).total;
+      const after = uniformBill(order.requests.map(r => list.includes(r) ? { ...r, unitPrice: uniformPriceOf(uniformKey(r)) } : r)).total;
+      if (!confirm(`Use the current prices for order ${order.number}?\n\nBill total: ${rupees(before)} → ${rupees(after)}`)) return;
+      list.forEach(r => { r.unitPrice = uniformPriceOf(uniformKey(r)); });
+      uniformSave('uniform-prices', `Uniform order ${order.number} re-priced: ${rupees(before)} → ${rupees(after)}`);
+    }
+    /** WhatsApp text of the bill for the order being viewed. */
+    function copyUniformBill() {
+      const order = uniformCurrentOrder();
+      if (!order.requests.length) { app.showToast('Nothing in this order.'); return; }
+      const bill = uniformBill(order.requests);
+      let msg = order.placed ? `*Uniform bill – order ${order.number}* (placed ${app.formatDate(order.placedAt)})\n\n` : '*Uniform bill – next order* (not placed yet)\n\n';
+      bill.lines.forEach(l => { msg += `${l.label}: ${l.qty}${l.each != null ? ` × ${rupees(l.each)}` : ''} = ${rupees(l.amount)}${l.missing ? ' (no price for some)' : ''}\n`; });
+      msg += `\n*Total: ${rupees(bill.total)}*\n`;
+      if (bill.missing) msg += `(${uniPlural(bill.missing, 'request')} without a price not counted)\n`;
+      msg += '\n*Each cadet*\n';
+      bill.people.forEach((p, i) => { const c = uniformCadet(p.cadetId); msg += `${i + 1}. ${uniformCadetName(p.cadetId)}${c ? ` (${c.company})` : ''} – ${rupees(p.amount)}${p.missing ? ' + unpriced' : ''} (${p.items.join(', ')})\n`; });
+      app.copyToClipboard(msg, `Copied bill (${rupees(bill.total)})`);
+    }
+
     /** WhatsApp text for the order being viewed: totals to buy first, then who needs what. */
     function copyUniformOrderList() {
       const order = uniformCurrentOrder();

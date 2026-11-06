@@ -15,7 +15,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Android: `android-app/` is a Capacitor shell that opens the live site, so website changes need no new APK. `.github/workflows/android-app.yml` builds it on changes to `android-app/` (or by hand) and publishes `CadetFlow.apk` on the `android-app` release. Signed with repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` when set (key kept outside the repo).
 
 ## Data (Supabase)
-- Table `cadetflow_state`, single row `id = 1`, column `state` (JSON): `{ cadets, events, history, duties, uniform, parades, activeEventId }`.
+- Table `cadetflow_state`, single row `id = 1`, column `state` (JSON): `{ cadets, events, history, duties, uniform, uniformPrices, parades, activeEventId }`.
 - Saves use optimistic concurrency on `updated_at` plus a three-way merge (`mergeSharedState`, `mergeListById`, `mergePlainList`). Lists of objects must have an `id` so merges work. New top-level keys must be added to: initial state, local load, `applyState`, backup restore, `serializableState`, export, and the `pick` in `mergeSharedState` and `stateEqual`.
 - Table `cadetflow_profiles (user_id, display_name, role)`:
   - `admin` = administrator (everything: roster, timetables, data restore, deleting tasks/parades)
@@ -27,6 +27,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Cadet fields: `id, name, rank, wing, company, year ('1st'|'2nd'|'3rd'|''), cycle, free?` (timetable halves like `MON1`). Ranks: CDT, LCPL, CPL, SGT, CQMS, CSM, JUO, SUO. Companies: Jessami, Kohima, Naushera, or `No company` (CSM/CQMS).
 - 3rd years are left out of Availability.
 - Uniform: `state.uniform` is one request per cadet per item. Requests with status `requested` form the "next order"; placing it stamps one `orderId` on them (orders are derived from `orderId`, no separate list). Berets carry a per-cadet `size`; other items are one size. Older ordered requests without `orderId` get `order-<orderedAt>` in `normalizeUniform`.
+- Uniform prices: `state.uniformPrices` = `[{ id: item key ('beret', 'custom:<name lowercased>'), price, label? }]`, edited on the Uniform page by seniors. The next order uses current prices; placing an order copies each price onto its requests as `unitPrice` ("Use current prices" re-prices a placed order). Bill = `uniformBill(requests)`.
 - Late/absence reports for a parade close 15 minutes before reporting time (admins can still add). "Informed to" must be SGT and above.
 - Keep text plain and minimal: no emojis in the UI, escape all user text with `escapeHtml`/`this.escape` before putting it in HTML.
 - Must work on phone and laptop; check both.

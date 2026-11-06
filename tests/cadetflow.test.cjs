@@ -1687,3 +1687,86 @@ test('installable app: manifest, icons, service worker and the "Get the app" blo
   assert.equal(await p.isVisible('#getApp'), false);
   noErrors(a, p);
 }));
+
+test('uniform prices: edited on the page, bill per order, placed orders keep their prices', () => withBrowser(async browser => {
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  await run(a, () => switchCadetFlowPage('uniform'));
+  const setPrice = (page, key, value) => page.fill(`#uniPriceList input[data-key="${key}"]`, value);
+  const save = page => page.click('#uniformPage button:has-text("Save prices")');
+
+  // Prices are typed straight into the page and saved
+  await setPrice(a, 'hackle', '40');
+  await setPrice(a, 'beret', '₹250');
+  assert.match(await a.textContent('#uniPriceHint'), /2 prices changed, not saved/);
+  await save(a);
+  await flush(a);
+  assert.deepEqual(db.row.state.uniformPrices.map(p => [p.id, p.price]).sort(), [['beret', 250], ['hackle', 40]]);
+  assert.ok(db.row.state.uniformPrices.every(p => p.updatedBy === 'user-a'));
+  // A bad price is refused
+  await setPrice(a, 'belt', 'abc'); await save(a);
+  assert.equal(await run(a, () => uniformPriceOf('belt')), null);
+  await setPrice(a, 'belt', ''); await save(a);
+
+  // Requests: two hackles, a cadet who needs 2 berets, and an unpriced custom item
+  await run(a, () => {
+    const add = (ids, items, sizes, qty, custom) => { ids.forEach(i => toggleUniformCadet(i, true)); items.forEach(toggleUniformItem); Object.assign(UNI.sizes, sizes || {}); document.getElementById('uniQty').value = qty || 1; if (custom) document.getElementById('uniCustom').value = custom; createUniformRequests(); };
+    add(['cadet-1', 'cadet-2'], ['hackle']);
+    add(['cadet-3'], ['beret'], { 'cadet-3': '57' }, 2);
+    add(['cadet-4'], ['custom'], {}, 1, 'Whistle cord');
+  });
+  let bill = await a.textContent('#uniBill');
+  assert.match(bill, /Bill\s*₹580/, '2 × 40 + 2 × 250');
+  assert.match(bill, /1 request has no price yet/);
+  assert.match(await a.textContent('#uniOrderItems details[data-key="hackle"] summary'), /₹40 each · ₹80/);
+  // The custom item shows up in the price list to be priced
+  assert.equal(await a.isVisible('#uniPriceList input[data-key="custom:whistle cord"]'), true);
+  await setPrice(a, 'custom:whistle cord', '30'); await save(a);
+  assert.match(await a.textContent('#uniBill'), /Bill\s*₹610/);
+  // Custom items can be added to the price list directly (a standard name maps to that item)
+  await a.fill('#uniPriceNewName', 'Cap badge cover'); await a.fill('#uniPriceNewValue', '15');
+  await a.click('#uniformPage button:has-text("Add item")');
+  await a.fill('#uniPriceNewName', 'lanyard'); await a.fill('#uniPriceNewValue', '20');
+  await a.click('#uniformPage button:has-text("Add item")');
+  assert.equal(await run(a, () => uniformPriceOf('custom:cap badge cover')), 15);
+  assert.equal(await run(a, () => uniformPriceOf('lanyard')), 20);
+  // What each cadet pays
+  await a.click('#uniBill summary');
+  assert.match(await a.textContent('#uniBill details'), /Pradeep|cadet-3|₹500/);
+  const copy = await run(a, () => { let out; app.copyToClipboard = t => { out = t; }; copyUniformBill(); return out; });
+  assert.match(copy, /Beret: 2 × ₹250 = ₹500/); assert.match(copy, /\*Total: ₹610\*/);
+
+  // Place the order: prices are copied onto it, so a later price change doesn't touch it
+  await run(a, () => placeUniformOrder());
+  await flush(a);
+  assert.ok(db.row.state.uniform.find(r => r.item === 'beret').unitPrice === 250);
+  await setPrice(a, 'beret', '300'); await save(a);
+  assert.match(await a.textContent('#uniBill'), /Bill\s*₹610/, 'placed order keeps old prices');
+  // ...unless CQMS chooses to use the current prices
+  assert.equal(await a.isVisible('#uniOrderActions button:has-text("Use current prices")'), true);
+  await run(a, () => applyUniformPricesToOrder());
+  assert.match(await a.textContent('#uniBill'), /Bill\s*₹710/);
+  // The next order uses the current prices
+  await run(a, () => { selectUniformOrder('next'); toggleUniformCadet('cadet-5', true); toggleUniformItem('beret'); UNI.sizes['cadet-5'] = '56'; createUniformRequests(); });
+  assert.match(await a.textContent('#uniBill'), /Bill\s*₹300/);
+  await flush(a);
+
+  // Two seniors changing different prices at the same time keep both
+  const b = await openAs(browser, db, 'user-s');
+  db.autoNotify = false;
+  await run(b, () => switchCadetFlowPage('uniform'));
+  await setPrice(a, 'socks', '25'); await save(a);
+  await setPrice(b, 'belt', '90'); await save(b);
+  await flush(a); await flush(b);
+  assert.equal(db.row.state.uniformPrices.find(p => p.id === 'socks').price, 25);
+  assert.equal(db.row.state.uniformPrices.find(p => p.id === 'belt').price, 90);
+
+  // Visitors see the prices and the bill but cannot change them
+  const v = await openAs(browser, db, null);
+  await run(v, () => switchCadetFlowPage('uniform'));
+  assert.equal(await v.locator('#uniPriceList input').count(), 0);
+  assert.match(await v.textContent('#uniPriceList'), /Beret\s*₹300/);
+  assert.equal(await v.isVisible('#uniformPage button:has-text("Save prices")'), false);
+  assert.equal(await v.isVisible('#uniBill'), true);
+  noErrors(a, b, v);
+}));
