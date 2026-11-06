@@ -1,0 +1,17 @@
+{
+  "name": "CadetFlow",
+  "short_name": "CadetFlow",
+  "description": "NCC cadet management for Jessami, Kohima and Naushera companies: tasks, parades, availability, uniform and the roster.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0C1626",
+  "theme_color": "#0C1626",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

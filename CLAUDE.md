@@ -8,6 +8,12 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Pages: Home, Task Master (`#rosterPage`), Parades (`#paradePage`), Cadet Availability, Uniform (CQMS), Cadet Roster (public directory). Phone uses a bottom tab bar (`#phoneNav`) at ≤640px.
 - Cadet profiles open in `#profileModal` (`openCadetProfile(id)`): attendance %, calendar, call-outs.
 
+## App (install + Android)
+- Live at https://pathakabhinav777.github.io/cadetmanagement/ (GitHub Pages from `main`).
+- Installable web app: `manifest.webmanifest`, `sw.js` (network-first for the page, cache for CDN libs, never caches Supabase), `icons/`. The service worker only registers over https/localhost, not in tests (`file://`). Bump `VERSION` in `sw.js` if you change what it precaches.
+- Home page "Get the app" block (`#getApp`, `updateGetApp()`): hidden when running installed or inside the Android app (user agent contains `CadetFlowApp`).
+- Android: `android-app/` is a Capacitor shell that opens the live site, so website changes need no new APK. `.github/workflows/android-app.yml` builds it on changes to `android-app/` (or by hand) and publishes `CadetFlow.apk` on the `android-app` release. Signed with repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` when set (key kept outside the repo).
+
 ## Data (Supabase)
 - Table `cadetflow_state`, single row `id = 1`, column `state` (JSON): `{ cadets, events, history, duties, uniform, parades, activeEventId }`.
 - Saves use optimistic concurrency on `updated_at` plus a three-way merge (`mergeSharedState`, `mergeListById`, `mergePlainList`). Lists of objects must have an `id` so merges work. New top-level keys must be added to: initial state, local load, `applyState`, backup restore, `serializableState`, export, and the `pick` in `mergeSharedState` and `stateEqual`.

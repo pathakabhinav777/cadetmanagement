@@ -1604,3 +1604,52 @@ test('cadet profile: attendance %, calendar colours, call-outs', () => withBrows
   assert.equal(await v.isVisible('#profileModal'), true);
   noErrors(a, v);
 }));
+
+test('installable app: manifest, icons, service worker and the "Get the app" block', () => withBrowser(async browser => {
+  const root = path.resolve(__dirname, '..');
+  // Manifest is valid and every icon it names exists
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(manifest.display, 'standalone');
+  assert.ok(manifest.icons.some(i => i.sizes === '512x512' && i.purpose === 'maskable'));
+  manifest.icons.forEach(i => assert.ok(fs.existsSync(path.join(root, i.src)), `${i.src} exists`));
+  // Service worker parses, and precaches only files that exist
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  new Function(sw.replace(/self\.addEventListener/g, '(()=>{})'));
+  const shell = JSON.parse(sw.match(/const SHELL = (\[[^\]]*\])/)[1].replace(/'/g, '"'));
+  shell.filter(f => f !== './').forEach(f => assert.ok(fs.existsSync(path.join(root, f)), `${f} exists`));
+  // The Android app config points at the live site
+  const cap = JSON.parse(fs.readFileSync(path.join(root, 'android-app', 'capacitor.config.json'), 'utf8'));
+  assert.match(cap.server.url, /^https:\/\/pathakabhinav777\.github\.io\/cadetmanagement\/$/);
+
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  assert.equal(await a.getAttribute('link[rel="manifest"]', 'href'), 'manifest.webmanifest');
+  // In a normal browser the block shows the APK link; no install button until the browser offers one
+  assert.equal(await a.isVisible('#getApp'), true);
+  assert.equal(await a.isVisible('#apkLink'), true);
+  assert.equal(await a.isVisible('#installAppBtn'), false);
+  assert.match(await a.getAttribute('#apkLink', 'href'), /releases\/latest\/download\/CadetFlow\.apk$/);
+  // When the browser offers installation, the button appears and triggers the prompt
+  await run(a, () => {
+    const e = new Event('beforeinstallprompt', { cancelable: true });
+    e.prompt = () => { window.__prompted = true; }; e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(e);
+  });
+  assert.equal(await a.isVisible('#installAppBtn'), true);
+  await a.click('#installAppBtn');
+  assert.equal(await run(a, () => window.__prompted), true);
+  assert.equal(await a.isVisible('#installAppBtn'), false);
+
+  // Inside the Android app (user agent marker) the block is hidden
+  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile CadetFlowApp', viewport: { width: 390, height: 800 } });
+  const p = await ctx.newPage(); p.errors = []; p.on('pageerror', e => p.errors.push(e.message));
+  await p.addInitScript(() => { window.__testUser = null; });
+  await p.exposeFunction('__db', q => db.handle(null, q));
+  await p.route('**/supabase-js@2', r => r.fulfill({ contentType: 'application/javascript', body: STUB }));
+  await p.route(/cdn\.tailwindcss\.com/, r => r.fulfill({ contentType: 'application/javascript', body: TAILWIND_STANDIN }));
+  await p.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '' }));
+  await p.goto(PAGE_URL);
+  await p.waitForFunction(() => typeof app !== 'undefined' && app && app.remoteReady === true);
+  assert.equal(await p.isVisible('#getApp'), false);
+  noErrors(a, p);
+}));
