@@ -165,6 +165,7 @@
     .get-app { margin-top: 2rem; padding: 1rem 1.25rem; border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.5rem; }
     .get-app.hidden { display: none; }
+    #uniOrderItems summary::-webkit-details-marker { display: none; }
     .get-app-title { font-weight: 600; color: var(--ink); }
     .get-app-hint { display: block; margin-top: .2rem; font-size: .85rem; color: var(--muted); }
     .get-app-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
@@ -416,7 +417,7 @@
         </button>
         <button type="button" class="tool-row" style="--i:4" onclick="switchCadetFlowPage('uniform')" aria-label="Open Uniform requests">
           <span class="tool-name">Uniform</span>
-          <span class="tool-desc">Who needs berets, badges, belts and more. Verified seniors make requests; CQMS orders, records the amount, then marks them received.</span>
+          <span class="tool-desc">Berets, hackles, badges and more, collected into one order at a time. CQMS sees exactly what to buy and who it is for.</span>
           <span class="tool-stat" id="homeStatUniform"><b>–</b><small>to order</small></span>
         </button>
       </nav>
@@ -852,14 +853,24 @@
     <section id="uniformPage" class="hidden space-y-4" aria-labelledby="uniformHeading">
       <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-6">
         <p class="text-[10px] uppercase tracking-[.18em] font-black text-amber-400">CQMS</p>
-        <h2 id="uniformHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Uniform requests</h2>
-        <p class="text-sm text-slate-400 mt-1">Who needs which uniform item. Verified seniors add requests; CQMS marks them ordered with the amount, then received when they arrive.</p>
-        <p id="uniformViewOnly" class="hidden mt-3 text-xs text-amber-300">Anyone can see these requests. Only verified seniors can add, update or remove them; sign in if you are one.</p>
+        <h2 id="uniformHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Uniform orders</h2>
+        <p class="text-sm text-slate-400 mt-1">Seniors add what cadets need to the next order. CQMS opens the next order to see exactly what to buy, places it, and marks items received when they arrive.</p>
+        <p id="uniformViewOnly" class="hidden mt-3 text-xs text-amber-300">Anyone can see the orders. Only verified seniors can add, place or change them; sign in if you are one.</p>
       </div>
 
       <div id="uniformContent" class="hidden space-y-4">
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniOrderHeading">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="uniOrderHeading" class="font-extrabold text-white">Order</h3>
+            <select id="uniOrderSelect" onchange="selectUniformOrder(this.value)" aria-label="Which order" class="max-w-full px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"></select>
+          </div>
+          <div id="uniOrderHead"></div>
+          <div id="uniOrderItems" class="border border-slate-800 rounded-xl divide-y divide-slate-800 overflow-hidden"></div>
+          <div id="uniOrderActions" class="flex flex-wrap items-center gap-2"></div>
+        </div>
+
         <div class="uni-edit bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniNewHeading">
-          <h3 id="uniNewHeading" class="font-extrabold text-white">New request</h3>
+          <h3 id="uniNewHeading" class="font-extrabold text-white">Add to the next order</h3>
           <div class="grid lg:grid-cols-2 gap-5">
             <div class="space-y-2 min-w-0">
               <div class="flex items-center justify-between gap-2"><span class="text-xs font-bold text-slate-300">1 · Cadets</span><span id="uniPickCount" class="text-[11px] font-bold text-slate-500">No cadet picked</span></div>
@@ -874,63 +885,24 @@
               <span class="block text-xs font-bold text-slate-300">2 · What they need <span class="font-normal text-slate-500">(tick one or more)</span></span>
               <div id="uniItemChips" class="flex flex-wrap gap-1.5" role="group" aria-label="Items"></div>
               <input type="text" id="uniCustom" maxlength="60" placeholder="What is it? e.g. Cap badge, whistle cord" class="hidden w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+              <div id="uniSizes" class="hidden space-y-1.5">
+                <span class="block text-[11px] font-bold text-slate-400">Beret size for each cadet</span>
+                <div id="uniSizeList" class="grid sm:grid-cols-2 gap-1.5"></div>
+              </div>
               <div class="grid grid-cols-[84px_1fr] gap-2">
                 <label class="text-[11px] font-bold text-slate-400">Quantity
                   <input type="number" id="uniQty" min="1" max="20" value="1" inputmode="numeric" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
                 </label>
-                <label class="text-[11px] font-bold text-slate-400">Size / note <span class="font-normal">(optional)</span>
-                  <input type="text" id="uniNote" maxlength="80" placeholder="e.g. Beret 57 cm, belt 34" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+                <label class="text-[11px] font-bold text-slate-400">Note <span class="font-normal">(optional)</span>
+                  <input type="text" id="uniNote" maxlength="80" placeholder="e.g. lost at camp" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
                 </label>
               </div>
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <p id="uniNewSummary" class="text-[11px] text-slate-500"></p>
-                <button type="button" onclick="createUniformRequests()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Add request</button>
+                <button type="button" onclick="createUniformRequests()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Add to next order</button>
               </div>
             </div>
           </div>
-        </div>
-
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5" aria-labelledby="uniNeedHeading">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 id="uniNeedHeading" class="font-extrabold text-white">What's needed</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Items requested and not yet ordered, by item. Tap one to see who needs it.</p>
-            </div>
-            <button type="button" onclick="copyUniformOrderList()" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy order list (WhatsApp)</button>
-          </div>
-          <div id="uniSummary" class="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2"></div>
-          <div id="uniMoney" class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-400"></div>
-        </div>
-
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniListHeading">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="uniListHeading" class="font-extrabold text-white">Requests <span id="uniCount" class="text-sm font-semibold text-slate-500 font-mono-num"></span></h3>
-            <button type="button" onclick="uniformTickAll()" class="uni-edit text-[11px] font-semibold text-slate-400 hover:text-slate-200 underline underline-offset-2">Tick / untick shown</button>
-          </div>
-          <div id="uniFilters" class="space-y-2">
-            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Status">
-              <button type="button" data-uf="status" data-val="open" onclick="setUniformFilter('status', 'open')" class="af-chip text-xs">Not received</button>
-              <button type="button" data-uf="status" data-val="requested" onclick="setUniformFilter('status', 'requested')" class="af-chip text-xs">Requested</button>
-              <button type="button" data-uf="status" data-val="ordered" onclick="setUniformFilter('status', 'ordered')" class="af-chip text-xs">Ordered</button>
-              <button type="button" data-uf="status" data-val="received" onclick="setUniformFilter('status', 'received')" class="af-chip text-xs">Received</button>
-              <button type="button" data-uf="status" data-val="unpaid" onclick="setUniformFilter('status', 'unpaid')" class="af-chip text-xs">Not paid</button>
-              <button type="button" data-uf="status" data-val="all" onclick="setUniformFilter('status', 'all')" class="af-chip text-xs">All</button>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <input type="search" id="uniSearch" oninput="setUniformFilter('q', this.value)" placeholder="Search cadet…" autocomplete="off" class="flex-1 min-w-[130px] px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-xs focus:outline-none focus:border-amber-500">
-              <select id="uniItemFilter" onchange="setUniformFilter('item', this.value)" aria-label="Item" class="px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"></select>
-              <select id="uniCoyFilter" onchange="setUniformFilter('company', this.value)" aria-label="Company" class="px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs"><option value="all">All companies</option><option>Jessami</option><option>Kohima</option><option>Naushera</option><option>No company</option></select>
-            </div>
-          </div>
-          <div id="uniBulk" class="uni-edit hidden flex flex-wrap items-center gap-2 bg-slate-950 border border-amber-700/40 rounded-xl p-2 text-xs">
-            <span class="text-slate-300"><b id="uniBulkCount" class="font-mono-num">0</b> ticked</span>
-            <button type="button" onclick="uniformBulk('ordered')" class="px-3 py-1.5 font-bold bg-sky-900/40 border border-sky-700/60 text-sky-200 rounded-lg">Mark ordered</button>
-            <button type="button" onclick="uniformBulk('received')" class="px-3 py-1.5 font-bold bg-emerald-900/40 border border-emerald-700/60 text-emerald-200 rounded-lg">Mark received</button>
-            <button type="button" onclick="uniformBulk('paid')" class="px-3 py-1.5 font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-lg">Mark paid</button>
-            <button type="button" onclick="uniformBulk('delete')" class="px-3 py-1.5 font-bold border border-rose-900/60 text-rose-300 rounded-lg">Delete</button>
-            <button type="button" onclick="uniformClearTicks()" class="ml-auto text-[11px] text-slate-400 underline underline-offset-2">Clear</button>
-          </div>
-          <div id="uniList" class="border border-slate-800 rounded-xl divide-y divide-slate-800 overflow-hidden"></div>
         </div>
       </div>
     </section>
@@ -5957,22 +5929,28 @@
           </section>
           <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
             <h4 class="font-extrabold text-white">Uniform requests <span class="text-sm text-slate-500 font-mono-num">${uni.length}</span></h4>
-            ${uni.length ? `<ul class="mt-2 space-y-1">${uni.map(r => `<li class="text-xs text-slate-300">${esc(uniformLabel(r))}${r.qty > 1 ? ' ×' + r.qty : ''} <span class="text-slate-500">· ${esc(r.status)}${r.amount != null ? ' · ' + esc(rupees(r.amount)) + (r.paid ? ' paid' : ' not paid') : ''}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">Nothing waiting.</p>'}
+            ${uni.length ? `<ul class="mt-2 space-y-1">${uni.map(r => `<li class="text-xs text-slate-300">${esc(uniformFullLabel(r))}${r.qty > 1 ? ' ×' + r.qty : ''} <span class="text-slate-500">· ${esc(r.status === 'requested' ? 'in next order' : r.status)}${r.amount != null ? ' · ' + esc(rupees(r.amount)) + (r.paid ? ' paid' : ' not paid') : ''}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">Nothing waiting.</p>'}
           </section>
         </div>`;
       document.getElementById('profileBody').innerHTML = attendance + work + other;
     }
 
-    // ==================== UNIFORM REQUESTS (CQMS) ====================
-    // app.state.uniform: one entry per cadet per item.
-    //   status: requested → ordered (amount recorded) → received; paid tracks the money separately.
+    // ==================== UNIFORM ORDERS (CQMS) ====================
+    // app.state.uniform: one entry per cadet per item:
+    //   { id, cadetId, item, custom?, size? (berets only, each cadet's own), qty, note?,
+    //     status: 'requested' | 'ordered' | 'received', orderId?, requestedAt, requestedBy,
+    //     orderedAt?, orderedBy?, receivedAt?, amount?, paid? (amount/paid only on older entries) }
+    // Everything still 'requested' is the NEXT ORDER. Placing it stamps one orderId on all of
+    // those requests; orders are worked out from these ids, so no separate list is stored.
+    // Totals are grouped by item (and beret size), ready for per-item prices and a bill later.
     const UNIFORM_ITEMS = [
-      { key: 'hackle', label: 'Hackle' }, { key: 'beret', label: 'Beret' }, { key: 'nameplate', label: 'Nameplate' },
+      { key: 'hackle', label: 'Hackle' }, { key: 'beret', label: 'Beret', sized: true }, { key: 'nameplate', label: 'Nameplate' },
       { key: 'ncc-badge', label: 'NCC badge' }, { key: 'camp-badge', label: 'Camp badge' }, { key: 'lanyard', label: 'Lanyard' },
       { key: 'shoelace', label: 'Shoelace' }, { key: 'socks', label: 'Socks' }, { key: 'belt', label: 'Belt' },
       { key: 'custom', label: 'Something else' }
     ];
     const UNIFORM_STATUS = ['requested', 'ordered', 'received'];
+    const uniformSized = item => !!UNIFORM_ITEMS.find(i => i.key === item)?.sized;
     function normalizeUniform(list) {
       if (!Array.isArray(list)) return [];
       const seen = new Set();
@@ -5981,33 +5959,155 @@
         if (!UNIFORM_ITEMS.some(i => i.key === out.item)) { out.custom = String(out.custom || out.item || 'Other item'); out.item = 'custom'; }
         if (out.amount != null && !(Number.isFinite(Number(out.amount)) && Number(out.amount) >= 0)) delete out.amount;
         else if (out.amount != null) out.amount = Number(out.amount);
+        if (uniformSized(out.item) && out.size != null && String(out.size).trim()) out.size = String(out.size).trim().slice(0, 12); else delete out.size;
+        // Placed requests belong to an order. Older ones placed together share their ordered time.
+        if (out.status === 'requested') delete out.orderId;
+        else if (!out.orderId) out.orderId = `order-${out.orderedAt || out.requestedAt || 0}`;
         return out;
       }).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
     }
     function uniformLabel(r) { return r.item === 'custom' ? (String(r.custom || '').trim() || 'Other item') : (UNIFORM_ITEMS.find(i => i.key === r.item)?.label || r.item); }
+    /** Label with the beret size, e.g. "Beret (size 57)". */
+    function uniformFullLabel(r) { return uniformLabel(r) + (r.size ? ` (size ${r.size})` : ''); }
     /** Requests for the same thing group together (custom items by their name). */
     function uniformKey(r) { return r.item === 'custom' ? 'custom:' + uniformLabel(r).toLowerCase() : r.item; }
     function rupees(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
-    const UNI = { status: 'open', item: 'all', company: 'all', q: '', ticked: new Set(), pick: new Set(), items: new Set() };
+    const UNI = { order: 'next', open: new Set(), pick: new Set(), items: new Set(), sizes: {} };
     function uniformRequests() { return (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.uniform)) ? app.state.uniform : []; }
     function uniformCadet(id) { return (typeof app !== 'undefined' && app && app.state ? app.state.cadets : []).find(c => c.id === id) || null; }
     function uniformCadetName(id) { const c = uniformCadet(id); return c ? `${c.rank || 'CDT'} ${c.name}` : 'Removed cadet'; }
+    const uniformCount = list => list.reduce((s, r) => s + (r.qty || 1), 0);
+    const uniPlural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
+    /** Placed orders, newest first, numbered from the first one ever placed. */
+    function uniformOrders() {
+      const map = new Map();
+      uniformRequests().forEach(r => {
+        if (!r.orderId) return;
+        const o = map.get(r.orderId) || { id: r.orderId, placedAt: Infinity, placedBy: '', requests: [] };
+        if ((r.orderedAt || 0) < o.placedAt) { o.placedAt = r.orderedAt || 0; o.placedBy = r.orderedBy || o.placedBy; }
+        o.requests.push(r);
+        map.set(r.orderId, o);
+      });
+      const list = [...map.values()].sort((a, b) => a.placedAt - b.placedAt || a.id.localeCompare(b.id));
+      list.forEach((o, i) => { o.number = i + 1; o.received = o.requests.filter(r => r.status === 'received').length; });
+      return list.reverse();
+    }
+    function uniformNextRequests() { return uniformRequests().filter(r => r.status === 'requested'); }
+    /** The order being looked at: { id: 'next' | orderId, requests, placed?, number?, ... } */
+    function uniformCurrentOrder() {
+      if (UNI.order !== 'next') {
+        const o = uniformOrders().find(x => x.id === UNI.order);
+        if (o) return { ...o, placed: true };
+        UNI.order = 'next';
+      }
+      return { id: 'next', placed: false, requests: uniformNextRequests() };
+    }
+    /** Item totals for a set of requests, in the usual item order; berets split by size. */
+    function uniformGroups(list) {
+      const groups = new Map();
+      list.forEach(r => {
+        const k = uniformKey(r);
+        const g = groups.get(k) || { key: k, label: uniformLabel(r), item: r.item, total: 0, sizes: new Map(), requests: [] };
+        g.total += r.qty || 1;
+        g.requests.push(r);
+        if (uniformSized(r.item)) { const s = r.size || 'Size not given'; g.sizes.set(s, (g.sizes.get(s) || 0) + (r.qty || 1)); }
+        groups.set(k, g);
+      });
+      const rank = g => { const i = UNIFORM_ITEMS.findIndex(x => x.key === g.item); return g.item === 'custom' ? 999 : i; };
+      const bySize = (a, b) => (parseFloat(a) || 1e9) - (parseFloat(b) || 1e9) || String(a).localeCompare(String(b));
+      return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label))
+        .map(g => ({ ...g, sizes: [...g.sizes].sort((a, b) => bySize(a[0], b[0])) }));
+    }
 
     function renderUniformPage() {
       const page = document.getElementById('uniformPage');
       renderUniformHomeStat();
       if (!page || page.classList.contains('hidden') || typeof app === 'undefined' || !app || !app.state) return;
-      // Anyone can see the requests; only verified seniors (approved editors) can add or change them.
+      // Anyone can see the orders; only verified seniors (approved editors) can add or change them.
       document.getElementById('uniformContent').classList.remove('hidden');
       document.getElementById('uniformViewOnly').classList.toggle('hidden', app.canEdit());
       if (app.canEdit()) { renderUniformPicker(); renderUniformItemChips(); }
-      renderUniformSummary();
-      renderUniformList();
+      renderUniformOrder();
     }
     function renderUniformHomeStat() {
       const el = document.getElementById('homeStatUniform'); if (!el) return;
-      const n = uniformRequests().filter(r => r.status === 'requested').length;
+      const n = uniformCount(uniformNextRequests());
       el.innerHTML = `<b>${n}</b><small>${n === 1 ? 'item to order' : 'items to order'}</small>`;
+    }
+
+    // ---- The order view: next order or a placed one
+    function selectUniformOrder(id) { UNI.order = id || 'next'; renderUniformOrder(); }
+    function uniformToggleOpen(el) {
+      const k = `${UNI.order}|${el.dataset.key}`;
+      if (el.open) UNI.open.add(k); else UNI.open.delete(k);
+    }
+    function renderUniformOrder() {
+      const host = document.getElementById('uniOrderItems'); if (!host) return;
+      const orders = uniformOrders();
+      const order = uniformCurrentOrder();
+      const next = uniformNextRequests();
+      const sel = document.getElementById('uniOrderSelect');
+      sel.innerHTML = `<option value="next">Next order · ${uniPlural(uniformCount(next), 'item')}</option>` + orders.map(o =>
+        `<option value="${escapeHtml(o.id)}">Order ${o.number} · ${escapeHtml(app.formatDate(o.placedAt))} · ${o.received === o.requests.length ? 'received' : o.received ? `${o.received} of ${o.requests.length} received` : 'placed'}</option>`).join('');
+      sel.value = order.id;
+
+      const list = order.requests;
+      const cadets = new Set(list.map(r => r.cadetId)).size;
+      const head = document.getElementById('uniOrderHead');
+      if (!order.placed) {
+        head.innerHTML = `<p class="text-sm text-slate-300"><b class="text-white">Next order</b> · ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(cadets, 'cadet')}</p>
+          <p class="text-xs text-slate-500 mt-0.5">Not placed yet. Tap an item to see who needs it.</p>`;
+      } else {
+        const priced = list.filter(r => r.amount != null), total = priced.reduce((s, r) => s + r.amount, 0), paid = priced.filter(r => r.paid).reduce((s, r) => s + r.amount, 0);
+        head.innerHTML = `<p class="text-sm text-slate-300"><b class="text-white">Order ${order.number}</b> · ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(cadets, 'cadet')}</p>
+          <p class="text-xs text-slate-500 mt-0.5">Placed ${escapeHtml(app.formatDate(order.placedAt))}${order.placedBy ? ' by ' + escapeHtml(order.placedBy) : ''} · <span class="${order.received === list.length ? 'text-emerald-300' : 'text-sky-300'}">${order.received === list.length ? 'all received' : `${order.received} of ${list.length} received`}</span>${priced.length ? ` · amounts recorded ${escapeHtml(rupees(total))}, paid ${escapeHtml(rupees(paid))}` : ''}</p>`;
+      }
+
+      const groups = uniformGroups(list);
+      host.innerHTML = groups.length ? groups.map(g => {
+        const open = UNI.open.has(`${order.id}|${g.key}`);
+        const got = g.requests.filter(r => r.status === 'received').length;
+        const sizes = g.sizes.length ? `<span class="block text-[11px] text-slate-400 mt-0.5">${g.sizes.map(([s, n]) => `${escapeHtml(s === 'Size not given' ? s : 'size ' + s)} ×${n}`).join(' · ')}</span>` : '';
+        const people = g.sizes.length
+          ? g.sizes.map(([s]) => `<p class="px-3 pt-2 text-[11px] font-bold text-slate-400">${escapeHtml(s === 'Size not given' ? s : 'Size ' + s)}</p>` + uniformPeople(g.requests.filter(r => (r.size || 'Size not given') === s), order)).join('')
+          : uniformPeople(g.requests, order);
+        return `<details class="group bg-slate-950" data-key="${escapeHtml(g.key)}" ${open ? 'open' : ''} ontoggle="uniformToggleOpen(this)">
+          <summary class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-900 list-none">
+            <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-white">${escapeHtml(g.label)}</span>${sizes}
+              <span class="block text-[11px] text-slate-500">${uniPlural(g.requests.length, 'cadet')}${order.placed ? ` · ${got === g.requests.length ? 'all received' : `${got} of ${g.requests.length} received`}` : ''}</span></span>
+            <b class="text-xl font-black text-amber-400 font-mono-num">${g.total}</b>
+            <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <div class="border-t border-slate-800 bg-slate-900/40 pb-1">${people}</div>
+        </details>`;
+      }).join('') : `<p class="p-6 text-center text-sm text-slate-500">${order.placed ? 'This order has no items.' : 'Nothing in the next order yet. Requests added below show up here.'}</p>`;
+
+      const btn = 'px-3 py-2 text-xs font-bold rounded-xl';
+      const actions = [`<button type="button" onclick="copyUniformOrderList()" class="${btn} bg-emerald-600 hover:bg-emerald-500 text-white" ${list.length ? '' : 'disabled'}>Copy order list (WhatsApp)</button>`];
+      if (!order.placed) actions.push(`<button type="button" onclick="placeUniformOrder()" class="uni-edit ${btn} bg-amber-500 hover:bg-amber-400 text-slate-950" ${list.length ? '' : 'disabled'}>Place order</button>`);
+      else {
+        if (order.received < list.length) actions.push(`<button type="button" onclick="markUniformOrderReceived()" class="uni-edit ${btn} bg-sky-900/40 border border-sky-700/60 text-sky-200">Mark all received</button>`);
+        if (!order.received) actions.push(`<button type="button" onclick="undoUniformOrder()" class="uni-edit ${btn} bg-slate-800 border border-slate-700 text-slate-300">Undo placing</button>`);
+      }
+      document.getElementById('uniOrderActions').innerHTML = actions.join('');
+    }
+    /** Rows of who needs an item, with received / remove controls for editors. */
+    function uniformPeople(list, order) {
+      const btn = 'px-2.5 py-1 text-[11px] font-bold rounded-lg border';
+      return `<ul class="divide-y divide-slate-800/70">${list.slice().sort((a, b) => uniformCadetName(a.cadetId).localeCompare(uniformCadetName(b.cadetId))).map(r => {
+        const c = uniformCadet(r.cadetId), id = escapeHtml(r.id), done = r.status === 'received';
+        const meta = [c ? `${c.company} · ${yearLabel(c.year)}` : '', r.note || '', r.requestedBy ? `asked by ${r.requestedBy}` : ''].filter(Boolean).join(' · ');
+        return `<li class="flex flex-wrap items-center gap-2 px-3 py-2">
+          <span class="min-w-0 flex-1"><span class="block text-sm text-white"><button type="button" class="font-semibold hover:underline text-left" data-cadet="${escapeHtml(r.cadetId)}" onclick="openCadetProfile(this.dataset.cadet)">${escapeHtml(uniformCadetName(r.cadetId))}</button>${r.qty > 1 ? ` <span class="text-slate-400">×${r.qty}</span>` : ''}</span>
+            <span class="block text-[11px] text-slate-500">${escapeHtml(meta)}${r.amount != null ? ` · ${escapeHtml(rupees(r.amount))} ${r.paid ? 'paid' : 'not paid'}` : ''}</span></span>
+          ${order.placed ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${done ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50' : 'bg-sky-900/30 text-sky-300 border-sky-700/50'}">${done ? 'Received' : 'Ordered'}</span>` : ''}
+          <span class="uni-edit contents">
+            ${order.placed ? `<button type="button" data-id="${id}" onclick="setUniformReceived(this.dataset.id, ${!done})" class="${btn} ${done ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-emerald-900/40 border-emerald-700/60 text-emerald-200'}">${done ? 'Not received' : 'Mark received'}</button>` : ''}
+            ${done ? '' : `<button type="button" data-id="${id}" onclick="deleteUniformRequests([this.dataset.id])" class="${btn} border-rose-900/60 text-rose-300">Remove</button>`}
+          </span>
+        </li>`;
+      }).join('')}</ul>`;
     }
 
     // ---- New request: pick cadets and items
@@ -6019,7 +6119,7 @@
       [...UNI.pick].forEach(id => { if (!cadets.some(c => c.id === id)) UNI.pick.delete(id); });
       const list = cadets.filter(c => (coy === 'all' || c.company === coy) && yearMatches(c, year) && (!q || c.name.toLowerCase().includes(q) || (c.rank || '').toLowerCase().includes(q)));
       host.innerHTML = list.length ? list.map(c => {
-        const open = uniformRequests().filter(r => r.cadetId === c.id && r.status !== 'received').map(uniformLabel);
+        const open = uniformRequests().filter(r => r.cadetId === c.id && r.status !== 'received').map(uniformFullLabel);
         return `<label class="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-900 ${UNI.pick.has(c.id) ? 'bg-amber-950/20' : ''}">
           <input type="checkbox" class="cadet-cb shrink-0" value="${escapeHtml(c.id)}" ${UNI.pick.has(c.id) ? 'checked' : ''} onchange="toggleUniformCadet(this.value, this.checked, this)">
           <span class="min-w-0 flex-1"><span class="block text-sm font-semibold text-white truncate">${escapeHtml(c.rank || 'CDT')} ${escapeHtml(c.name)}</span>
@@ -6044,12 +6144,34 @@
       renderUniformItemChips();
       if (key === 'custom' && UNI.items.has('custom')) document.getElementById('uniCustom').focus();
     }
+    /** The size on this cadet's most recent beret request, to fill in for them. */
+    function lastUniformSize(cadetId, item) {
+      return uniformRequests().find(r => r.cadetId === cadetId && r.item === item && r.size)?.size || '';
+    }
+    /** One size box per picked cadet while a sized item (beret) is ticked. */
+    function renderUniformSizes() {
+      const box = document.getElementById('uniSizes'); if (!box) return;
+      const sized = UNIFORM_ITEMS.filter(i => i.sized && UNI.items.has(i.key));
+      const cadets = app.state.cadets.filter(c => UNI.pick.has(c.id));
+      box.classList.toggle('hidden', !sized.length || !cadets.length);
+      if (!sized.length || !cadets.length) return;
+      const list = document.getElementById('uniSizeList');
+      // Keep what was typed; fill new cadets from their last beret.
+      cadets.forEach(c => { if (UNI.sizes[c.id] == null) UNI.sizes[c.id] = lastUniformSize(c.id, 'beret'); });
+      const shown = [...list.querySelectorAll('input')].map(i => i.dataset.cadet).join(',');
+      if (shown === cadets.map(c => c.id).join(',')) return; // nothing changed: don't disturb typing
+      list.innerHTML = cadets.map(c => `<label class="flex items-center gap-2 px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300">
+          <span class="min-w-0 flex-1 truncate">${escapeHtml(c.rank || 'CDT')} ${escapeHtml(c.name)}</span>
+          <input type="text" data-cadet="${escapeHtml(c.id)}" value="${escapeHtml(UNI.sizes[c.id])}" maxlength="12" placeholder="e.g. 57" aria-label="Beret size for ${escapeHtml(c.name)}" oninput="UNI.sizes[this.dataset.cadet] = this.value" class="w-20 px-2 py-1 bg-slate-900 border border-slate-700 text-white rounded-md text-xs focus:outline-none focus:border-amber-500">
+        </label>`).join('');
+    }
     function updateUniformNewSummary() {
       const n = UNI.pick.size, k = UNI.items.size;
       const count = document.getElementById('uniPickCount');
       if (count) { count.textContent = n ? `${n} cadet${n === 1 ? '' : 's'} picked` : 'No cadet picked'; count.className = `text-[11px] font-bold ${n ? 'text-amber-400' : 'text-slate-500'}`; }
       const sum = document.getElementById('uniNewSummary');
-      if (sum) sum.textContent = n && k ? `${n * k} request${n * k === 1 ? '' : 's'} will be added.` : 'Pick cadets and items.';
+      if (sum) sum.textContent = n && k ? `${n * k} request${n * k === 1 ? '' : 's'} will be added to the next order.` : 'Pick cadets and items.';
+      renderUniformSizes();
     }
     function createUniformRequests() {
       if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can make uniform requests.'); return; }
@@ -6062,11 +6184,19 @@
       if (!items.length) { app.showToast('Pick at least one item.'); return; }
       if (items.includes('custom') && !custom) { app.showToast('Write what the other item is.'); document.getElementById('uniCustom').focus(); return; }
       if (!(qty >= 1 && qty <= 20)) { app.showToast('Quantity must be between 1 and 20.'); return; }
+      if (items.some(uniformSized)) {
+        const missing = cadets.find(c => !String(UNI.sizes[c.id] || '').trim());
+        if (missing) {
+          app.showToast(`Enter the beret size for ${missing.rank || 'CDT'} ${missing.name}.`);
+          document.querySelector(`#uniSizeList input[data-cadet="${CSS.escape(missing.id)}"]`)?.focus();
+          return;
+        }
+      }
       if (!Array.isArray(app.state.uniform)) app.state.uniform = [];
       const now = Date.now(), by = app.authorName();
       let added = 0, skipped = 0;
       cadets.forEach(c => items.forEach(item => {
-        const draft = { item, ...(item === 'custom' ? { custom } : {}) };
+        const draft = { item, ...(item === 'custom' ? { custom } : {}), ...(uniformSized(item) ? { size: String(UNI.sizes[c.id]).trim().slice(0, 12) } : {}) };
         // Don't ask twice for something the cadet is still waiting for.
         if (app.state.uniform.some(r => r.cadetId === c.id && r.status !== 'received' && uniformKey(r) === uniformKey(draft))) { skipped++; return; }
         app.state.uniform.unshift({ id: `uni-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`, cadetId: c.id, ...draft, qty, ...(note ? { note } : {}), status: 'requested', requestedAt: now, requestedBy: by });
@@ -6076,212 +6206,79 @@
         app.logHistory('uniform-requested', null, `Uniform request: ${items.map(k => k === 'custom' ? custom : UNIFORM_ITEMS.find(i => i.key === k).label).join(', ')} for ${cadets.length} cadet(s)`);
         app.saveStorage();
       }
-      UNI.pick.clear(); UNI.items.clear();
+      UNI.pick.clear(); UNI.items.clear(); UNI.sizes = {};
       document.getElementById('uniCustom').value = ''; document.getElementById('uniNote').value = ''; document.getElementById('uniQty').value = '1';
+      UNI.order = 'next';
       renderUniformPage();
-      app.showToast(added ? `Added ${added} request${added === 1 ? '' : 's'}${skipped ? ` (${skipped} already waiting, skipped)` : ''}.` : 'Those cadets are already waiting for those items.');
+      app.showToast(added ? `Added ${added} request${added === 1 ? '' : 's'} to the next order${skipped ? ` (${skipped} already waiting, skipped)` : ''}.` : 'Those cadets are already waiting for those items.');
     }
 
-    // ---- What's needed + money
-    function renderUniformSummary() {
-      const host = document.getElementById('uniSummary'); if (!host) return;
-      const groups = new Map();
-      uniformRequests().forEach(r => {
-        if (r.status === 'received') return;
-        const k = uniformKey(r);
-        const g = groups.get(k) || { key: k, label: uniformLabel(r), requested: 0, ordered: 0, people: 0 };
-        if (r.status === 'requested') { g.requested += r.qty || 1; g.people++; } else g.ordered += r.qty || 1;
-        groups.set(k, g);
-      });
-      const list = [...groups.values()].sort((a, b) => b.requested - a.requested || a.label.localeCompare(b.label));
-      host.innerHTML = list.length ? list.map(g => `<button type="button" data-key="${escapeHtml(g.key)}" onclick="setUniformFilter('item', UNI.item === this.dataset.key ? 'all' : this.dataset.key)" class="text-left rounded-xl border ${UNI.item === g.key ? 'border-amber-500' : 'border-slate-800'} bg-slate-950 p-3 hover:border-amber-600/70">
-          <span class="block text-xs font-bold text-slate-300 truncate">${escapeHtml(g.label)}</span>
-          <span class="block mt-1"><b class="text-xl font-black ${g.requested ? 'text-amber-400' : 'text-slate-500'} font-mono-num">${g.requested}</b> <span class="text-[11px] text-slate-500">to order${g.requested ? ` · ${g.people} cadet${g.people === 1 ? '' : 's'}` : ''}</span></span>
-          ${g.ordered ? `<span class="block text-[11px] text-sky-300 mt-0.5">${g.ordered} ordered, not received</span>` : ''}
-        </button>`).join('') : '<p class="col-span-full text-sm text-slate-500">Nothing waiting. New requests show up here.</p>';
-      const priced = uniformRequests().filter(r => r.amount != null);
-      const total = priced.reduce((s, r) => s + r.amount, 0), paid = priced.filter(r => r.paid).reduce((s, r) => s + r.amount, 0);
-      const noAmount = uniformRequests().filter(r => r.status !== 'requested' && r.amount == null).length;
-      document.getElementById('uniMoney').innerHTML = `<span>Ordered value <b class="text-slate-200">${rupees(total)}</b></span><span>Paid <b class="text-emerald-300">${rupees(paid)}</b></span><span>Still to collect <b class="${total - paid > 0 ? 'text-rose-300' : 'text-slate-200'}">${rupees(total - paid)}</b></span>${noAmount ? `<span class="text-amber-300">${noAmount} ordered without an amount</span>` : ''}`;
-    }
-
-    // ---- Request list
-    function setUniformFilter(key, value) {
-      UNI[key] = value;
-      if (key === 'item' || key === 'status' || key === 'company') renderUniformSummary();
-      renderUniformList();
-    }
-    function uniformShown() {
-      const q = UNI.q.toLowerCase().trim();
-      return uniformRequests().filter(r => {
-        const c = uniformCadet(r.cadetId);
-        if (UNI.status === 'open' && r.status === 'received') return false;
-        if (['requested', 'ordered', 'received'].includes(UNI.status) && r.status !== UNI.status) return false;
-        if (UNI.status === 'unpaid' && !(r.amount != null && !r.paid)) return false;
-        if (UNI.item !== 'all' && uniformKey(r) !== UNI.item) return false;
-        if (UNI.company !== 'all' && c?.company !== UNI.company) return false;
-        if (q && !uniformCadetName(r.cadetId).toLowerCase().includes(q) && !uniformLabel(r).toLowerCase().includes(q)) return false;
-        return true;
-      });
-    }
-    function renderUniformList() {
-      const host = document.getElementById('uniList'); if (!host) return;
-      document.querySelectorAll('#uniFilters .af-chip').forEach(b => b.setAttribute('aria-pressed', String(UNI[b.dataset.uf] === b.dataset.val)));
-      // Item filter options: everything that has been requested
-      const sel = document.getElementById('uniItemFilter');
-      const keys = new Map(uniformRequests().map(r => [uniformKey(r), uniformLabel(r)]));
-      if (UNI.item !== 'all' && !keys.has(UNI.item)) UNI.item = 'all';
-      sel.innerHTML = '<option value="all">All items</option>' + [...keys].sort((a, b) => a[1].localeCompare(b[1])).map(([k, l]) => `<option value="${escapeHtml(k)}">${escapeHtml(l)}</option>`).join('');
-      sel.value = UNI.item;
-      document.getElementById('uniCoyFilter').value = UNI.company;
-      const ids = new Set(uniformRequests().map(r => r.id));
-      [...UNI.ticked].forEach(id => { if (!ids.has(id)) UNI.ticked.delete(id); });
-      const shown = uniformShown();
-      document.getElementById('uniCount').textContent = shown.length === uniformRequests().length ? uniformRequests().length : `${shown.length} of ${uniformRequests().length}`;
-      const pill = { requested: 'bg-amber-900/30 text-amber-300 border-amber-700/50', ordered: 'bg-sky-900/30 text-sky-300 border-sky-700/50', received: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50' };
-      const btn = 'px-2.5 py-1 text-[11px] font-bold rounded-lg border';
-      host.innerHTML = shown.length ? shown.map(r => {
-        const c = uniformCadet(r.cadetId), id = escapeHtml(r.id);
-        const trail = [`requested ${app.formatDate(r.requestedAt)}${r.requestedBy ? ' by ' + r.requestedBy : ''}`];
-        if (r.orderedAt) trail.push(`ordered ${app.formatDate(r.orderedAt)}`);
-        if (r.receivedAt) trail.push(`received ${app.formatDate(r.receivedAt)}`);
-        const next = r.status === 'requested' ? `<button type="button" onclick="markUniformOrdered(['${id}'])" class="${btn} bg-sky-900/40 border-sky-700/60 text-sky-200">Mark ordered</button>`
-          : r.status === 'ordered' ? `<button type="button" onclick="markUniformReceived(['${id}'])" class="${btn} bg-emerald-900/40 border-emerald-700/60 text-emerald-200">Mark received</button>` : '';
-        return `<div class="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 ${UNI.ticked.has(r.id) ? 'bg-amber-950/20' : ''}">
-          <div class="flex items-start gap-2.5 min-w-0 flex-1">
-            <input type="checkbox" class="uni-edit cadet-cb mt-0.5 shrink-0" ${UNI.ticked.has(r.id) ? 'checked' : ''} onchange="toggleUniformTick('${id}', this.checked)" aria-label="Tick request">
-            <div class="min-w-0">
-              <p class="text-sm text-white"><b class="font-bold">${escapeHtml(uniformLabel(r))}</b>${r.qty > 1 ? ` <span class="text-slate-400">×${r.qty}</span>` : ''} <span class="text-slate-500">·</span> <span class="font-semibold">${escapeHtml(uniformCadetName(r.cadetId))}</span></p>
-              <p class="text-[11px] text-slate-500">${c ? `${escapeHtml(c.company)} · ${escapeHtml(yearLabel(c.year))} · ` : ''}${r.note ? `<span class="text-slate-300">${escapeHtml(r.note)}</span> · ` : ''}${escapeHtml(trail.join(' · '))}</p>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 sm:justify-end pl-7 sm:pl-0">
-            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${pill[r.status]}">${r.status[0].toUpperCase() + r.status.slice(1)}</span>
-            ${r.amount != null ? `<button type="button" onclick="toggleUniformPaid('${id}')" class="${btn} ${r.paid ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-rose-950/30 border-rose-800/60 text-rose-300'}" title="Click to change">${rupees(r.amount)} · ${r.paid ? 'paid' : 'not paid'}</button>` : ''}
-            <span class="uni-edit contents">
-              ${next}
-              ${r.status !== 'requested' ? `<button type="button" onclick="setUniformAmount('${id}')" class="${btn} bg-slate-800 border-slate-700 text-slate-300">${r.amount != null ? 'Amount' : 'Add amount'}</button>` : ''}
-              ${r.status !== 'requested' ? `<button type="button" onclick="undoUniformStep('${id}')" class="${btn} bg-slate-900 border-slate-800 text-slate-400" title="Move back one step">Undo</button>` : ''}
-              <button type="button" onclick="deleteUniformRequests(['${id}'])" class="${btn} border-rose-900/60 text-rose-300" aria-label="Delete request">Delete</button>
-            </span>
-          </div>
-        </div>`;
-      }).join('') : `<p class="p-6 text-center text-sm text-slate-500">${uniformRequests().length ? 'No requests match these filters.' : 'No uniform requests yet.'}</p>`;
-      document.getElementById('uniBulk').classList.toggle('hidden', !UNI.ticked.size);
-      document.getElementById('uniBulkCount').textContent = UNI.ticked.size;
-    }
-    function toggleUniformTick(id, on) { if (on) UNI.ticked.add(id); else UNI.ticked.delete(id); renderUniformList(); }
-    function uniformTickAll() {
-      const ids = uniformShown().map(r => r.id);
-      const all = ids.length && ids.every(id => UNI.ticked.has(id));
-      ids.forEach(id => all ? UNI.ticked.delete(id) : UNI.ticked.add(id));
-      renderUniformList();
-    }
-    function uniformClearTicks() { UNI.ticked.clear(); renderUniformList(); }
-
-    // ---- Status changes (editors only)
+    // ---- Placing and receiving (editors only)
     function uniformFind(ids) { return uniformRequests().filter(r => ids.includes(r.id)); }
     function uniformSave(action, details) {
       app.logHistory(action, null, details);
       app.saveStorage();
       renderUniformPage();
     }
-    /** Ask for an amount in rupees. Returns undefined when cancelled, null for "no amount", or a number. */
-    function askAmount(message, current) {
-      const raw = prompt(message, current != null ? String(current) : '');
-      if (raw === null) return undefined;
-      const t = raw.replace(/[₹,\s]/g, '');
-      if (!t) return null;
-      const n = Number(t);
-      if (!Number.isFinite(n) || n < 0) { app.showToast('Enter the amount as a number, e.g. 350'); return undefined; }
-      return Math.round(n * 100) / 100;
+    function placeUniformOrder() {
+      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can place orders.'); return; }
+      const list = uniformNextRequests();
+      if (!list.length) { app.showToast('Nothing in the next order.'); return; }
+      if (!confirm(`Place this order? ${uniPlural(uniformCount(list), 'item')} for ${uniPlural(new Set(list.map(r => r.cadetId)).size, 'cadet')}.\n\nRequests added after this go into the next order.`)) return;
+      const now = Date.now(), by = app.authorName(), id = `order-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      list.forEach(r => { r.status = 'ordered'; r.orderId = id; r.orderedAt = now; r.orderedBy = by; });
+      UNI.order = id;
+      const n = uniformOrders().find(o => o.id === id)?.number;
+      uniformSave('uniform-ordered', `Uniform order ${n} placed: ${uniformGroups(list).map(g => `${g.label} ${g.total}`).join(', ')}`);
+      app.showToast(`Order ${n} placed.`);
     }
-    function markUniformOrdered(ids) {
-      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can update requests.'); return; }
-      const list = uniformFind(ids).filter(r => r.status === 'requested');
-      if (!list.length) { app.showToast('Nothing to mark ordered (already ordered or received).'); return; }
-      const amount = askAmount(list.length === 1
-        ? `Amount for ${uniformLabel(list[0])}${list[0].qty > 1 ? ' ×' + list[0].qty : ''} for ${uniformCadetName(list[0].cadetId)} (₹).\nLeave blank to add it later.`
-        : `Amount for EACH of the ${list.length} requests (₹).\nLeave blank to add amounts later.`);
-      if (amount === undefined) return;
-      const now = Date.now();
-      list.forEach(r => { r.status = 'ordered'; r.orderedAt = now; r.orderedBy = app.authorName(); if (amount != null) r.amount = amount; });
-      UNI.ticked.clear();
-      uniformSave('uniform-ordered', `Uniform ordered: ${list.length === 1 ? `${uniformLabel(list[0])} for ${uniformCadetName(list[0].cadetId)}` : `${list.length} requests`}${amount != null ? ` (${rupees(amount)} each)` : ''}`);
-      app.showToast(`Marked ${list.length} ordered.`);
-    }
-    function markUniformReceived(ids) {
-      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can update requests.'); return; }
-      const list = uniformFind(ids).filter(r => r.status !== 'received');
-      if (!list.length) { app.showToast('Already received.'); return; }
-      const notOrdered = list.filter(r => r.status === 'requested').length;
-      if (notOrdered && !confirm(`${notOrdered} of these were never marked ordered. Mark them received anyway?`)) return;
-      const now = Date.now();
-      list.forEach(r => { if (!r.orderedAt) r.orderedAt = now; r.status = 'received'; r.receivedAt = now; });
-      UNI.ticked.clear();
-      uniformSave('uniform-received', `Uniform received: ${list.length === 1 ? `${uniformLabel(list[0])} for ${uniformCadetName(list[0].cadetId)}` : `${list.length} requests`}`);
-      app.showToast(`Marked ${list.length} received.`);
-    }
-    function setUniformAmount(id) {
-      if (!app.canEdit()) return;
-      const r = uniformFind([id])[0]; if (!r) return;
-      const amount = askAmount(`Amount for ${uniformLabel(r)}${r.qty > 1 ? ' ×' + r.qty : ''} for ${uniformCadetName(r.cadetId)} (₹). Leave blank to remove it.`, r.amount);
-      if (amount === undefined) return;
-      if (amount == null) { delete r.amount; delete r.paid; } else r.amount = amount;
-      uniformSave('uniform-amount', `Uniform amount: ${uniformLabel(r)} for ${uniformCadetName(r.cadetId)} → ${amount == null ? 'none' : rupees(amount)}`);
-    }
-    function toggleUniformPaid(id) {
-      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can update payments.'); return; }
-      const r = uniformFind([id])[0]; if (!r || r.amount == null) return;
-      r.paid = !r.paid;
-      uniformSave('uniform-paid', `Uniform ${r.paid ? 'paid' : 'marked not paid'}: ${uniformLabel(r)} for ${uniformCadetName(r.cadetId)} (${rupees(r.amount)})`);
-    }
-    function undoUniformStep(id) {
-      if (!app.canEdit()) return;
+    function setUniformReceived(id, on) {
+      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can update orders.'); return; }
       const r = uniformFind([id])[0]; if (!r || r.status === 'requested') return;
-      const back = r.status === 'received' ? 'ordered' : 'requested';
-      if (!confirm(`Move ${uniformLabel(r)} for ${uniformCadetName(r.cadetId)} back to “${back}”?${back === 'requested' && r.amount != null ? ' Its amount stays recorded.' : ''}`)) return;
-      r.status = back;
-      if (back === 'ordered') delete r.receivedAt; else delete r.orderedAt;
-      uniformSave('uniform-undo', `Uniform request moved back to ${back}: ${uniformLabel(r)} for ${uniformCadetName(r.cadetId)}`);
+      if (on) { r.status = 'received'; r.receivedAt = Date.now(); } else { r.status = 'ordered'; delete r.receivedAt; }
+      uniformSave('uniform-received', `Uniform ${on ? 'received' : 'marked not received'}: ${uniformFullLabel(r)} for ${uniformCadetName(r.cadetId)}`);
+    }
+    function markUniformOrderReceived() {
+      if (!app.canEdit()) { app.showToast('Only approved CadetFlow editors can update orders.'); return; }
+      const order = uniformCurrentOrder(); if (!order.placed) return;
+      const list = order.requests.filter(r => r.status !== 'received');
+      if (!list.length) return;
+      if (!confirm(`Mark all ${list.length} remaining item(s) in order ${order.number} as received?`)) return;
+      const now = Date.now();
+      list.forEach(r => { r.status = 'received'; r.receivedAt = now; });
+      uniformSave('uniform-received', `Uniform order ${order.number} received (${list.length} request(s))`);
+      app.showToast(`Order ${order.number} received.`);
+    }
+    function undoUniformOrder() {
+      if (!app.canEdit()) return;
+      const order = uniformCurrentOrder(); if (!order.placed) return;
+      if (order.received) { app.showToast('Some items in this order were already received.'); return; }
+      if (!confirm(`Undo placing order ${order.number}? Its ${uniPlural(order.requests.length, 'request')} go back into the next order.`)) return;
+      order.requests.forEach(r => { r.status = 'requested'; delete r.orderId; delete r.orderedAt; delete r.orderedBy; });
+      UNI.order = 'next';
+      uniformSave('uniform-undo', `Uniform order ${order.number} moved back to the next order`);
     }
     function deleteUniformRequests(ids) {
       if (!app.canEdit()) return;
       const list = uniformFind(ids); if (!list.length) return;
-      if (!confirm(list.length === 1 ? `Delete the request for ${uniformLabel(list[0])} (${uniformCadetName(list[0].cadetId)})?` : `Delete ${list.length} requests?`)) return;
+      if (!confirm(list.length === 1 ? `Remove ${uniformFullLabel(list[0])} for ${uniformCadetName(list[0].cadetId)}?` : `Remove ${list.length} requests?`)) return;
       const gone = new Set(list.map(r => r.id));
       app.state.uniform = uniformRequests().filter(r => !gone.has(r.id));
-      list.forEach(r => UNI.ticked.delete(r.id));
-      uniformSave('uniform-deleted', `Deleted ${list.length} uniform request(s)`);
+      uniformSave('uniform-deleted', list.length === 1 ? `Removed uniform request: ${uniformFullLabel(list[0])} for ${uniformCadetName(list[0].cadetId)}` : `Removed ${list.length} uniform requests`);
     }
-    function uniformBulk(action) {
-      const ids = [...UNI.ticked];
-      if (!ids.length) return;
-      if (action === 'ordered') markUniformOrdered(ids);
-      else if (action === 'received') markUniformReceived(ids);
-      else if (action === 'delete') deleteUniformRequests(ids);
-      else if (action === 'paid') {
-        if (!app.canEdit()) return;
-        const list = uniformFind(ids).filter(r => r.amount != null && !r.paid);
-        if (!list.length) { app.showToast('None of these have an unpaid amount.'); return; }
-        list.forEach(r => { r.paid = true; });
-        UNI.ticked.clear();
-        uniformSave('uniform-paid', `Uniform marked paid: ${list.length} requests`);
-        app.showToast(`Marked ${list.length} paid.`);
-      }
-    }
-    /** WhatsApp text of everything requested and not yet ordered, item by item. */
+    /** WhatsApp text for the order being viewed: totals to buy first, then who needs what. */
     function copyUniformOrderList() {
-      const groups = new Map();
-      uniformRequests().filter(r => r.status === 'requested').forEach(r => { const k = uniformKey(r); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
-      if (!groups.size) { app.showToast('Nothing waiting to be ordered.'); return; }
-      let msg = '*Uniform order list*\n';
-      [...groups.values()].sort((a, b) => uniformLabel(a[0]).localeCompare(uniformLabel(b[0]))).forEach(list => {
-        const total = list.reduce((s, r) => s + (r.qty || 1), 0);
-        msg += `\n*${uniformLabel(list[0])}* – ${total}\n`;
-        list.forEach((r, i) => { const c = uniformCadet(r.cadetId); msg += `${i + 1}. ${uniformCadetName(r.cadetId)}${c ? ` (${c.company})` : ''}${r.qty > 1 ? ` ×${r.qty}` : ''}${r.note ? ` – ${r.note}` : ''}\n`; });
+      const order = uniformCurrentOrder();
+      const groups = uniformGroups(order.requests);
+      if (!groups.length) { app.showToast('Nothing in this order.'); return; }
+      let msg = order.placed ? `*Uniform order ${order.number}* (placed ${app.formatDate(order.placedAt)})\n` : '*Uniform order* (to place)\n';
+      groups.forEach(g => { msg += `\n${g.label} – ${g.total}${g.sizes.length ? ` (${g.sizes.map(([s, n]) => `${s === 'Size not given' ? 'no size' : 'size ' + s} ×${n}`).join(', ')})` : ''}`; });
+      msg += '\n\n*Who needs what*\n';
+      groups.forEach(g => {
+        msg += `\n*${g.label}*\n`;
+        g.requests.forEach((r, i) => { const c = uniformCadet(r.cadetId); msg += `${i + 1}. ${uniformCadetName(r.cadetId)}${c ? ` (${c.company})` : ''}${r.size ? ` – size ${r.size}` : ''}${r.qty > 1 ? ` ×${r.qty}` : ''}${r.note ? ` – ${r.note}` : ''}\n`; });
       });
-      app.copyToClipboard(msg, `Copied order list (${groups.size} item${groups.size === 1 ? '' : 's'})`);
+      app.copyToClipboard(msg, `Copied order list (${uniPlural(groups.length, 'item')})`);
     }
     function renderHomeStats() {
       const cadets = (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) ? app.state.cadets : [];

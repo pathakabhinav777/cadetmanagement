@@ -1194,78 +1194,112 @@ test('group tasks: one mark for everyone (normal task) or one mark per team (spe
   noErrors(a);
 }));
 
-test('uniform requests: request, order with amount, paid, received; anyone can view, editors change', () => withBrowser(async browser => {
+test('uniform orders: next order totals, beret sizes, who needs it, place and receive; anyone can view', () => withBrowser(async browser => {
   const db = makeDb();
   db.roles['user-c'] = null; // signed in, not an editor
   const a = await openAs(browser, db, 'user-a');
   await run(a, () => switchCadetFlowPage('uniform'));
   assert.equal(await a.isVisible('#uniformContent'), true);
-  // Request a beret and a custom item for two cadets
-  await run(a, () => {
-    toggleUniformCadet('cadet-1', true); toggleUniformCadet('cadet-2', true);
-    toggleUniformItem('beret'); toggleUniformItem('custom');
-    document.getElementById('uniCustom').value = 'Whistle cord';
-    document.getElementById('uniNote').value = 'Size 57';
+  const req = (cadets, items, sizes = {}, extra = {}) => run(a, ({ cadets, items, sizes, extra }) => {
+    cadets.forEach(id => toggleUniformCadet(id, true));
+    items.forEach(k => toggleUniformItem(k));
+    Object.entries(sizes).forEach(([id, s]) => { const el = document.querySelector(`#uniSizeList input[data-cadet="${id}"]`); el.value = s; el.dispatchEvent(new Event('input')); });
+    if (extra.custom) document.getElementById('uniCustom').value = extra.custom;
+    if (extra.qty) document.getElementById('uniQty').value = extra.qty;
     createUniformRequests();
+  }, { cadets, items, sizes, extra });
+
+  // Each beret needs that cadet's size
+  await req(['cadet-1', 'cadet-2'], ['beret', 'hackle'], { 'cadet-1': '57' });
+  assert.equal(await run(a, () => app.state.uniform.length), 0, 'refused: cadet-2 has no beret size');
+  await run(a, () => document.querySelector('#uniSizeList input[data-cadet="cadet-2"]').value = '58');
+  await run(a, () => { UNI.sizes['cadet-2'] = '58'; createUniformRequests(); });
+  await req(['cadet-3'], ['beret', 'custom'], { 'cadet-3': '57' }, { custom: 'Whistle cord', qty: 2 });
+  await flush(a);
+  assert.equal(db.row.state.uniform.length, 6);
+  assert.deepEqual(db.row.state.uniform.filter(r => r.item === 'beret').map(r => r.size).sort(), ['57', '57', '58']);
+  assert.ok(db.row.state.uniform.filter(r => r.item !== 'beret').every(r => r.size === undefined), 'only berets have sizes');
+
+  // Next order: totals per item, berets split by size
+  const items = await a.textContent('#uniOrderItems');
+  assert.match(items, /Hackle[\s\S]*2 cadets\s*2/);
+  assert.match(items, /Beret\s*size 57 ×3 · size 58 ×1/, 'cadet-3 asked for 2 berets');
+  assert.match(items, /Whistle cord[\s\S]*1 cadet\s*2/);
+  // Tap an item: who needs it, berets grouped by size
+  await a.click('#uniOrderItems details[data-key="beret"] summary');
+  const beret = await a.textContent('#uniOrderItems details[data-key="beret"] > div');
+  assert.match(beret, /Size 57[\s\S]*Size 58/);
+  assert.equal(await a.locator('#uniOrderItems details[data-key="beret"] li').count(), 3);
+  assert.equal(await a.locator('#uniOrderItems details[data-key="hackle"] li').first().isVisible(), false, 'other items stay closed');
+  const copy = () => run(a, () => { let out; app.copyToClipboard = t => { out = t; }; copyUniformOrderList(); return out; });
+  assert.match(await copy(), /Beret – 4 \(size 57 ×3, size 58 ×1\)/);
+  assert.match(await copy(), /Hackle – 2/);
+
+  // Place the order: it becomes Order 1 and the next order starts empty
+  await run(a, () => placeUniformOrder());
+  await flush(a);
+  const ids = new Set(db.row.state.uniform.map(r => r.orderId));
+  assert.equal(ids.size, 1); assert.ok(db.row.state.uniform.every(r => r.status === 'ordered'));
+  assert.match(await a.textContent('#uniOrderHead'), /Order 1/);
+  await run(a, () => selectUniformOrder('next'));
+  assert.match(await a.textContent('#uniOrderItems'), /Nothing in the next order/);
+  // New requests go into the next order only; old ones are not mixed in
+  await req(['cadet-4'], ['hackle']);
+  assert.equal(await a.locator('#uniOrderItems details').count(), 1);
+  assert.match(await a.textContent('#uniOrderHead'), /1 item for 1 cadet/);
+  // A cadet's beret size is filled in from last time
+  await run(a, () => { toggleUniformCadet('cadet-1', true); toggleUniformItem('beret'); });
+  assert.equal(await a.inputValue('#uniSizeList input[data-cadet="cadet-1"]'), '57');
+  await run(a, () => { toggleUniformCadet('cadet-1', false); toggleUniformItem('beret'); });
+
+  // Receive items in order 1, one at a time and then the rest
+  const order1 = [...ids][0];
+  await run(a, id => selectUniformOrder(id), order1);
+  const one = db.row.state.uniform.find(r => r.item === 'hackle' && r.cadetId === 'cadet-1').id;
+  await run(a, id => setUniformReceived(id, true), one);
+  assert.match(await a.textContent('#uniOrderHead'), /1 of 6 received/);
+  assert.equal(await a.isVisible('#uniOrderActions button:has-text("Undo placing")'), false, 'cannot undo once something arrived');
+  await run(a, () => markUniformOrderReceived());
+  await flush(a);
+  assert.equal(db.row.state.uniform.filter(r => r.orderId === order1 && r.status === 'received').length, 6);
+  assert.match(await a.textContent('#uniOrderSelect'), /Order 1 · .* · received/);
+
+  // Place and undo order 2
+  await run(a, () => { selectUniformOrder('next'); placeUniformOrder(); });
+  assert.match(await a.textContent('#uniOrderHead'), /Order 2/);
+  await run(a, () => undoUniformOrder());
+  assert.equal(await run(a, () => uniformNextRequests().length), 1);
+
+  // Older requests that were ordered before orders existed are grouped by when they were ordered
+  await run(a, () => {
+    app.state.uniform = normalizeUniform([...app.state.uniform,
+      { id: 'old-1', cadetId: 'cadet-5', item: 'belt', qty: 1, status: 'ordered', requestedAt: 1, orderedAt: 1000, amount: 300 },
+      { id: 'old-2', cadetId: 'cadet-6', item: 'belt', qty: 1, status: 'received', requestedAt: 1, orderedAt: 1000 }]);
+    renderUniformPage();
   });
-  await flush(a);
-  assert.equal(db.row.state.uniform.length, 4);
-  assert.ok(db.row.state.uniform.every(r => r.status === 'requested' && r.note === 'Size 57' && r.requestedBy === 'user-a'));
-  // Asking again for something still waiting is skipped
-  await run(a, () => { toggleUniformCadet('cadet-1', true); toggleUniformItem('beret'); createUniformRequests(); });
-  await flush(a);
-  assert.equal(db.row.state.uniform.length, 4);
-  assert.match(await a.textContent('#uniSummary'), /Beret\s*2\s*to order/);
-  const order = await run(a, () => { let out; app.copyToClipboard = t => { out = t; }; copyUniformOrderList(); return out; });
-  assert.match(order, /\*Beret\* – 2/); assert.match(order, /\*Whistle cord\* – 2/);
+  assert.equal(await run(a, () => uniformOrders().length), 2);
+  assert.equal(await run(a, () => uniformOrders().find(o => o.id === 'order-1000').number), 1, 'oldest order is number 1');
 
-  // Order both berets at ₹350 each, mark one paid, receive it
-  const berets = db.row.state.uniform.filter(r => r.item === 'beret').map(r => r.id);
-  await setPrompt(a, '350');
-  await run(a, ids => markUniformOrdered(ids), berets);
-  await run(a, id => { toggleUniformPaid(id); markUniformReceived([id]); }, berets[0]);
+  // Another editor's request merges with ours
   await flush(a);
-  const byId = id => db.row.state.uniform.find(r => r.id === id);
-  assert.equal(byId(berets[0]).status, 'received'); assert.equal(byId(berets[0]).amount, 350); assert.equal(byId(berets[0]).paid, true);
-  assert.equal(byId(berets[1]).status, 'ordered'); assert.equal(byId(berets[1]).paid, undefined);
-  const money = await a.textContent('#uniMoney');
-  assert.match(money, /Ordered value ₹700/); assert.match(money, /Paid ₹350/); assert.match(money, /Still to collect ₹350/);
-  // Bad amount is refused
-  await setPrompt(a, 'abc');
-  await run(a, id => setUniformAmount(id), berets[1]);
-  assert.equal(await run(a, id => app.state.uniform.find(r => r.id === id).amount, berets[1]), 350);
-  // Filters
-  await run(a, () => { setUniformFilter('status', 'unpaid'); });
-  assert.equal(await a.locator('#uniList > div').count(), 1);
-  await run(a, () => { setUniformFilter('status', 'received'); });
-  assert.equal(await a.locator('#uniList > div').count(), 1);
-  // Undo and delete
-  await run(a, id => undoUniformStep(id), berets[0]);
-  await run(a, ids => deleteUniformRequests(ids), db.row.state.uniform.filter(r => r.item === 'custom').map(r => r.id));
-  await flush(a);
-  assert.equal(byId(berets[0]).status, 'ordered');
-  assert.equal(db.row.state.uniform.length, 2);
-
-  // Another editor's change merges with ours
   const b = await openAs(browser, db, 'user-b');
   await run(b, () => { toggleUniformCadet('cadet-9', true); toggleUniformItem('belt'); createUniformRequests(); });
-  await run(a, id => markUniformReceived([id]), berets[1]);
+  await run(a, () => { toggleUniformCadet('cadet-8', true); toggleUniformItem('socks'); createUniformRequests(); });
   await flush(b); await flush(a);
-  assert.equal(db.row.state.uniform.length, 3);
-  assert.equal(byId(berets[1]).status, 'received');
+  assert.equal(db.row.state.uniform.filter(r => r.status === 'requested').length, 3);
 
-  // Anyone can see the requests; only verified seniors (editors) can change them
+  // Anyone can see the orders and who needs what; only verified seniors can change them
   const v = await openAs(browser, db, null);
   await run(v, () => switchCadetFlowPage('uniform'));
   assert.equal(await v.isVisible('#uniformContent'), true);
-  assert.equal(await v.locator('#uniList > div').count(), 2, 'received ones are under the Received filter');
+  assert.equal(await v.locator('#uniOrderItems details').count(), 3);
+  assert.equal(await v.isVisible('#uniOrderActions button:has-text("Place order")'), false);
   assert.equal(await v.isVisible('#uniNewHeading'), false, 'no new-request form for visitors');
-  assert.equal(await v.locator('#uniList button:has-text("Delete")').first().isVisible(), false);
+  await v.click('#uniOrderItems details summary');
+  assert.equal(await v.locator('#uniOrderItems li button:has-text("Remove")').first().isVisible(), false);
   const c = await openAs(browser, db, 'user-c');
   await run(c, () => switchCadetFlowPage('uniform'));
-  assert.equal(await c.isVisible('#uniformContent'), true);
   assert.equal(await c.isVisible('#uniformViewOnly'), true);
-  assert.equal(await c.locator('#uniList button:has-text("Delete")').first().isVisible(), false);
   noErrors(a, b, v, c);
 }));
 

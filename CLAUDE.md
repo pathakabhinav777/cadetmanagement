@@ -26,6 +26,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 ## Conventions
 - Cadet fields: `id, name, rank, wing, company, year ('1st'|'2nd'|'3rd'|''), cycle, free?` (timetable halves like `MON1`). Ranks: CDT, LCPL, CPL, SGT, CQMS, CSM, JUO, SUO. Companies: Jessami, Kohima, Naushera, or `No company` (CSM/CQMS).
 - 3rd years are left out of Availability.
+- Uniform: `state.uniform` is one request per cadet per item. Requests with status `requested` form the "next order"; placing it stamps one `orderId` on them (orders are derived from `orderId`, no separate list). Berets carry a per-cadet `size`; other items are one size. Older ordered requests without `orderId` get `order-<orderedAt>` in `normalizeUniform`.
 - Late/absence reports for a parade close 15 minutes before reporting time (admins can still add). "Informed to" must be SGT and above.
 - Keep text plain and minimal: no emojis in the UI, escape all user text with `escapeHtml`/`this.escape` before putting it in HTML.
 - Must work on phone and laptop; check both.
