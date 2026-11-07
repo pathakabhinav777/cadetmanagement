@@ -8294,7 +8294,7 @@
     // notification, even when CadetFlow is closed. The same function tells cadets when their requests
     // are decided, the CQMS about uniform requests and payments, and the administrator about
     // registrations and forgotten passwords.
-    const PUSH = { busy: false, state: null };
+    const PUSH = { busy: false, state: null, problem: '' };
     function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
     function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && /^https?:$/.test(location.protocol); }
     /** Notification calls go to the same server function as everything else. */
@@ -8315,7 +8315,7 @@
       const state = await pushState();
       if (seq !== PUSH.seq) return; // a newer refresh started meanwhile: let that one draw
       PUSH.state = state;
-      const text = {
+      const text = state === 'off' && PUSH.problem ? PUSH.problem : {
         on: 'On for this device. You will be told about new parades for you and about your requests.',
         off: 'Get a notification on this device when a parade for you is posted or your requests are decided, even when CadetFlow is closed.',
         blocked: 'Notifications are blocked for CadetFlow on this device. Allow them in your browser or phone settings, then reload.',
@@ -8347,10 +8347,22 @@
         let sub = await reg.pushManager.getSubscription();
         if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) });
         await pushApi({ action: 'subscribe', subscription: sub.toJSON() });
+        PUSH.problem = '';
         app?.showToast?.('Notifications are on for this device.');
       } catch (e) {
-        app?.showToast?.(`Could not turn on notifications: ${e.message || e}`);
+        PUSH.problem = await pushProblemText(e);
+        app?.showToast?.(PUSH.problem);
       } finally { PUSH.busy = false; renderNotifyBoxes(); }
+    }
+    /** Why the browser would not sign up for notifications, with the fix when there is one (stays in the box). */
+    async function pushProblemText(e) {
+      const msg = String(e?.message || e || '');
+      if (!/push service/i.test(msg)) return `Could not turn on notifications: ${msg}`;
+      let brave = false;
+      try { brave = !!(navigator.brave && await navigator.brave.isBrave()); } catch (_) {}
+      return brave
+        ? 'Brave blocks notifications until you allow them: open brave://settings/privacy, turn on "Use Google services for push messaging", restart Brave, then press Turn on notifications again.'
+        : 'This browser could not reach its notification service. Check the internet connection and try again, or use Chrome, Edge or Firefox on this computer.';
     }
     async function disableParadeNotifications() {
       try {

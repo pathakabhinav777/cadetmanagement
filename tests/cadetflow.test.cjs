@@ -1933,6 +1933,30 @@ const FAKE_PUSH = () => {
 const toast = page => page.evaluate(() => document.getElementById('toastText').textContent);
 const waitToast = (page, text) => page.waitForFunction(t => document.getElementById('toastText').textContent.includes(t), text);
 
+test('notifications: when the browser refuses (Brave with Google push messaging off), the box says how to fix it', () => withBrowser(async browser => {
+  const db = makeDb();
+  const box = '#homePage [data-notify]';
+  // Like FAKE_PUSH, but the browser's push service refuses, as Brave does by default.
+  const refusing = brave => `(${FAKE_PUSH})();
+    navigator.serviceWorker.ready.then(reg => { reg.pushManager.subscribe = async () => { throw new DOMException('Registration failed - push service error', 'AbortError'); }; });
+    ${brave ? "Object.defineProperty(navigator, 'brave', { configurable: true, value: { isBrave: async () => true } });" : ''}`;
+  const tryOn = async page => {
+    await run(page, async () => { window.pushSupported = () => true; await renderNotifyBoxes(); });
+    await page.click(`${box} button:has-text("Turn on notifications")`);
+    await page.waitForFunction(() => !PUSH.busy && !!PUSH.problem);
+    return page.textContent(`${box} [data-notify-text]`);
+  };
+
+  const brave = await openAs(browser, db, 'user-a', { init: refusing(true) });
+  assert.match(await tryOn(brave), /brave:\/\/settings\/privacy[\s\S]*Use Google services for push messaging[\s\S]*restart Brave/);
+  assert.match(await brave.textContent(box), /Turn on notifications/, 'the button stays to try again');
+
+  const other = await openAs(browser, db, 'user-b', { init: refusing(false) });
+  assert.match(await tryOn(other), /could not reach its notification service[\s\S]*Chrome, Edge or Firefox/);
+  assert.equal(db.tables.cadetflow_push_subscriptions.length, 0, 'no device saved');
+  noErrors(brave, other);
+}));
+
 test('parade notifications: per person and device, only the cadets a parade is for, tapping opens it', () => withBrowser(async browser => {
   const db = makeDb();
   const admin = await openAs(browser, db, 'user-a');

@@ -90,6 +90,13 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Run the tests before every commit; add a test for each new feature or bug fix.
 - Commit with a clear message and push to `main` only after tests pass.
 
+## Test copy (before launch)
+- https://pathakabhinav777.github.io/cadetflow-test/ (repo `pathakabhinav777/cadetflow-test`, GitHub Pages), on its own Supabase project "CadetFlow Test" (`pgkwlxothkmlwoyibqof`, free plan). The real site and data are not touched by anything done there.
+- That project has the base tables, the migration, the launch lock-down, `cadetflow-api`, and a one-time copy of the live data (2026-11-07).
+- Test-only trigger `cadetflow_test_owner_admin`: the owner's email becomes administrator on registering, only while there is no administrator.
+- Rebuild after changes: `python3 tools/build_test_copy.py <folder>`, then push that folder to the `cadetflow-test` repo. Redeploy `cadetflow-api` to the test project when the server changed.
+- Invite/reset links there need the test project's Site URL set in Supabase; "Set password" on the Accounts page works without it.
+
 ## Launching the sign-in version (once)
 In this order, also listed in `supabase/launch/cadet_accounts_launch.sql`:
 1. Apply the migration.
