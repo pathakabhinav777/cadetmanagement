@@ -15,6 +15,8 @@
   const sessionOf = u => (u ? { user: { id: u.id, email: u.email, user_metadata: {} }, access_token: 'tok-' + u.id } : null);
   const remember = () => { try { localStorage.setItem(KEY, JSON.stringify(user)); } catch (_) {} };
   const emit = event => listeners.forEach(cb => setTimeout(() => cb(event, sessionOf(user)), 0));
+  // Tests: what supabase-js sends by itself, e.g. SIGNED_IN again when a tab comes back into focus.
+  window.__emitAuth = event => emit(event);
 
   const ready = (async () => {
     if (!linkUser) return;

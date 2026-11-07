@@ -2620,40 +2620,170 @@ test('the database keeps the roster and deleting tasks to the administrator, and
   noErrors(lcpl, cqms, cdt, admin2);
 }));
 
-test('registration checks the regimental number on the roster; an invite never approves an account someone else made', () => withBrowser(async browser => {
+test('registration never says whether a regimental number is right; an invite replaces an account someone else made with that email', () => withBrowser(async browser => {
   const db = makeDb();
   const admin = await openAs(browser, db, 'user-a');
   await run(admin, () => app.updateCadetField('cadet-12', 'regNo', 'KA21SD555'));
   await flush(admin);
   const reg = (cadetId, email, regNo, password = 'secret-123') => db.api(null, 'register', { cadetId, email, regNo, password });
+  const invite = (...people) => db.api('user-a', 'invite', { people, send: false });
 
-  // With a number on the roster, only that number registers (spaces and small letters do not matter)
-  await assert.rejects(reg('cadet-12', 'prahast@example.com', 'KA21SD556'), /does not match the roster/);
-  assert.equal(db.userByEmail('prahast@example.com'), null, 'no account was made');
-  assert.deepEqual(await reg('cadet-12', 'prahast@example.com', 'ka21 sd 555'), { ok: true });
+  // A number that is not the roster's is not refused (that would let anyone try numbers until one fits).
+  // The administrator sees it before approving.
+  assert.deepEqual(await reg('cadet-12', 'prahast@example.com', 'ka21 sd 556'), { ok: true });
+  assert.equal(db.profile(db.userByEmail('prahast@example.com').id).regimental_no, 'KA21SD556');
+  await run(admin, () => switchCadetFlowPage('accounts'));
+  await run(admin, () => loadAccounts(true));
+  await admin.waitForSelector('#accountsBody h3:has-text("Members")');
+  let body = await admin.textContent('#accountsBody');
+  assert.match(body, /Regimental no\. given: KA21SD556 roster has KA21SD555/);
+  assert.match(body, /Anyone who knows a cadet's email and regimental number can register as them/);
 
-  // Someone registered with a cadet's email: inviting that email does not approve it
+  // Someone registered with a cadet's email and a password of their own. The list import says what will happen...
   await reg('cadet-13', 'cadet13@example.com', 'KA21SD600', 'their-own-pw');
   const pending = db.userByEmail('cadet13@example.com').id;
-  const one = await db.api('user-a', 'invite', { people: [{ cadetId: 'cadet-13', email: 'cadet13@example.com' }], send: false });
-  assert.equal(one.results[0].result, 'error');
-  assert.match(one.results[0].error, /waiting for approval/);
-  assert.equal(db.profile(pending).status, 'pending');
-  // ...and the list import says so before anything is sent
-  await run(admin, () => switchCadetFlowPage('accounts'));
-  await admin.waitForSelector('#accountsBody h3:has-text("Members")');
+  await run(admin, () => loadAccounts(true));
   const csv = `Name,Email,Regimental No\n${db.cadet('cadet-13').name},cadet13@example.com,\n`;
   await admin.setInputFiles('#accountsBody input[type=file]', { name: 'list.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
   await admin.waitForFunction(() => ACC.import && ACC.import.length === 1);
-  assert.match(await admin.textContent('#accountsBody'), /Registered and waiting: check it and approve it below instead/);
+  assert.match(await admin.textContent('#accountsBody'), /Registered and waiting: approve it below to keep it, or it is replaced with a fresh invite/);
+  // ...and the invite removes that account, so its password stops working: only the email's owner gets the invite
+  const one = await invite({ cadetId: 'cadet-13', email: 'cadet13@example.com' });
+  assert.deepEqual([one.results[0].result, one.results[0].replaced], ['link', true]);
+  assert.equal(db.users.has(pending), false);
+  assert.equal(db.signIn('cadet13@example.com', 'their-own-pw').error, 'Invalid login credentials');
+  const invited = db.userByEmail('cadet13@example.com');
+  assert.deepEqual([db.profile(invited.id).status, db.profile(invited.id).cadet_id, invited.email_confirmed_at], ['approved', 'cadet-13', null]);
+
+  // Someone registered as a cadet with another email: the administrator decides on that one first
+  await reg('cadet-16', 'someone-else@example.com', 'KA21SD601', 'other-pw-1');
+  const blocked = await invite({ cadetId: 'cadet-16', email: 'cadet16@example.com' });
+  assert.equal(blocked.results[0].result, 'error');
+  assert.match(blocked.results[0].error, /registration waiting from someone-else@example\.com: approve or reject it/);
+
+  // An approved account that belongs to another cadet is not moved; the same email twice is done once
+  db.account('user-x', { cadetId: 'cadet-17', email: 'x17@example.com' });
+  const moved = await invite({ cadetId: 'cadet-18', email: 'x17@example.com' });
+  assert.match(moved.results[0].error, /This email's account belongs to /);
+  assert.equal(db.profile('user-x').cadet_id, 'cadet-17');
+  const twice = await invite({ cadetId: 'cadet-19', email: 'dup@example.com' }, { cadetId: 'cadet-20', email: 'dup@example.com' });
+  assert.deepEqual(twice.results.map(r => r.result), ['link', 'error']);
+  assert.match(twice.results[1].error, /already higher up in the list/);
+  assert.equal(db.profile(db.userByEmail('dup@example.com').id).cadet_id, 'cadet-19');
 
   // A sign-in made outside the site (no CadetFlow profile, password chosen by whoever made it) gives way to a fresh invite
   db.addUser({ id: 'user-squat', email: 'cadet14@example.com', password: 'squatter-pw' });
-  const two = await db.api('user-a', 'invite', { people: [{ cadetId: 'cadet-14', email: 'cadet14@example.com' }], send: false });
+  const two = await invite({ cadetId: 'cadet-14', email: 'cadet14@example.com' });
   assert.equal(two.results[0].result, 'link');
   assert.equal(db.users.has('user-squat'), false);
   assert.equal(db.signIn('cadet14@example.com', 'squatter-pw').error, 'Invalid login credentials');
   const fresh = db.userByEmail('cadet14@example.com').id;
   assert.deepEqual([db.profile(fresh).status, db.profile(fresh).cadet_id], ['approved', 'cadet-14']);
+
+  // Someone registers the email while its invite is being made: their account is not taken over
+  db.beforeInviteLink = email => db.account('user-race', { status: 'pending', email, password: 'race-pw', cadetId: 'cadet-21' });
+  const raced = await invite({ cadetId: 'cadet-22', email: 'race@example.com' });
+  assert.equal(raced.results[0].result, 'error');
+  assert.deepEqual([db.profile('user-race').status, db.profile('user-race').cadet_id], ['pending', 'cadet-21']);
   noErrors(admin);
+}));
+
+test('a tab coming back into focus while a save is on its way keeps that save', () => withBrowser(async browser => {
+  const db = makeDb().account('user-l', { cadetId: 'cadet-1' });
+  const admin = await openAs(browser, db, 'user-a'); // puts the roster in the shared data
+  await flush(admin);
+  await admin.context().close();
+  db.pages.length = 0;
+  const lcpl = await openAs(browser, db, 'user-l');
+  assert.equal(await run(lcpl, () => app.canEdit()), true);
+  // Hold the LCPL's next save on its way to the database
+  let release, held = false, holding = true;
+  const gate = new Promise(r => { release = r; });
+  const exec = db.clientExec.bind(db);
+  db.clientExec = async (q, uid) => {
+    if (holding && uid === 'user-l' && q.table === 'cadetflow_state' && q.op === 'update') { holding = false; held = true; await gate; }
+    return exec(q, uid);
+  };
+  const id = await createTask(lcpl, 'Kit check');
+  const saving = flush(lcpl);
+  for (let i = 0; i < 200 && !held; i++) await new Promise(r => setTimeout(r, 10));
+  assert.equal(held, true);
+  // supabase-js says "signed in" again whenever a tab regains focus
+  await run(lcpl, () => window.__emitAuth('SIGNED_IN'));
+  await new Promise(r => setTimeout(r, 300));
+  release();
+  await saving;
+  await refresh(lcpl);
+  assert.ok(dbEvent(db, id), 'the task was saved');
+  assert.equal(await run(lcpl, id => !!app.findEvent(id), id), true, 'and is still on the page');
+  // The next save goes through too (it does not try to take the task away again)
+  await run(lcpl, () => { window.prompt = () => 'Gate'; app.recordCallOut(['cadet-2']); });
+  await flush(lcpl);
+  assert.equal(db.row.state.duties.length, 1);
+  assert.ok(dbEvent(db, id));
+  assert.equal(await run(lcpl, () => app.hasUnsyncedChanges), false);
+  noErrors(lcpl);
+}));
+
+test('names, titles and ids written to attack the page never run as code', () => withBrowser(async browser => {
+  const db = makeDb().account('user-l', { cadetId: 'cadet-1' });
+  // Breaks out of a JS string in an onclick, and out of an HTML attribute or text
+  const P = `x');window.__pwned=(window.__pwned||0)+1;//"><img src=x onerror="window.__pwned=(window.__pwned||0)+1">`;
+  let admin = await openAs(browser, db, 'user-a');
+  // Written through the site itself
+  await run(admin, P => app.updateCadetField('cadet-2', 'name', 'Cadet ' + P), P);
+  const task = await createTask(admin, 'Task ' + P);
+  const ev = await createSpecial(admin, 'Event ' + P, [{ name: 'Team ' + P, cadets: ['cadet-2', 'cadet-3'] }]);
+  await addTask(admin, ev, 'Job ' + P, ['team-test-1'], { details: P });
+  await run(admin, P => { window.prompt = () => P; app.recordCallOut(['cadet-2']); }, P);
+  const parade = await makeParade(admin, 3, 'Parade ' + P);
+  await flush(admin);
+  await admin.context().close();
+  db.pages.length = 0;
+  // Written by hand into the shared data: text, and ids that would break out of an onclick
+  const s = db.row.state;
+  s.uniform = [{ id: 'uni-x1', cadetId: 'cadet-2', item: 'custom', custom: P, qty: 1, status: 'requested', requestedAt: 1, requestedBy: P }];
+  s.uniformPrices = [{ id: 'custom:' + P.toLowerCase(), price: 10, label: P }];
+  s.events.push({ id: P, title: 'Bad id', type: 'normal', cadetIds: [], completed: {}, createdAt: 1 });
+  s.parades.push({ id: P, kind: 'custom', title: 'Bad parade', date: '2026-11-08', time: '07:00', reports: [] });
+  s.duties.push({ id: P, cadetIds: ['cadet-3'], reason: 'Bad call-out', at: 1 });
+  s.uniform.push({ id: P, cadetId: 'cadet-3', item: 'belt', qty: 1, status: 'requested', requestedAt: 1 });
+  s.cadets.push({ id: P, name: 'Bad Id Cadet', rank: 'CDT', wing: 'SD', company: 'Jessami', year: '1st' });
+  db.account('user-evil', { status: 'pending', email: `evil"><img src=x onerror=window.__pwned=1>@example.com`, name: P, regNo: P, cadetId: 'cadet-4' });
+
+  const leaks = page => run(page, () => ({
+    pwned: window.__pwned || 0,
+    imgs: document.querySelectorAll('img[src="x"]').length,
+    handlers: [...document.querySelectorAll('*')].flatMap(el => [...el.attributes].filter(a => /^on/i.test(a.name) && a.value.includes('__pwned')).map(a => `${el.tagName} ${a.name}`)),
+  }));
+  admin = await openAs(browser, db, 'user-a');
+  assert.equal(await run(admin, P => [app.state.events, app.state.parades, app.state.duties, app.state.uniform].some(l => l.some(x => x.id === P)), P), false, 'items with unsafe ids are left out');
+  assert.equal(await run(admin, P => app.state.cadets.some(c => c.id === P), P), false);
+  assert.equal(await run(admin, () => app.state.cadets.some(c => c.name === 'Bad Id Cadet' && /^cadet-fix-/.test(c.id))), true, 'a cadet keeps their place under a plain id');
+  const check = async (what, fn, arg) => {
+    await run(admin, fn, arg);
+    await new Promise(r => setTimeout(r, 100));
+    assert.deepEqual(await leaks(admin), { pwned: 0, imgs: 0, handlers: [] }, what);
+  };
+  for (const pg of ['home', 'tasks', 'availability', 'directory', 'uniform', 'parades']) await check(pg, pg => switchCadetFlowPage(pg), pg);
+  await run(admin, () => switchCadetFlowPage('tasks'));
+  for (const id of [task, ev]) await check('task ' + id, id => app.switchEvent(id), id);
+  await run(admin, () => switchCadetFlowPage('parades'));
+  await check('parade', id => openParadeDetail(id), parade);
+  await check('accounts', async () => { switchCadetFlowPage('accounts'); await loadAccounts(true); });
+  await run(admin, () => { app.openRosterModal(); openCadetProfile('cadet-2'); });
+  await new Promise(r => setTimeout(r, 100));
+  assert.deepEqual(await leaks(admin), { pwned: 0, imgs: 0, handlers: [] }, 'profile');
+  assert.match(await admin.textContent('#accountsBody'), /evil"><img src=x onerror=window.__pwned=1>@example\.com/, 'shown as plain text');
+  noErrors(admin);
+
+  // Anyone who can save may clear out the items with unsafe ids; the rest of the tasks stay protected
+  const lcpl = await openAs(browser, db, 'user-l');
+  await run(lcpl, () => { window.prompt = () => 'Gate'; app.recordCallOut(['cadet-5']); });
+  await flush(lcpl);
+  assert.equal(await run(lcpl, () => app.hasUnsyncedChanges), false);
+  assert.equal(db.row.state.events.some(e => e.id === P), false);
+  assert.ok(dbEvent(db, task) && dbEvent(db, ev));
+  assert.deepEqual(await leaks(lcpl), { pwned: 0, imgs: 0, handlers: [] });
+  noErrors(lcpl);
 }));

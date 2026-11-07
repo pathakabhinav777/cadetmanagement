@@ -11,9 +11,9 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 
 ## Sign-in and accounts
 - Until an approved account signs in, `body.locked` hides the site and shows the gate (`#gate`, `renderGate()`): sign in, register, forgot password, waiting for approval.
-- Register: pick your name from the roster (the `roster` action works without sign-in), then email, regimental number and password. When the roster already has that cadet's regimental number, the one typed must match. New accounts are `pending` viewers until the administrator approves them.
+- Register: pick your name from the roster (the `roster` action works without sign-in), then email, regimental number and password. The regimental number is not checked at registration (a "does not match" answer would let anyone guess numbers); the waiting list shows the administrator whether it matches the roster. New accounts are `pending` viewers until the administrator approves them.
 - Accounts page (`renderAccountsPage()`, `loadAccounts()`): approve or reject, change role, link an account to its cadet, send or copy a password reset link, set a password, remove. Invite one cadet, or "Import list" (Excel/CSV with name, email, regimental number) to invite many: each gets a link to set a password.
-- An invite links an email's existing account only if it is already approved. It never approves a `pending` or `rejected` account (whoever registered it chose its password): the administrator approves or removes that one. A sign-in account with no CadetFlow profile was made outside the site, so the invite deletes it and starts again.
+- An invite links an email's existing account only if it is already approved and not linked to another cadet. A `pending`, `rejected` or profile-less account with that email was made by whoever registered it, with their own password, so the invite removes it and sends a fresh invite that only the email's owner receives. A cadet with a registration waiting from another email is refused until the administrator decides it. The same email twice in one list is done once. The invite-preview notes on the Accounts page follow the same rules.
 - "Forgot password" only tells the administrator (`reset_requested_at`); the administrator sends the link from the Accounts page. Invite and reset links open the site with `#access_token=…&type=invite|recovery`, and the site asks for a new password.
 - Emails are sent by Supabase Auth. They need a custom SMTP sender and the site in Auth > URL Configuration > Redirect URLs. Without those, copy each link from the Accounts page and send it on WhatsApp.
 - The repo is public: never commit the cadets' list of emails and regimental numbers. Use Import list on the Accounts page.
@@ -80,6 +80,8 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
   - SGT and above decide requests. An approved request becomes a report on the parade.
   - Seniors' reports close at the same time; the administrator can still add them. "Informed to" must be SGT and above.
   - Screenshots are deleted automatically. A request screenshot goes once the request is decided and the parade is past (3 hours after reporting). A payment screenshot goes once every item it paid for is approved and collected.
+- Ids go into inline `onclick` handlers, so lists keep only items whose `id` matches `SAFE_ID` (`safeId()`, letters, digits and `_.:-`); cadets with another id get a new `cadet-fix-…` id. New id generators must stay within that. The database guard protects only tasks with such ids.
+- A `SIGNED_IN` for the person already signed in (supabase-js sends one when a tab regains focus) merges with `refreshFromRemote()` instead of reloading, so a save on its way is kept.
 - After updating a cadet found with a search box (Task Master, parade attendance, cadet pickers), call `clearSearchForNext(inputId, redraw)`: it empties the box and puts the cursor back, only if something was typed.
 - Keep text plain and minimal: no emojis in the UI, escape all user text with `escapeHtml`/`this.escape` before putting it in HTML.
 - Must work on phone and laptop; check both.

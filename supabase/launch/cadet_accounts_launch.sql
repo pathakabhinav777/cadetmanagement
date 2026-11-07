@@ -50,11 +50,17 @@ create policy "Approved editors can update CadetFlow state" on public.cadetflow_
   with check (public.cadetflow_my_access() in ('admin', 'writer'));
 
 revoke select on public.cadetflow_state from anon;
+-- Whatever older setups granted: the site only reads and updates the shared row, reads its own profile,
+-- and every change to accounts goes through cadetflow-api.
+revoke insert, update, delete, truncate on public.cadetflow_profiles from anon, authenticated;
+revoke insert, delete, truncate on public.cadetflow_state from anon, authenticated;
+revoke update on public.cadetflow_state from anon;
 
 -- Ranks decide everyone's powers (here and in cadetflow-api), so only the administrator may change the
 -- roster; uniform orders, payments and prices belong to the CQMS and the administrator, and only the
 -- administrator deletes tasks. The site sends the roster and uniform parts back exactly as it read them
--- for everyone else (savePayload in index.html), so this only stops a hand-made request.
+-- for everyone else (savePayload in index.html), so this only stops a hand-made request. Tasks count by
+-- their id; the site only keeps plain ids (safeId in index.html), so a task with any other id can go.
 -- cadetflow-api works as the service role and is not checked here.
 create or replace function public.cadetflow_state_guard()
 returns trigger language plpgsql set search_path = public as $$
@@ -71,7 +77,7 @@ begin
   end if;
   if exists (
     select 1 from jsonb_array_elements(case when jsonb_typeof(old.state -> 'events') = 'array' then old.state -> 'events' else '[]'::jsonb end) o
-    where jsonb_typeof(o -> 'id') = 'string' and o ->> 'id' <> ''
+    where jsonb_typeof(o -> 'id') = 'string' and (o ->> 'id') ~ '^[A-Za-z0-9_.:-]{1,128}$'
       and not exists (
         select 1 from jsonb_array_elements(case when jsonb_typeof(new.state -> 'events') = 'array' then new.state -> 'events' else '[]'::jsonb end) n
         where n ->> 'id' = o ->> 'id')

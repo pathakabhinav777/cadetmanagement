@@ -2028,11 +2028,11 @@
           if (raw) {
             const data = JSON.parse(raw);
             this.state.cadets = (data.cadets && data.cadets.length > 0) ? normalizeCadets(data.cadets) : [...USER_EXACT_37_CADETS];
-            const savedEvents = Array.isArray(data.events) ? data.events.filter(e => e && e.id) : [];
+            const savedEvents = Array.isArray(data.events) ? data.events.filter(e => e && safeId(e.id)) : [];
             this.state.events = savedEvents.length > 0 ? savedEvents : [...DEFAULT_EVENTS];
             this.state.activeEventId = this.state.events.some(e => e.id === data.activeEventId) ? data.activeEventId : this.state.events[0].id;
             this.state.history = Array.isArray(data.history) ? data.history : [];
-            this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && d.id)
+            this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && safeId(d.id))
               .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
             this.state.uniform = normalizeUniform(data.uniform);
             this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
@@ -2164,16 +2164,23 @@
           profile = cached && cached.userId === this.user.id ? cached.profile : undefined;
         }
         if (profile === undefined) { this.lockOut('offline'); return; }
+        const profileBefore = JSON.stringify(this.profile ?? null);
         this.profile = profile;
         if (!offline) writeAccessCache(this.user.id, profile);
         if (GATE.mustSetPassword) { this.lockOut('password'); return; }
         if (!profile) { this.lockOut('none'); return; }
         if (profile.status !== 'approved') { this.lockOut(profile.status === 'rejected' ? 'rejected' : 'pending'); return; }
         const wasLocked = document.body.classList.contains('locked');
+        const sameData = previousUserId === this.user.id && this.remoteReady;
         document.body.classList.remove('locked');
         stopPendingWatch();
         this.applyAccessUI();
-        await this.loadSharedState(previousUserId);
+        // Browsers report "signed in" again when the tab comes back. This person's data is already here and
+        // a save may be on its way: merge in other people's changes instead of replacing everything.
+        if (sameData) {
+          await this.refreshFromRemote();
+          if (JSON.stringify(profile) !== profileBefore) this.rerenderAfterRemote();
+        } else await this.loadSharedState(previousUserId);
         if (wasLocked) GATE.view = 'loading';
         openRequestedPage();
         linkThisDevice();
@@ -2275,11 +2282,11 @@
 
       applyState(data) {
         this.state.cadets = normalizeCadets(data.cadets);
-        this.state.events = Array.isArray(data.events) ? data.events.filter(e => e && e.id) : [];
+        this.state.events = Array.isArray(data.events) ? data.events.filter(e => e && safeId(e.id)) : [];
         this.state.activeEventId = this.state.events.some(e => e.id === data.activeEventId) ? data.activeEventId : (this.state.events[0]?.id || null);
         this.state.history = Array.isArray(data.history) ? data.history : [];
         // Older call-outs stored the editor's email; keep only the name part (the shared data is public).
-        this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && d.id)
+        this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && safeId(d.id))
           .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
         this.state.uniform = normalizeUniform(data.uniform);
         this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
@@ -4698,13 +4705,13 @@
         reader.onload = () => {
           try {
             const data = JSON.parse(reader.result);
-            if (!Array.isArray(data.cadets) || !Array.isArray(data.events) || !data.events.some(e => e && e.id)) throw new Error('Backup must contain cadets and at least one task.');
+            if (!Array.isArray(data.cadets) || !Array.isArray(data.events) || !data.events.some(e => e && safeId(e.id))) throw new Error('Backup must contain cadets and at least one task.');
             if (!confirm(`Restore backup from ${data.exportedAt || 'unknown date'}? This replaces the current roster, tasks and history. Download a backup of the current data first if you may need it.`)) return;
             this.state.cadets = normalizeCadets(data.cadets);
-            this.state.events = data.events.filter(e => e && e.id).map(ev => normalizeEvent({ ...ev }));
+            this.state.events = data.events.filter(e => e && safeId(e.id)).map(ev => normalizeEvent({ ...ev }));
             this.state.activeEventId = this.state.events.some(ev => ev.id === data.activeEventId) ? data.activeEventId : this.state.events[0].id;
             this.state.history = Array.isArray(data.history) ? data.history : [];
-            this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && d.id)
+            this.state.duties = (Array.isArray(data.duties) ? data.duties : []).filter(d => d && safeId(d.id))
               .map(d => (d.by && String(d.by).includes('@')) ? { ...d, by: String(d.by).split('@')[0] } : d);
             // Older backups have no uniform requests: keep the current ones rather than wiping them.
             if (Array.isArray(data.uniform)) this.state.uniform = normalizeUniform(data.uniform);
@@ -4990,7 +4997,10 @@
       return out;
     }
     function mergeSharedState(base, local, remote) {
-      const pick = s => ({ cadets: s?.cadets || [], events: s?.events || [], history: s?.history || [], duties: s?.duties || [], uniform: s?.uniform || [], uniformPrices: s?.uniformPrices || [], parades: s?.parades || [] });
+      // Lists merge item by item (by id), so entries without a usable id are left out first, as on loading.
+      const ids = (list, ok = x => safeId(x.id)) => (Array.isArray(list) ? list : []).filter(x => isPlainObject(x) && ok(x));
+      const pick = s => ({ cadets: s?.cadets || [], events: ids(s?.events), history: ids(s?.history, x => x.id != null), duties: ids(s?.duties),
+        uniform: ids(s?.uniform), uniformPrices: ids(s?.uniformPrices, x => x.id != null), parades: ids(s?.parades) });
       const merged = mergeValue(pick(base), pick(local), pick(remote));
       merged.parades = normalizeParades(merged.parades);
       merged.duties = (merged.duties || []).sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -5099,12 +5109,17 @@
       Object.entries(records || {}).forEach(([id, r]) => { if (r && (r.done || (r.note && String(r.note).trim()) || r.completedAt)) out[id] = r; });
       return out;
     }
+    // Ids go into the page's own code (onclick="…('id')"), so only plain ids are kept: letters, digits and _ . : -.
+    // The site and the server only make ids like that; anything else in the shared data was written by hand and
+    // is left out. The database guard (cadetflow_state_guard) uses the same pattern.
+    const SAFE_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+    function safeId(id) { return typeof id === 'string' && SAFE_ID.test(id); }
     /** Make every cadet record safe to display, whatever an old save or a backup file contains. */
     function normalizeCadets(list) {
       if (!Array.isArray(list)) return [];
       const seen = new Set();
       return list.filter(c => c && typeof c === 'object').map((c, i) => {
-        let id = c.id != null && String(c.id) ? String(c.id) : `cadet-fix-${i}-${Date.now().toString(36)}`;
+        let id = c.id != null && safeId(String(c.id)) ? String(c.id) : `cadet-fix-${i}-${Date.now().toString(36)}`;
         if (seen.has(id)) id = `${id}-${i}`;
         seen.add(id);
         return { ...c, id,
@@ -5127,7 +5142,7 @@
       });
       // Years the task is limited to; left out entirely when it is for every year (keeps old data unchanged).
       if (ev.completion !== undefined && ev.completion !== 'group') delete ev.completion;
-      if (ev.updates !== undefined) { ev.updates = Array.isArray(ev.updates) ? ev.updates.filter(u => u && u.id) : []; if (!ev.updates.length) delete ev.updates; }
+      if (ev.updates !== undefined) { ev.updates = Array.isArray(ev.updates) ? ev.updates.filter(u => u && safeId(u.id)) : []; if (!ev.updates.length) delete ev.updates; }
       if (ev.type !== 'special' && ev.cadetIds !== undefined) {
         const ids = [...new Set((Array.isArray(ev.cadetIds) ? ev.cadetIds : []).filter(id => id != null).map(String))];
         if (ids.length) ev.cadetIds = ids; else delete ev.cadetIds;
@@ -5137,7 +5152,7 @@
       if (ev.type === 'special') {
         ev.scope = 'All';
         const placed = new Set(); // a cadet can only be in one team
-        const teams = Array.isArray(ev.teams) ? ev.teams.filter(t => t && t.id) : [];
+        const teams = Array.isArray(ev.teams) ? ev.teams.filter(t => t && safeId(t.id)) : [];
         if (!Array.isArray(ev.tasks)) {
           // Older special events had one task written on each team, with marks on the event.
           // Turn each into a task given to that team (same ids on every device, so saves merge).
@@ -5158,7 +5173,7 @@
           ...t,
           cadetIds: (Array.isArray(t.cadetIds) ? t.cadetIds : []).filter(id => !placed.has(id) && placed.add(id))
         }));
-        ev.tasks = ev.tasks.filter(x => x && x.id).map(x => ({
+        ev.tasks = ev.tasks.filter(x => x && safeId(x.id)).map(x => ({
           ...x,
           title: String(x.title || '').trim() || 'Untitled task',
           teamIds: [...new Set(Array.isArray(x.teamIds) ? x.teamIds : [])],
@@ -5660,11 +5675,11 @@
     function normalizeParades(list) {
       if (!Array.isArray(list)) return [];
       const seen = new Set();
-      return list.filter(pd => pd && pd.id && Number.isFinite(Number(pd.reportAt)) && !seen.has(pd.id) && seen.add(pd.id)).map(pd => {
+      return list.filter(pd => pd && safeId(pd.id) && Number.isFinite(Number(pd.reportAt)) && !seen.has(pd.id) && seen.add(pd.id)).map(pd => {
         const out = { ...pd, reportAt: Number(pd.reportAt), title: String(pd.title || '').trim() || 'Parade' };
         // Type: shooting, drill, classroom, or custom (own name). Older parades without one count as custom.
         if (!PARADE_KINDS.some(k => k.key === out.kind)) out.kind = 'custom';
-        out.reports = (Array.isArray(pd.reports) ? pd.reports : []).filter(r => r && r.id && r.cadetId);
+        out.reports = (Array.isArray(pd.reports) ? pd.reports : []).filter(r => r && safeId(r.id) && r.cadetId);
         const marks = {};
         Object.entries(pd.marks && typeof pd.marks === 'object' ? pd.marks : {}).forEach(([k, v]) => { if (['present', 'late', 'absent'].includes(v)) marks[k] = v; });
         out.marks = marks;
@@ -6434,7 +6449,7 @@
     function normalizeUniform(list) {
       if (!Array.isArray(list)) return [];
       const seen = new Set();
-      return list.filter(r => r && r.id && r.cadetId && !seen.has(r.id) && seen.add(r.id)).map(r => {
+      return list.filter(r => r && safeId(r.id) && r.cadetId && !seen.has(r.id) && seen.add(r.id)).map(r => {
         const out = { ...r, status: UNIFORM_STATUS.includes(r.status) ? r.status : 'requested', qty: Math.min(99, Math.max(1, parseInt(r.qty, 10) || 1)) };
         if (!UNIFORM_ITEMS.some(i => i.key === out.item)) { out.custom = String(out.custom || out.item || 'Other item'); out.item = 'custom'; }
         if (out.amount != null && !(Number.isFinite(Number(out.amount)) && Number(out.amount) >= 0)) delete out.amount;
@@ -7974,21 +7989,25 @@
       if (imp) {
         const ok = imp.filter(r => r.include && r.cadetId && /\S+@\S+\.\S+/.test(r.email));
         addBody += `<div class="border border-slate-800 rounded-xl divide-y divide-slate-800 bg-slate-950">${imp.map((r, i) => {
-          const taken = r.cadetId && linkedIds.has(r.cadetId) && !ACC.list.some(a => a.cadetId === r.cadetId && a.email.toLowerCase() === r.email);
+          // Same rules as the invite action in cadetflow-api.
+          const holder = r.cadetId && linkedIds.has(r.cadetId) ? ACC.list.find(a => a.cadetId === r.cadetId && a.status !== 'rejected' && a.email.toLowerCase() !== r.email) : null;
           const existing = ACC.list.find(a => a.email.toLowerCase() === r.email);
+          const elsewhere = existing?.status === 'approved' && existing.cadetId && existing.cadetId !== r.cadetId ? accountCadet(existing) : null;
           const dupEmail = imp.some((x, j) => j !== i && x.include && x.email && x.email === r.email);
           const dupCadet = r.cadetId && imp.some((x, j) => j !== i && x.include && x.cadetId === r.cadetId);
           const note = !/\S+@\S+\.\S+/.test(r.email) ? ['No email', 'text-rose-300'] : !r.cadetId ? ['Pick who this is on the roster', 'text-amber-300']
             : dupEmail ? ['Same email twice in the list', 'text-rose-300'] : dupCadet ? ['Same cadet twice in the list', 'text-rose-300']
-            : taken ? ['That cadet already has another account', 'text-rose-300']
-            : existing?.status === 'pending' ? ['Registered and waiting: check it and approve it below instead', 'text-amber-300']
-            : existing?.status === 'rejected' ? ['Has a turned-down account: remove it first', 'text-rose-300']
-            : existing?.status === 'approved' ? ['Has an account: it will be linked', 'text-sky-300'] : ['Will get an invite', 'text-emerald-300'];
+            : holder?.status === 'pending' ? [`${holder.email} registered as this cadet: approve or reject that below first`, 'text-rose-300']
+            : holder ? [`That cadet already has another account (${holder.email})`, 'text-rose-300']
+            : existing?.status === 'approved' && existing.cadetId && existing.cadetId !== r.cadetId ? [`This email's account belongs to ${elsewhere ? elsewhere.name : 'another cadet'}: change it below if that is wrong`, 'text-rose-300']
+            : existing?.status === 'approved' ? ['Has an account: it will be linked', 'text-sky-300']
+            : existing?.status === 'pending' ? ['Registered and waiting: approve it below to keep it, or it is replaced with a fresh invite', 'text-amber-300']
+            : existing ? ['Has an account that was not approved: it is replaced with a fresh invite', 'text-amber-300'] : ['Will get an invite', 'text-emerald-300'];
           return `<div class="flex flex-wrap items-center gap-2 px-3 py-2">
             <input type="checkbox" class="cadet-cb" ${r.include ? 'checked' : ''} onchange="ACC.import[${i}].include = this.checked; renderAccountsPage()" aria-label="Include row ${i + 1}">
             <span class="min-w-[120px] flex-1 text-xs"><span class="block text-slate-200 font-semibold">${esc(r.name || '(no name)')}</span><span class="block text-slate-500">${esc(r.email || '–')}${r.regNo ? ' · ' + esc(r.regNo) : ''}</span></span>
             <select onchange="ACC.import[${i}].cadetId = this.value; renderAccountsPage()" aria-label="Cadet on the roster" class="max-w-[220px] px-2 py-1.5 bg-slate-900 border ${r.cadetId ? 'border-slate-700' : 'border-amber-600'} text-white rounded-lg text-xs">${cadetOptions(r.cadetId, true).replace('Not linked', 'Pick the cadet')}</select>
-            <span class="w-full sm:w-auto text-[11px] ${note[1]}">${note[0]}</span>
+            <span class="w-full sm:w-auto text-[11px] ${note[1]}">${esc(note[0])}</span>
           </div>`;
         }).join('')}</div>
         <div class="flex flex-wrap gap-2">
@@ -8003,7 +8022,7 @@
         addBody += `<div class="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-1.5">
           <p class="text-xs font-bold text-white">Done: ${res.filter(r => r.result === 'sent').length} emailed, ${links.length} link${links.length === 1 ? '' : 's'} to share, ${res.filter(r => r.result === 'linked').length} linked, ${res.filter(r => r.result === 'error').length} not done</p>
           ${res.map((r, i) => `<div class="flex flex-wrap items-center gap-2 text-[11px]"><span class="flex-1 min-w-[140px] text-slate-300">${esc(nameOf(r))} <span class="text-slate-500">${esc(r.email)}</span></span>
-            <span class="${r.result === 'error' ? 'text-rose-300' : 'text-emerald-300'}">${esc(r.result === 'sent' ? 'Invite emailed' : r.result === 'linked' ? 'Linked to their account' : r.result === 'link' ? 'Link ready' : r.error || 'Not done')}</span>
+            <span class="${r.result === 'error' ? 'text-rose-300' : 'text-emerald-300'}">${esc(r.result === 'sent' ? 'Invite emailed' : r.result === 'linked' ? 'Linked to their account' : r.result === 'link' ? 'Link ready' : r.error || 'Not done')}${r.replaced && r.result !== 'error' ? ' <span class="text-slate-500">(the account made earlier with this email was removed)</span>' : ''}</span>
             ${r.link ? `<button type="button" onclick="copyText(ACC.results[${i}].link, 'Link copied.')" class="${btn} border-slate-700 text-slate-200">Copy link</button>` : ''}</div>`).join('')}
           ${links.length ? `<button type="button" onclick="copyInviteLinks()" class="${btn} border-amber-600/60 text-amber-200">Copy all links (for WhatsApp)</button>` : ''}
           <button type="button" onclick="ACC.results = null; renderAccountsPage()" class="text-[11px] text-slate-500 hover:underline">Hide</button>
@@ -8028,7 +8047,7 @@
 
       // 3. Waiting for approval
       const waiting = ACC.list.filter(a => a.status === 'pending' || a.status === 'none');
-      html += card(`Waiting for approval (${waiting.length})`, waiting.length ? `<ul class="divide-y divide-slate-800">${waiting.map(a => {
+      html += card(`Waiting for approval (${waiting.length})`, waiting.length ? `<p class="text-[11px] text-amber-200/80">Anyone who knows a cadet's email and regimental number can register as them. Check with the cadet before approving, for example on WhatsApp.</p><ul class="divide-y divide-slate-800">${waiting.map(a => {
         const c = accountCadet(a);
         const rosterNo = c?.regNo || '';
         const regLine = a.regNo ? `Regimental no. given: <b class="text-slate-200 font-mono-num">${esc(a.regNo)}</b>${rosterNo ? (rosterNo.toUpperCase() === a.regNo.toUpperCase() ? ' <span class="text-emerald-300">matches the roster</span>' : ` <span class="text-rose-300">roster has ${esc(rosterNo)}</span>`) : ' <span class="text-slate-500">(roster has none yet)</span>'}` : (a.status === 'none' ? 'Account with no CadetFlow profile' : '');
@@ -8131,6 +8150,8 @@
       const o = ACC.one;
       if (!o.cadetId) { app.showToast('Pick the cadet.'); return; }
       if (!/\S+@\S+\.\S+/.test(o.email)) { app.showToast('Enter their email.'); return; }
+      const earlier = (ACC.list || []).find(a => a.email.toLowerCase() === o.email.trim().toLowerCase());
+      if (earlier && earlier.status !== 'approved' && !confirm(`${o.email.trim()} already has an account that is not approved. Inviting removes it and sends a fresh invite to this email. Continue?`)) return;
       await runInvites([{ cadetId: o.cadetId, email: o.email.trim().toLowerCase(), regNo: o.regNo.trim() }], true);
       if (ACC.results?.every(r => r.result !== 'error')) ACC.one = { cadetId: '', email: '', regNo: '' };
       renderAccountsPage();

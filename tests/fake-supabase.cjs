@@ -61,6 +61,7 @@ function pick(row, cols) {
   return out;
 }
 const WRITER_RANKS = ['LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO'];
+const SAFE_ID = /^[A-Za-z0-9_.:-]{1,128}$/; // ids the site keeps (safeId in index.html)
 /** JSON text with object keys sorted, so two values compare like jsonb does. */
 const canonical = v => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x));
 /** The roster entry with this id in a saved state, like `c ->> 'id' = cadet_id` in SQL. */
@@ -182,7 +183,7 @@ class Backend {
     // jsonb: a missing key is SQL null, JSON null is a value; objects compare without key order.
     const part = (s, k) => (s && typeof s === 'object' && !Array.isArray(s) && k in s ? canonical(s[k]) : undefined);
     if (part(after, 'cadets') !== part(before, 'cadets')) return 'Only the administrator can change the roster.';
-    const ids = s => new Set((Array.isArray(s?.events) ? s.events : []).filter(e => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && e.id).map(e => e.id));
+    const ids = s => new Set((Array.isArray(s?.events) ? s.events : []).filter(e => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && SAFE_ID.test(e.id)).map(e => e.id));
     const kept = new Set((Array.isArray(after?.events) ? after.events : []).filter(e => e && typeof e === 'object').map(e => String(e.id)));
     if ([...ids(before)].some(id => !kept.has(id))) return 'Only the administrator can remove tasks.';
     if (part(after, 'uniform') !== part(before, 'uniform') || part(after, 'uniformPrices') !== part(before, 'uniformPrices')) {
@@ -359,6 +360,8 @@ class Backend {
             return ok({ user: this.publicUser(u) });
           },
           generateLink: async ({ type, email, options = {} }) => {
+            // Tests: something that happens just before the link is made (someone registering this email meanwhile)
+            if (this.beforeInviteLink && type === 'invite') { const f = this.beforeInviteLink; this.beforeInviteLink = null; f(email); }
             let u = this.userByEmail(email);
             if (type === 'invite') { if (u) return { data: null, error: { message: 'A user with this email address has already been registered' } }; u = this.addUser({ email, invited: true }); }
             else if (!u) return { data: null, error: { message: 'User not found' } };
