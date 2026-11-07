@@ -1,7 +1,8 @@
 -- LAUNCH STEP for the sign-in version of CadetFlow. Apply only when the new site goes live.
 -- Before this, cadetflow_state is readable by anyone (the current public site needs that).
 -- After this, only approved accounts can read it, and only the administrator and cadets ranked
--- LCPL and above can save it directly.
+-- LCPL and above can save it directly. Even then, only the administrator can change the roster or
+-- delete tasks, and only the CQMS and the administrator can change uniform orders and prices.
 --
 -- Order on launch day:
 --   1. supabase/migrations/20261107_cadet_accounts.sql is applied (additive; can be done earlier)
@@ -25,8 +26,10 @@ returns text language sql stable security definer set search_path = public as $$
     when p.status <> 'approved' then null
     when p.role = 'admin' then 'admin'
     when exists (
-      select 1 from public.cadetflow_state s, jsonb_array_elements(coalesce(s.state->'cadets', '[]'::jsonb)) c
-      where s.id = 1 and c->>'id' = p.cadet_id and upper(coalesce(nullif(c->>'rank', ''), 'CDT')) <> 'CDT'
+      select 1 from public.cadetflow_state s,
+        jsonb_array_elements(case when jsonb_typeof(s.state->'cadets') = 'array' then s.state->'cadets' else '[]'::jsonb end) c
+      where s.id = 1 and c->>'id' = p.cadet_id
+        and upper(c->>'rank') in ('LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO')
     ) then 'writer'
     else 'member'
   end
@@ -47,6 +50,50 @@ create policy "Approved editors can update CadetFlow state" on public.cadetflow_
   with check (public.cadetflow_my_access() in ('admin', 'writer'));
 
 revoke select on public.cadetflow_state from anon;
+
+-- Ranks decide everyone's powers (here and in cadetflow-api), so only the administrator may change the
+-- roster; uniform orders, payments and prices belong to the CQMS and the administrator, and only the
+-- administrator deletes tasks. The site sends the roster and uniform parts back exactly as it read them
+-- for everyone else (savePayload in index.html), so this only stops a hand-made request.
+-- cadetflow-api works as the service role and is not checked here.
+create or replace function public.cadetflow_state_guard()
+returns trigger language plpgsql set search_path = public as $$
+declare
+  my_rank text;
+begin
+  if current_user not in ('authenticated', 'anon') then return new; end if;
+  if new.id is distinct from old.id then
+    raise exception 'The shared data cannot be moved.' using errcode = '42501';
+  end if;
+  if public.cadetflow_my_access() = 'admin' then return new; end if;
+  if (new.state -> 'cadets') is distinct from (old.state -> 'cadets') then
+    raise exception 'Only the administrator can change the roster.' using errcode = '42501';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(case when jsonb_typeof(old.state -> 'events') = 'array' then old.state -> 'events' else '[]'::jsonb end) o
+    where jsonb_typeof(o -> 'id') = 'string' and o ->> 'id' <> ''
+      and not exists (
+        select 1 from jsonb_array_elements(case when jsonb_typeof(new.state -> 'events') = 'array' then new.state -> 'events' else '[]'::jsonb end) n
+        where n ->> 'id' = o ->> 'id')
+  ) then
+    raise exception 'Only the administrator can remove tasks.' using errcode = '42501';
+  end if;
+  if (new.state -> 'uniform') is distinct from (old.state -> 'uniform')
+     or (new.state -> 'uniformPrices') is distinct from (old.state -> 'uniformPrices') then
+    select upper(c ->> 'rank') into my_rank
+      from public.cadetflow_profiles p,
+        jsonb_array_elements(case when jsonb_typeof(old.state -> 'cadets') = 'array' then old.state -> 'cadets' else '[]'::jsonb end) c
+      where p.user_id = auth.uid() and p.status = 'approved' and c ->> 'id' = p.cadet_id
+      limit 1;
+    if my_rank is distinct from 'CQMS' then
+      raise exception 'Only the CQMS and the administrator can change uniform orders, payments and prices.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function public.cadetflow_state_guard() from public, anon, authenticated;
+create or replace trigger cadetflow_state_guard before update on public.cadetflow_state
+  for each row execute function public.cadetflow_state_guard();
 
 -- Devices registered on the old public site belong to nobody; the app links a device to its
 -- person again when they sign in and notifications are on.

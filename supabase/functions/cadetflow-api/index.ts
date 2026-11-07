@@ -346,6 +346,9 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const { state } = await readState();
     const cadet = findCadet(state, body.cadetId);
     if (!cadet) fail(400, "Choose your name from the roster.");
+    // When the roster has their regimental number, it has to match: that shows the person is this cadet.
+    const onFile = cleanRegNo(cadet.regNo);
+    if (onFile && onFile !== regNo) fail(400, "That regimental number does not match the roster. Check it on your NCC card, or ask the administrator.");
     const { count } = await db.from("cadetflow_profiles").select("user_id", { count: "exact", head: true }).eq("status", "pending");
     if ((count || 0) > 300) fail(429, "Too many registrations are waiting. Ask the administrator.");
     const { data: holder } = await db.from("cadetflow_profiles").select("user_id").eq("cadet_id", String(cadet.id)).neq("status", "rejected").maybeSingle();
@@ -734,15 +737,25 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         if (!EMAIL.test(email)) fail(400, "No valid email.");
         if (!cadet) fail(400, "Not matched to a cadet on the roster.");
         const { data: holder } = await db.from("cadetflow_profiles").select("user_id, email").eq("cadet_id", String(cadet.id)).neq("status", "rejected").maybeSingle();
-        const existing = users.find((u) => (u.email || "").toLowerCase() === email);
+        let existing = users.find((u) => (u.email || "").toLowerCase() === email);
         if (holder && holder.user_id !== existing?.id) fail(409, `${cadet.name} is already linked to another account${holder.email ? ` (${holder.email})` : ""}.`);
         const profile = { cadet_id: String(cadet.id), display_name: cadet.name, email, ...(regNo ? { regimental_no: regNo } : {}) };
+        const prof = existing ? await profileOf(existing.id) : null;
+        if (existing && !prof) {
+          // A sign-in account with no CadetFlow profile was made outside the site (Supabase's own sign-up), with
+          // a password chosen by whoever made it. Start again with an invite that only the email's owner receives.
+          const { error } = await db.auth.admin.deleteUser(existing.id);
+          if (error) throw new Error(error.message);
+          users.splice(users.indexOf(existing), 1);
+          existing = undefined;
+        }
+        // Someone registered with this email themselves: approving it here would hand the account (and its
+        // password) to whoever made it. The administrator checks the details and decides on the Accounts page.
+        if (existing && prof?.status === "pending") fail(409, "Registered and waiting for approval: check the details and approve it on the Accounts page.");
+        if (existing && prof?.status === "rejected") fail(409, "This email has an account that was turned down. Remove it on the Accounts page first, then invite again.");
         if (existing) {
-          // Already has an account: link it to the cadet and approve it.
-          const prof = await profileOf(existing.id);
-          const { error } = prof
-            ? await db.from("cadetflow_profiles").update({ ...profile, status: "approved", decided_at: new Date().toISOString(), decided_by: a.me.id }).eq("user_id", existing.id)
-            : await db.from("cadetflow_profiles").insert({ user_id: existing.id, ...profile, role: "viewer", status: "approved", decided_at: new Date().toISOString(), decided_by: a.me.id });
+          // Already has an approved account: link it to the cadet.
+          const { error } = await db.from("cadetflow_profiles").update({ ...profile, status: "approved", decided_at: new Date().toISOString(), decided_by: a.me.id }).eq("user_id", existing.id);
           if (error) throw new Error(error.message);
           out.result = "linked";
         } else {

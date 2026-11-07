@@ -2071,6 +2071,20 @@
         };
       }
 
+      /** Parts of the shared data this account may not change. The database refuses any change to them
+       *  (trigger cadetflow_state_guard in supabase/launch/cadet_accounts_launch.sql). */
+      lockedKeys() {
+        if (this.isAdmin()) return [];
+        return this.can('uniform') ? ['cadets'] : ['cadets', 'uniform', 'uniformPrices'];
+      }
+      /** What a save sends: this device's data, with the locked parts exactly as the server last had them
+       *  (not tidied up by this device), so a save never touches what this account may not change. */
+      savePayload() {
+        const payload = cloneData(this.serializableState());
+        if (this.syncBase) this.lockedKeys().forEach(k => { if (this.syncBase[k] === undefined) delete payload[k]; else payload[k] = cloneData(this.syncBase[k]); });
+        return payload;
+      }
+
       saveStorage() {
         const snapshot = this.serializableState();
         try { localStorage.setItem(this.storageKey, JSON.stringify(snapshot)); } catch (e) {}
@@ -2216,7 +2230,7 @@
             this.saveLocalCacheOnly();
             this.rerenderAfterRemote();
             this.applyAccessUI();
-          } else if (this.canEdit() && this.localSeedState?.cadets?.length) {
+          } else if (this.isAdmin() && this.localSeedState?.cadets?.length) {
             this.applyState(this.localSeedState);
             this.applyAccessUI();
             // Update the existing singleton row instead of upserting. The database
@@ -2325,7 +2339,7 @@
           if (!this.canEdit() || !this.remoteReady || !this.supabase) return;
           try {
             for (let attempt = 0; attempt < 5; attempt++) {
-              const payload = cloneData(this.serializableState());
+              const payload = this.savePayload();
               if (this.syncBase && stateEqual(payload, this.syncBase)) { this.hasUnsyncedChanges = false; return; }
               let query = this.supabase
                 .from('cadetflow_state')
@@ -2337,7 +2351,7 @@
               if (data) {
                 this.syncBase = payload;
                 this.remoteVersion = data.updated_at ?? null;
-                this.hasUnsyncedChanges = !stateEqual(this.serializableState(), payload);
+                this.hasUnsyncedChanges = !stateEqual(this.savePayload(), payload);
                 this.setAccessUI(this.isAdmin() ? 'Administrator' : 'Senior access', 'All changes are saved to the shared roster.');
                 return;
               }
@@ -2413,7 +2427,7 @@
           try {
             const changed = await this.pullAndMerge();
             // If we still have local edits on top of the merged result, push them.
-            if (changed && this.canEdit() && this.syncBase && !stateEqual(this.serializableState(), this.syncBase)) this.queueRemoteSave();
+            if (changed && this.canEdit() && this.syncBase && !stateEqual(this.savePayload(), this.syncBase)) this.queueRemoteSave();
           } catch (error) { console.warn('CadetFlow refresh failed:', error); }
         });
       }
@@ -7966,7 +7980,10 @@
           const dupCadet = r.cadetId && imp.some((x, j) => j !== i && x.include && x.cadetId === r.cadetId);
           const note = !/\S+@\S+\.\S+/.test(r.email) ? ['No email', 'text-rose-300'] : !r.cadetId ? ['Pick who this is on the roster', 'text-amber-300']
             : dupEmail ? ['Same email twice in the list', 'text-rose-300'] : dupCadet ? ['Same cadet twice in the list', 'text-rose-300']
-            : taken ? ['That cadet already has another account', 'text-rose-300'] : existing ? ['Has an account: it will be linked', 'text-sky-300'] : ['Will get an invite', 'text-emerald-300'];
+            : taken ? ['That cadet already has another account', 'text-rose-300']
+            : existing?.status === 'pending' ? ['Registered and waiting: check it and approve it below instead', 'text-amber-300']
+            : existing?.status === 'rejected' ? ['Has a turned-down account: remove it first', 'text-rose-300']
+            : existing?.status === 'approved' ? ['Has an account: it will be linked', 'text-sky-300'] : ['Will get an invite', 'text-emerald-300'];
           return `<div class="flex flex-wrap items-center gap-2 px-3 py-2">
             <input type="checkbox" class="cadet-cb" ${r.include ? 'checked' : ''} onchange="ACC.import[${i}].include = this.checked; renderAccountsPage()" aria-label="Include row ${i + 1}">
             <span class="min-w-[120px] flex-1 text-xs"><span class="block text-slate-200 font-semibold">${esc(r.name || '(no name)')}</span><span class="block text-slate-500">${esc(r.email || '–')}${r.regNo ? ' · ' + esc(r.regNo) : ''}</span></span>

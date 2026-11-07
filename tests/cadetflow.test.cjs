@@ -2546,3 +2546,114 @@ test('regimental numbers: set in the roster editor (capitals, no spaces, no dupl
   assert.equal(await a.isVisible(box('cadet-1')), true);
   noErrors(a);
 }));
+
+// ---- What the database itself refuses (trigger cadetflow_state_guard), whatever a page sends -----------
+/** A hand-made save, as anyone could send one with their own sign-in: read the shared data, change it, write it back. */
+const handSave = (page, kind) => run(page, async kind => {
+  const { data } = await app.supabase.from('cadetflow_state').select('state, updated_at').eq('id', 1).maybeSingle();
+  const s = data.state;
+  let values = { state: s };
+  if (kind === 'rank') s.cadets.find(c => c.id === 'cadet-1').rank = 'CQMS';
+  if (kind === 'add cadet') s.cadets.push({ id: 'cadet-fake', name: 'Fake Senior', rank: 'SUO', wing: 'SD', company: 'Jessami' });
+  if (kind === 'wipe') values = { state: { events: s.events } };
+  if (kind === 'pay') s.uniform.find(r => r.id === 'uni-old').pay = { status: 'approved', at: 1, proofId: 'pay-x' };
+  if (kind === 'price') s.uniformPrices = [{ id: 'belt', price: 1 }];
+  if (kind === 'delete task') s.events = s.events.slice(1);
+  if (kind === 'task') s.events[0].title = 'Renamed by hand';
+  if (kind === 'move') values = { id: 2 };
+  const { data: rows, error } = await app.supabase.from('cadetflow_state').update(values).eq('id', 1).select('id');
+  return error ? `${error.code}: ${error.message}` : rows.length ? 'saved' : 'not saved';
+}, kind);
+
+test('the database keeps the roster and deleting tasks to the administrator, and uniform to the CQMS, even for hand-made saves', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-5', 'rank', 'CQMS'));
+  await flush(admin);
+  await admin.context().close();
+  db.pages.length = 0;
+  db.account('user-l', { cadetId: 'cadet-1' }).account('user-q', { cadetId: 'cadet-5' }).account('user-c', { cadetId: 'cadet-6' });
+
+  // Data the way an older version or the server may have left it: not in the shape the site tidies it into
+  const s = db.row.state;
+  s.cadets.find(c => c.id === 'cadet-9').rank = 'cdt';
+  delete s.cadets.find(c => c.id === 'cadet-10').wing;
+  s.uniform = [{ id: 'uni-old', cadetId: 'cadet-7', item: 'belt', qty: '2', status: 'ordered', requestedAt: 1, orderedAt: 2, requestedBy: 'CQMS' }];
+  s.uniformPrices = [{ id: 'belt', price: '120' }];
+  const locked = () => JSON.stringify([db.row.state.cadets, db.row.state.uniform, db.row.state.uniformPrices]);
+  const before = locked();
+
+  // The LCPL's ordinary saves go through, and send the roster and uniform back exactly as stored
+  const lcpl = await openAs(browser, db, 'user-l');
+  await run(lcpl, () => { window.prompt = () => 'Gate'; app.recordCallOut(['cadet-2']); });
+  await flush(lcpl);
+  assert.equal(db.row.state.duties.length, 1, 'the call-out was saved');
+  assert.equal(await run(lcpl, () => app.hasUnsyncedChanges), false);
+  assert.equal(locked(), before, 'roster, uniform and prices untouched');
+  assert.equal(await run(lcpl, () => app.state.cadets.find(c => c.id === 'cadet-9').rank), 'CDT', 'the page still shows them tidied up');
+
+  // Hand-made saves that change what they may not: the database refuses them and nothing changes
+  const writes = db.writes;
+  for (const kind of ['rank', 'add cadet', 'wipe']) assert.equal(await handSave(lcpl, kind), '42501: Only the administrator can change the roster.', kind);
+  assert.equal(await handSave(lcpl, 'delete task'), '42501: Only the administrator can remove tasks.');
+  for (const kind of ['pay', 'price']) assert.equal(await handSave(lcpl, kind), '42501: Only the CQMS and the administrator can change uniform orders, payments and prices.', kind);
+  assert.equal(await handSave(lcpl, 'move'), '42501: The shared data cannot be moved.');
+  assert.equal(db.writes, writes, 'nothing was written');
+  assert.equal(locked(), before);
+  assert.equal(await handSave(lcpl, 'task'), 'saved', 'the rest is still theirs to change');
+
+  // The CQMS changes uniform and prices (by hand or on the page), not the roster
+  const cqms = await openAs(browser, db, 'user-q');
+  assert.equal(await handSave(cqms, 'rank'), '42501: Only the administrator can change the roster.');
+  assert.equal(await handSave(cqms, 'price'), 'saved');
+  await run(cqms, () => setUniformArrived('uni-old', true));
+  await flush(cqms);
+  assert.equal(db.row.state.uniform.find(r => r.id === 'uni-old').status, 'arrived');
+
+  // Cadets below LCPL save nothing; the administrator can change anything but cannot move the row
+  const cdt = await openAs(browser, db, 'user-c');
+  assert.equal(await handSave(cdt, 'task'), 'not saved');
+  const admin2 = await openAs(browser, db, 'user-b');
+  assert.equal(await handSave(admin2, 'move'), '42501: The shared data cannot be moved.');
+  assert.equal(await handSave(admin2, 'rank'), 'saved');
+  assert.equal(db.cadet('cadet-1').rank, 'CQMS');
+  noErrors(lcpl, cqms, cdt, admin2);
+}));
+
+test('registration checks the regimental number on the roster; an invite never approves an account someone else made', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-12', 'regNo', 'KA21SD555'));
+  await flush(admin);
+  const reg = (cadetId, email, regNo, password = 'secret-123') => db.api(null, 'register', { cadetId, email, regNo, password });
+
+  // With a number on the roster, only that number registers (spaces and small letters do not matter)
+  await assert.rejects(reg('cadet-12', 'prahast@example.com', 'KA21SD556'), /does not match the roster/);
+  assert.equal(db.userByEmail('prahast@example.com'), null, 'no account was made');
+  assert.deepEqual(await reg('cadet-12', 'prahast@example.com', 'ka21 sd 555'), { ok: true });
+
+  // Someone registered with a cadet's email: inviting that email does not approve it
+  await reg('cadet-13', 'cadet13@example.com', 'KA21SD600', 'their-own-pw');
+  const pending = db.userByEmail('cadet13@example.com').id;
+  const one = await db.api('user-a', 'invite', { people: [{ cadetId: 'cadet-13', email: 'cadet13@example.com' }], send: false });
+  assert.equal(one.results[0].result, 'error');
+  assert.match(one.results[0].error, /waiting for approval/);
+  assert.equal(db.profile(pending).status, 'pending');
+  // ...and the list import says so before anything is sent
+  await run(admin, () => switchCadetFlowPage('accounts'));
+  await admin.waitForSelector('#accountsBody h3:has-text("Members")');
+  const csv = `Name,Email,Regimental No\n${db.cadet('cadet-13').name},cadet13@example.com,\n`;
+  await admin.setInputFiles('#accountsBody input[type=file]', { name: 'list.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await admin.waitForFunction(() => ACC.import && ACC.import.length === 1);
+  assert.match(await admin.textContent('#accountsBody'), /Registered and waiting: check it and approve it below instead/);
+
+  // A sign-in made outside the site (no CadetFlow profile, password chosen by whoever made it) gives way to a fresh invite
+  db.addUser({ id: 'user-squat', email: 'cadet14@example.com', password: 'squatter-pw' });
+  const two = await db.api('user-a', 'invite', { people: [{ cadetId: 'cadet-14', email: 'cadet14@example.com' }], send: false });
+  assert.equal(two.results[0].result, 'link');
+  assert.equal(db.users.has('user-squat'), false);
+  assert.equal(db.signIn('cadet14@example.com', 'squatter-pw').error, 'Invalid login credentials');
+  const fresh = db.userByEmail('cadet14@example.com').id;
+  assert.deepEqual([db.profile(fresh).status, db.profile(fresh).cadet_id], ['approved', 'cadet-14']);
+  noErrors(admin);
+}));

@@ -11,8 +11,9 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 
 ## Sign-in and accounts
 - Until an approved account signs in, `body.locked` hides the site and shows the gate (`#gate`, `renderGate()`): sign in, register, forgot password, waiting for approval.
-- Register: pick your name from the roster (the `roster` action works without sign-in), then email, regimental number and password. New accounts are `pending` viewers until the administrator approves them.
+- Register: pick your name from the roster (the `roster` action works without sign-in), then email, regimental number and password. When the roster already has that cadet's regimental number, the one typed must match. New accounts are `pending` viewers until the administrator approves them.
 - Accounts page (`renderAccountsPage()`, `loadAccounts()`): approve or reject, change role, link an account to its cadet, send or copy a password reset link, set a password, remove. Invite one cadet, or "Import list" (Excel/CSV with name, email, regimental number) to invite many: each gets a link to set a password.
+- An invite links an email's existing account only if it is already approved. It never approves a `pending` or `rejected` account (whoever registered it chose its password): the administrator approves or removes that one. A sign-in account with no CadetFlow profile was made outside the site, so the invite deletes it and starts again.
 - "Forgot password" only tells the administrator (`reset_requested_at`); the administrator sends the link from the Accounts page. Invite and reset links open the site with `#access_token=…&type=invite|recovery`, and the site asks for a new password.
 - Emails are sent by Supabase Auth. They need a custom SMTP sender and the site in Auth > URL Configuration > Redirect URLs. Without those, copy each link from the Accounts page and send it on WhatsApp.
 - The repo is public: never commit the cadets' list of emails and regimental numbers. Use Import list on the Accounts page.
@@ -27,6 +28,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Every approved cadet, whatever their rank: their own uniform requests, payment screenshots and "received", and their own late/absence requests.
 - Checks: `app.can(perm)`, `app.canEdit()` (= `write`), `app.isAdmin()`, `app.myCadet()`. Body classes `can-edit`, `can-parade`, `can-requests`, `can-uniform`, `is-admin`, `has-cadet`, `signed-in` hide buttons through CSS.
 - The old `editor`/`senior` role gives nothing now: link those accounts to their cadets.
+- The database enforces the important part as well (trigger `cadetflow_state_guard`, in the launch SQL): only the administrator can change `cadets` or remove tasks, only the CQMS and the administrator can change `uniform` and `uniformPrices`, and nobody can move the row. The site sends those parts back exactly as it read them for everyone else (`lockedKeys()`, `savePayload()`). Change the trigger, `lockedKeys()` and `guardRefuses` in `tests/fake-supabase.cjs` together. `cadetflow-api` (service role) is not checked. A writer can still change parades, history and call-outs by hand.
 
 ## App (install + notifications)
 - Live at https://pathakabhinav777.github.io/cadetmanagement/ (GitHub Pages from `main`).
@@ -84,7 +86,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 
 ## Tests
 - Needs Node 22.6 or newer, because the tests run the real `cadetflow-api` code with `--experimental-strip-types`. Run `npm install` once, then `npm test` (Playwright, `tests/cadetflow.test.cjs`).
-- `tests/fake-supabase.cjs` is an in-memory Supabase (tables with the row rules, auth, storage, push) that runs the real `index.ts`.
+- `tests/fake-supabase.cjs` is an in-memory Supabase (tables with the row rules and the `cadetflow_state_guard` trigger, auth, storage, push) that runs the real `index.ts`.
 - `tests/supabase-stub.js` replaces supabase-js in the page and forwards to it through `window.__db`, `__auth` and `__fn`.
 - `makeDb()` and `openAs(browser, db, userId)` open the site as a given account. Push is faked with `FAKE_PUSH`.
 - Run the tests before every commit; add a test for each new feature or bug fix.

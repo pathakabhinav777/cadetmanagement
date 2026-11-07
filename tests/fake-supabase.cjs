@@ -60,6 +60,12 @@ function pick(row, cols) {
   cols.split(',').map(c => c.trim()).filter(Boolean).forEach(c => { out[c] = row[c] === undefined ? null : clone(row[c]); });
   return out;
 }
+const WRITER_RANKS = ['LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO'];
+/** JSON text with object keys sorted, so two values compare like jsonb does. */
+const canonical = v => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x));
+/** The roster entry with this id in a saved state, like `c ->> 'id' = cadet_id` in SQL. */
+const cadetOf = (state, id) => (id == null ? null : (Array.isArray(state?.cadets) ? state.cadets : [])
+  .find(x => x && typeof x === 'object' && !Array.isArray(x) && x.id != null && typeof x.id !== 'object' && String(x.id) === String(id)) || null);
 const duplicate = table => ({ data: null, error: { message: `duplicate key value violates unique constraint (${table})`, code: '23505' } });
 const denied = table => ({ data: null, error: { message: `permission denied for table ${table}`, code: '42501' } });
 
@@ -162,8 +168,29 @@ class Backend {
     const p = userId && this.profile(userId);
     if (!p || p.status !== 'approved') return null;
     if (p.role === 'admin') return 'admin';
-    const c = (this.row.state?.cadets || []).find(x => String(x.id) === String(p.cadet_id));
-    return c && String(c.rank || 'CDT').toUpperCase() !== 'CDT' ? 'writer' : 'member';
+    const c = cadetOf(this.row.state, p.cadet_id);
+    return c && WRITER_RANKS.includes(String(c.rank ?? '').toUpperCase()) ? 'writer' : 'member';
+  }
+  /**
+   * Same as the trigger cadetflow_state_guard in supabase/launch: why the database refuses this save of
+   * the shared data ('' when it is fine). level: what cadetflow_my_access() says about the person saving.
+   */
+  guardRefuses(userId, level, oldRow, values) {
+    if ('id' in values && !same(values.id, oldRow.id)) return 'The shared data cannot be moved.';
+    if (level === 'admin' || !('state' in values)) return '';
+    const before = oldRow.state, after = values.state;
+    // jsonb: a missing key is SQL null, JSON null is a value; objects compare without key order.
+    const part = (s, k) => (s && typeof s === 'object' && !Array.isArray(s) && k in s ? canonical(s[k]) : undefined);
+    if (part(after, 'cadets') !== part(before, 'cadets')) return 'Only the administrator can change the roster.';
+    const ids = s => new Set((Array.isArray(s?.events) ? s.events : []).filter(e => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && e.id).map(e => e.id));
+    const kept = new Set((Array.isArray(after?.events) ? after.events : []).filter(e => e && typeof e === 'object').map(e => String(e.id)));
+    if ([...ids(before)].some(id => !kept.has(id))) return 'Only the administrator can remove tasks.';
+    if (part(after, 'uniform') !== part(before, 'uniform') || part(after, 'uniformPrices') !== part(before, 'uniformPrices')) {
+      const p = this.profile(userId);
+      const c = p && p.status === 'approved' ? cadetOf(before, p.cadet_id) : null;
+      if (!c || String(c.rank ?? '').toUpperCase() !== 'CQMS') return 'Only the CQMS and the administrator can change uniform orders, payments and prices.';
+    }
+    return '';
   }
 
   /** Add a sign-in account with its CadetFlow profile. */
@@ -255,7 +282,15 @@ class Backend {
     if (q.table === 'cadetflow_state') {
       const level = this.accessOf(userId);
       if (q.op === 'select') return level ? this.exec(q) : this.finish(q, []);
-      if (q.op === 'update') return level === 'admin' || level === 'writer' ? this.exec(q) : (q.returning ? this.finish(q, []) : { data: null, error: null });
+      if (q.op === 'update') {
+        if (level !== 'admin' && level !== 'writer') return q.returning ? this.finish(q, []) : { data: null, error: null };
+        // The guard trigger looks at each row the update matches (none when someone else saved first).
+        for (const r of this.tables.cadetflow_state.filter(r => q.filters.every(f => passes(f, r)))) {
+          const why = this.guardRefuses(userId, level, r, q.values || {});
+          if (why) return { data: null, error: { message: why, code: '42501' } };
+        }
+        return this.exec(q);
+      }
       return denied(q.table);
     }
     return denied(q.table);
