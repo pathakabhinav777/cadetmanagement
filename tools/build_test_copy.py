@@ -4,7 +4,7 @@
 The test copy is this site pointed at the separate Supabase project "CadetFlow Test", so people can
 try the sign-in version without touching the real data. The real site and the test copy share the
 address pathakabhinav777.github.io, so the copy also gets its own browser storage keys, its own
-offline cache and its own app name; on one phone or laptop the two never mix.
+offline cache and its own app name; on one phone or laptop the two never mix. Its titles say "Test".
 
 Usage:  python3 tools/build_test_copy.py <output folder>
 Then commit and push that folder to the pathakabhinav777/cadetflow-test repository (GitHub Pages).
@@ -16,9 +16,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEST_URL = 'https://pgkwlxothkmlwoyibqof.supabase.co'
 TEST_KEY = 'sb_publishable_2u4rg7ZPRKUxCEFz9rnBXA_NdNhjVRA'
-BANNER = ('<div style="position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:80;pointer-events:none;'
-          'background:#b45309;color:#fff;font:600 11px/1.6 system-ui,sans-serif;padding:1px 10px;border-radius:999px;'
-          'white-space:nowrap;opacity:.92">Test copy: changes here do not touch the real CadetFlow</div>')
+TEST_NOTE = 'Test copy: changes here do not touch the real CadetFlow'
 
 
 def swap(text, old, new, what):
@@ -47,9 +45,13 @@ def build(out):
     html = swap(html, '<title>CadetFlow | NCC Roster</title>', '<title>CadetFlow Test</title>', 'title')
     html = swap(html, '<meta name="apple-mobile-web-app-title" content="CadetFlow">',
                 '<meta name="apple-mobile-web-app-title" content="CF Test">', 'iPhone app name')
-    body_at = html.index('<body ')
-    body_end = html.index('>', body_at) + 1
-    html = html[:body_end] + '\n' + BANNER + html[body_end:]
+    # Say it is the test copy in the page itself (a floating label would cover content when scrolled).
+    html = swap(html, '<h1 id="gateTitle" class="text-3xl font-extrabold text-white mt-1">CadetFlow</h1>',
+                '<h1 id="gateTitle" class="text-3xl font-extrabold text-white mt-1">CadetFlow Test</h1>', 'sign-in title')
+    html = swap(html, '<p class="text-sm text-slate-400 mt-1">Jessami \u00b7 Kohima \u00b7 Naushera</p>',
+                f'<p class="text-sm font-semibold text-amber-300 mt-1">{TEST_NOTE}</p>', 'sign-in subtitle')
+    html = swap(html, '<h1 class="font-extrabold text-white text-sm sm:text-base tracking-tight leading-tight">CadetFlow</h1>',
+                '<h1 class="font-extrabold text-white text-sm sm:text-base tracking-tight leading-tight">CadetFlow Test</h1>', 'header title')
     if 'fyezdsvrlbbqrepbxcuj' in html:
         sys.exit('build_test_copy: the real project is still mentioned in index.html')
     (out / 'index.html').write_text(html, encoding='utf-8')
