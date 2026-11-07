@@ -104,13 +104,6 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Rebuild after changes: `python3 tools/build_test_copy.py <folder>`, then push that folder to the `cadetflow-test` repo. Redeploy `cadetflow-api` to the test project when the server changed.
 - Invite/reset links there need the test project's Site URL set in Supabase; "Set password" on the Accounts page works without it.
 
-## Launching the sign-in version (once)
-In this order, also listed in `supabase/launch/cadet_accounts_launch.sql`:
-1. Apply the migration.
-2. Deploy `cadetflow-api` with `rules.mjs`, verify_jwt off.
-3. Merge `cadet-accounts` into `main` and push.
-4. Apply the launch SQL.
-5. Replace `cadetflow-push` with the retired stub.
-6. Link existing accounts to their cadets.
-
-For emails, set up the custom SMTP sender and the Redirect URL.
+## Launched (2026-11-07) and the restore point
+The sign-in version is live on `main`. On live the lock-down was applied with `alter policy` (same rules as `supabase/launch/cadet_accounts_launch.sql`); unowned old push devices were left in place (they get no notifications).
+To go back to the old public site, follow `supabase/launch/rollback_to_public_site.sql`: git tag `restore-before-signin` (c74f579, the old site and old `cadetflow-push`), table `cadetflow_restore_point` row 1 on live (data, accounts and access rules as they were), and a local copy of the data in `~/Documents/NCC/cadetflow-restore-point/` (never commit it).
