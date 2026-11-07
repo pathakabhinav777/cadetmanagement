@@ -13,53 +13,39 @@ const STUB = fs.readFileSync(path.join(__dirname, 'supabase-stub.js'), 'utf8');
 // Tailwind/Google Fonts are not needed for behaviour tests; only `.hidden` matters.
 const TAILWIND_STANDIN = "document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>')";
 
-const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
+const { Backend, clone } = require('./fake-supabase.cjs');
 
-/** Fake Supabase database shared by all pages in one test. */
+/**
+ * In-memory Supabase shared by all pages in one test (tests/fake-supabase.cjs), with the real
+ * cadetflow-api server. Accounts: administrators user-a and user-b, and user-v, an approved member
+ * not linked to any cadet (can view, cannot change anything).
+ */
 function makeDb() {
-  let tick = 0;
-  const db = {
-    row: { id: 1, state: null, updated_at: null },
-    roles: { 'user-a': 'admin', 'user-b': 'admin', 'user-s': 'editor', 'user-t': 'senior' },
-    pages: [],
-    writes: 0,
-    autoNotify: true,
-    handle(userId, q) {
-      if (q.table === 'cadetflow_profiles') return { data: userId ? { role: db.roles[userId] ?? null } : null, error: null };
-      if (q.table !== 'cadetflow_state') return { data: null, error: { message: 'unknown table' } };
-      if (q.op === 'select') return { data: db.row.state ? clone({ state: db.row.state, updated_at: db.row.updated_at }) : null, error: null };
-      // UPDATE, filtered like PostgREST. Row-level security: only editors can update.
-      if (!db.roles[userId]) return { data: null, error: null };
-      const matches = q.filters.every(([op, col, val]) => (op === 'eq' ? String(db.row[col]) === String(val) : db.row[col] == null));
-      if (!matches) return { data: null, error: null };
-      // Server-side timestamp in Postgres format (like a `now()` trigger) — differs from what the client sent.
-      const stamp = new Date(Date.now() + ++tick).toISOString().replace('Z', '000+00:00');
-      db.row = { ...db.row, ...clone(q.values), updated_at: stamp };
-      db.writes++;
-      if (db.autoNotify) db.pages.forEach(p => p.evaluate(() => window.__realtime && window.__realtime()).catch(() => {}));
-      return { data: { id: 1, updated_at: stamp }, error: null };
-    }
-  };
-  return db;
+  return new Backend().account('user-a', { role: 'admin' }).account('user-b', { role: 'admin' }).account('user-v');
 }
 
-async function openAs(browser, db, userId, { url = PAGE_URL, init } = {}) {
-  const context = await browser.newContext();
+async function openAs(browser, db, userId, { url = PAGE_URL, init, viewport, waitReady = true } = {}) {
+  const context = await browser.newContext(viewport ? { viewport } : {});
   const page = await context.newPage();
   if (init) await page.addInitScript(init);
   page.errors = [];
   page.on('pageerror', e => page.errors.push(e.message));
   page.on('dialog', d => d.accept());
-  await page.addInitScript(u => { window.__testUser = u; }, userId ? { id: userId, email: `${userId}@example.com` } : null);
-  await page.exposeFunction('__db', q => db.handle(userId, q));
+  await page.addInitScript(u => { window.__testUser = u; }, userId ? { id: userId, email: db.users.get(userId)?.email || `${userId}@example.com` } : null);
+  await page.exposeFunction('__db', (q, uid) => db.clientExec(q, uid));
+  await page.exposeFunction('__auth', (op, args) => db.authCall(op, args));
+  await page.exposeFunction('__fn', (name, body, uid) => db.callFunction(name, body, uid));
   await page.route('**/supabase-js@2', r => r.fulfill({ contentType: 'application/javascript', body: STUB }));
   await page.route(/cdn\.tailwindcss\.com/, r => r.fulfill({ contentType: 'application/javascript', body: TAILWIND_STANDIN }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ body: '' }));
   await page.goto(url);
-  await page.waitForFunction(() => typeof app !== 'undefined' && app && app.remoteReady === true);
+  // Approved accounts wait for the shared data; anyone else for the sign-in screen.
+  if (waitReady) await page.waitForFunction(() => typeof app !== 'undefined' && app && app.authChecked === true && (app.remoteReady === true || document.body.classList.contains('locked')));
   db.pages.push(page);
   return page;
 }
+/** The view the sign-in screen shows (signin, register, pending, ...), or '' when the site is open. */
+const gateView = page => page.evaluate(() => (document.body.classList.contains('locked') ? GATE.view : ''));
 
 const run = (page, fn, arg) => page.evaluate(fn, arg);
 const flush = page => run(page, () => app.flushRemoteSave());
@@ -607,12 +593,19 @@ test('archive outcomes do not depend on having a deadline', () => withBrowser(as
   noErrors(a);
 }));
 
-test('visitors can view but not change anything', () => withBrowser(async browser => {
+test('members below lance corporal can view but not change anything', () => withBrowser(async browser => {
   const db = makeDb();
   const a = await openAs(browser, db, 'user-a');
   await flush(a);
-  const v = await openAs(browser, db, null);
+  db.account('user-c', { cadetId: 'cadet-3' }); // a CDT
+  const v = await openAs(browser, db, 'user-v');
+  const c = await openAs(browser, db, 'user-c');
+  assert.equal(await run(v, () => app.state.cadets.length), 37, 'they see the shared data');
   const writes = db.writes;
+  await run(c, id => { app.toggleCadetStatus('cadet-1', id); app.recordCallOut(['cadet-2']); }, await run(c, () => app.state.activeEventId));
+  // Even a direct write is refused by the database for them.
+  const direct = await run(c, () => app.supabase.from('cadetflow_state').update({ state: {} }).eq('id', 1).select('id').maybeSingle());
+  assert.equal(direct.data, null);
   const task = await run(v, () => app.state.activeEventId);
   await run(v, id => { app.toggleCadetStatus('cadet-1', id); app.setTeamDone('x', true); }, task);
   await v.waitForTimeout(700);
@@ -755,7 +748,7 @@ test('cadet roster page is open to everyone and can be filtered by company, year
   });
   await flush(a);
 
-  const v = await openAs(browser, db, null); // signed-out visitor
+  const v = await openAs(browser, db, 'user-v'); // a member without powers
   await run(v, () => switchCadetFlowPage('home'));
   await v.click('button[aria-label="Open Cadet Roster"]');
   assert.equal(await v.isVisible('#directoryPage'), true);
@@ -877,8 +870,8 @@ test('availability: filters, WhatsApp copy, cycle, work call-outs and leaderboar
   await flush(a); await flush(b);
   assert.deepEqual(db.row.state.duties.map(d => d.work).sort(), ['Carry chairs to the hall', 'Flag duty', 'Gate duty']);
 
-  // Visitors see counts and leaderboard but no editing controls.
-  const v = await openAs(browser, db, null);
+  // Members without powers see counts and leaderboard but no editing controls.
+  const v = await openAs(browser, db, 'user-v');
   await run(v, () => { switchCadetFlowPage('availability'); document.getElementById('availabilityDay').value = 'TUE'; document.getElementById('availabilityHalf').value = '2'; renderAvailabilityResults(); });
   assert.equal(await v.locator('#availabilityResults input[type=checkbox]').count(), 0);
   assert.equal(await v.isVisible('#availCallBtn'), false);
@@ -1195,9 +1188,8 @@ test('group tasks: one mark for everyone (normal task) or one mark per team (spe
   noErrors(a);
 }));
 
-test('uniform orders: next order totals, beret sizes, who needs it, place and receive; anyone can view', () => withBrowser(async browser => {
+test('uniform orders: next order totals, beret sizes, who needs it, place, arrive and hand over; every member can view', () => withBrowser(async browser => {
   const db = makeDb();
-  db.roles['user-c'] = null; // signed in, not an editor
   const a = await openAs(browser, db, 'user-a');
   await run(a, () => switchCadetFlowPage('uniform'));
   assert.equal(await a.isVisible('#uniformContent'), true);
@@ -1253,17 +1245,21 @@ test('uniform orders: next order totals, beret sizes, who needs it, place and re
   assert.equal(await a.inputValue('#uniSizeList input[data-cadet="cadet-1"]'), '57');
   await run(a, () => { toggleUniformCadet('cadet-1', false); toggleUniformItem('beret'); });
 
-  // Receive items in order 1, one at a time and then the rest
+  // Order 1 arrives (one item first, then the rest); items are handed over one by one
   const order1 = [...ids][0];
   await run(a, id => selectUniformOrder(id), order1);
   const one = db.row.state.uniform.find(r => r.item === 'hackle' && r.cadetId === 'cadet-1').id;
-  await run(a, id => setUniformReceived(id, true), one);
-  assert.match(await a.textContent('#uniOrderHead'), /1 of 6 received/);
+  assert.equal(await run(a, id => { setUniformReceived(id, true); return uniformFind([id])[0].status; }, one), 'ordered', 'cannot hand over before it arrives');
+  await run(a, id => setUniformArrived(id, true), one);
+  assert.match(await a.textContent('#uniOrderHead'), /1 of 6 arrived/);
   assert.equal(await a.isVisible('#uniOrderActions button:has-text("Undo placing")'), false, 'cannot undo once something arrived');
-  await run(a, () => markUniformOrderReceived());
+  await run(a, () => markUniformOrderArrived());
+  await run(a, id => setUniformReceived(id, true), one); // no price set: handed over after a confirm
   await flush(a);
-  assert.equal(db.row.state.uniform.filter(r => r.orderId === order1 && r.status === 'received').length, 6);
-  assert.match(await a.textContent('#uniOrderSelect'), /Order 1 · .* · received/);
+  assert.equal(db.row.state.uniform.filter(r => r.orderId === order1 && r.status === 'arrived').length, 5);
+  assert.equal(db.row.state.uniform.find(r => r.id === one).status, 'received');
+  assert.match(await a.textContent('#uniOrderHead'), /arrived · 1 of 6 collected/);
+  assert.match(await a.textContent('#uniOrderSelect'), /Order 1 · .* · arrived/);
 
   // Place and undo order 2
   await run(a, () => { selectUniformOrder('next'); placeUniformOrder(); });
@@ -1289,8 +1285,9 @@ test('uniform orders: next order totals, beret sizes, who needs it, place and re
   await flush(b); await flush(a);
   assert.equal(db.row.state.uniform.filter(r => r.status === 'requested').length, 3);
 
-  // Anyone can see the orders and who needs what; only verified seniors can change them
-  const v = await openAs(browser, db, null);
+  // Every member can see the orders and who needs what; only the CQMS and the administrator change them
+  db.account('user-c', { cadetId: 'cadet-5' }); // a CDT
+  const v = await openAs(browser, db, 'user-v');
   await run(v, () => switchCadetFlowPage('uniform'));
   assert.equal(await v.isVisible('#uniformContent'), true);
   assert.equal(await v.locator('#uniOrderItems details').count(), 3);
@@ -1301,6 +1298,8 @@ test('uniform orders: next order totals, beret sizes, who needs it, place and re
   const c = await openAs(browser, db, 'user-c');
   await run(c, () => switchCadetFlowPage('uniform'));
   assert.equal(await c.isVisible('#uniformViewOnly'), true);
+  assert.equal(await v.isVisible('#uniMine'), false, 'no "My uniform" without a cadet on the roster');
+  assert.match(await c.textContent('#uniMine'), /My uniform[\s\S]*Belt/, "the cadet's own items");
   noErrors(a, b, v, c);
 }));
 
@@ -1346,8 +1345,8 @@ test('group tasks take plain updates (optionally flagged as an issue)', () => wi
   assert.equal(dbEvent(db, sp).tasks[0].updates[0].teamId, 'team-test-2');
   assert.match(await a.textContent(`#specialEventView [data-task-id="${tid}"]`), /Ropes ordered/);
 
-  // Visitors see updates but can't post
-  const v = await openAs(browser, db, null);
+  // Members without powers see updates but can't post
+  const v = await openAs(browser, db, 'user-v');
   await run(v, id => { switchCadetFlowPage('roster'); app.switchEvent(id); showTaskMasterSection('workspace'); }, id);
   assert.match(await v.textContent('#groupTaskCard'), /Chairs found/);
   assert.equal(await v.locator('#groupTaskCard button:has-text("Post update")').isVisible(), false);
@@ -1445,8 +1444,8 @@ test('availability: editors edit timetables on the site; 3rd years are left out'
   assert.match(await a.textContent('#availabilityUnassigned'), /Shaurya Pandey/);
   assert.ok(db.row.state.history.some(h => h.action === 'timetable-edited'));
 
-  // Visitors can't open the editor
-  const v = await openAs(browser, db, null);
+  // Members without powers can't open the editor
+  const v = await openAs(browser, db, 'user-v');
   await run(v, () => switchCadetFlowPage('availability'));
   assert.equal(await v.locator('button:has-text("Edit timetables")').isVisible(), false);
   await run(v, () => openTimetableEditor('cadet-30'));
@@ -1454,60 +1453,98 @@ test('availability: editors edit timetables on the site; 3rd years are left out'
   noErrors(a, v);
 }));
 
-test('three kinds of people: administrator, senior, viewer', () => withBrowser(async browser => {
+test('powers come from rank: LCPL tasks, SGT requests, JUO/SUO parades, CQMS uniform; the administrator everything', () => withBrowser(async browser => {
   const db = makeDb();
-  db.roles['user-v'] = 'viewer';
   const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => { app.updateCadetField('cadet-3', 'rank', 'SGT'); app.updateCadetField('cadet-4', 'rank', 'JUO'); app.updateCadetField('cadet-5', 'rank', 'CQMS'); });
   await flush(admin);
-  const senior = await openAs(browser, db, 'user-s');
-  const senior2 = await openAs(browser, db, 'user-t');
-  const viewer = await openAs(browser, db, 'user-v');
-  const level = p => run(p, () => [app.accessLevel(), app.canEdit(), app.isAdmin(), document.body.classList.contains('can-edit'), document.body.classList.contains('is-admin')]);
-  assert.deepEqual(await level(admin), ['admin', true, true, true, true]);
-  assert.deepEqual(await level(senior), ['senior', true, false, true, false]);
-  assert.deepEqual(await level(senior2), ['senior', true, false, true, false], "role 'senior' works as well as 'editor'");
-  assert.deepEqual(await level(viewer), ['viewer', false, false, false, false]);
-  assert.match(await senior.textContent('#accountRole'), /Senior/);
+  db.account('user-l', { cadetId: 'cadet-1' }).account('user-g', { cadetId: 'cadet-3' }).account('user-j', { cadetId: 'cadet-4' })
+    .account('user-q', { cadetId: 'cadet-5' }).account('user-c', { cadetId: 'cadet-6' });
+  const lcpl = await openAs(browser, db, 'user-l'), sgt = await openAs(browser, db, 'user-g'), juo = await openAs(browser, db, 'user-j');
+  const cqms = await openAs(browser, db, 'user-q'), cdt = await openAs(browser, db, 'user-c');
+  const powers = p => run(p, () => ['write', 'parade', 'requests', 'uniform'].filter(k => app.can(k)).concat(app.isAdmin() ? ['admin'] : []));
+  assert.deepEqual(await powers(admin), ['write', 'parade', 'requests', 'uniform', 'admin']);
+  assert.deepEqual(await powers(lcpl), ['write']);
+  assert.deepEqual(await powers(sgt), ['write', 'requests']);
+  assert.deepEqual(await powers(juo), ['write', 'parade', 'requests']);
+  assert.deepEqual(await powers(cqms), ['write', 'requests', 'uniform']);
+  assert.deepEqual(await powers(cdt), []);
+  const classes = p => run(p, () => ['can-edit', 'can-parade', 'can-requests', 'can-uniform', 'is-admin', 'has-cadet'].filter(c => document.body.classList.contains(c)));
+  assert.deepEqual(await classes(sgt), ['can-edit', 'can-requests', 'has-cadet']);
+  assert.deepEqual(await classes(admin), ['can-edit', 'can-parade', 'can-requests', 'can-uniform', 'is-admin']);
+  assert.match(await lcpl.textContent('#accountRole'), /LCPL · tasks, call-outs/);
+  assert.match(await cdt.textContent('#accountRole'), /CDT · view and own requests/);
   assert.match(await admin.textContent('#accountRole'), /Administrator/);
+  assert.match(await lcpl.textContent('#accountName'), /LCPL Harsh Rajesh Koti/);
 
-  // Seniors: tasks, call-outs, uniform requests
-  const task = await createTask(senior, 'Senior task');
-  await run(senior, () => { window.prompt = () => 'Gate'; app.recordCallOut(['cadet-2']); toggleUniformCadet('cadet-3', true); toggleUniformItem('belt'); createUniformRequests(); });
-  await flush(senior);
+  // LCPL: tasks and call-outs, but no parades, uniform orders, roster, timetables or deleting tasks
+  const task = await createTask(lcpl, 'Senior task');
+  await run(lcpl, () => { window.prompt = () => 'Gate'; app.recordCallOut(['cadet-2']); openParadeModal(); toggleUniformCadet('cadet-3', true); toggleUniformItem('belt'); createUniformRequests(); });
+  assert.equal(await lcpl.isVisible('#paradeModal'), false);
+  await flush(lcpl);
   assert.ok(db.row.state.events.some(e => e.id === task));
   assert.equal(db.row.state.duties.length, 1);
-  assert.equal(db.row.state.uniform.length, 1);
-  // ...but not the roster, timetables, data restore or deleting tasks
+  assert.equal((db.row.state.uniform || []).length, 0, 'only the CQMS adds uniform requests for others');
   const before = JSON.stringify(db.row.state.cadets);
-  await run(senior, id => {
+  await run(lcpl, id => {
     app.openRosterModal(); app.updateCadetField('cadet-1', 'name', 'Changed'); app.removeCadet('cadet-2');
     openTimetableEditor('cadet-3'); toggleTimetableSlot('MON1');
     app.handleDeleteCurrentEventDirectly(id);
   }, task);
-  await flush(senior);
-  assert.equal(JSON.stringify(db.row.state.cadets), before, 'roster unchanged by a senior');
-  assert.ok(db.row.state.events.some(e => e.id === task), 'task not deleted by a senior');
-  assert.equal(await senior.isVisible('#rosterModal'), false);
-  assert.equal(await senior.isVisible('#timetableModal'), false);
-  await run(senior, id => { switchCadetFlowPage('roster'); app.switchEvent(id); showTaskMasterSection('workspace'); }, task);
-  assert.equal(await senior.locator('button[onclick*="handleDeleteCurrentEventDirectly"]').first().isVisible(), false);
-  assert.equal(await senior.locator('button[onclick*="openEditCurrentEventModal"]').first().isVisible(), true);
-  await run(senior, () => switchCadetFlowPage('availability'));
-  assert.equal(await senior.locator('button:has-text("Edit timetables")').isVisible(), false);
+  await flush(lcpl);
+  assert.equal(JSON.stringify(db.row.state.cadets), before, 'roster unchanged');
+  assert.ok(db.row.state.events.some(e => e.id === task), 'task not deleted');
+  assert.equal(await lcpl.isVisible('#rosterModal'), false);
+  await run(lcpl, id => { switchCadetFlowPage('roster'); app.switchEvent(id); showTaskMasterSection('workspace'); }, task);
+  assert.equal(await lcpl.locator('button[onclick*="handleDeleteCurrentEventDirectly"]').first().isVisible(), false);
+  assert.equal(await lcpl.locator('button[onclick*="openEditCurrentEventModal"]').first().isVisible(), true);
+  await run(lcpl, () => switchCadetFlowPage('availability'));
+  assert.equal(await lcpl.locator('button:has-text("Edit timetables")').isVisible(), false);
 
-  // Administrators can do all of it
-  await refresh(admin);
-  await run(admin, () => { app.updateCadetField('cadet-1', 'name', 'Harsh R Koti'); switchCadetFlowPage('availability'); });
+  // JUO creates a parade; the SGT cannot, but marks attendance; the LCPL cannot mark
+  const newParade = (p, title) => run(p, title => {
+    switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('custom');
+    const at = new Date(Date.now() + 5 * 3600000), pad = n => String(n).padStart(2, '0');
+    document.getElementById('paradeTitle').value = title;
+    document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    document.getElementById('paradeTime').value = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    saveParade();
+    return (app.state.parades || []).find(x => x.title === title)?.id || null;
+  }, title);
+  assert.equal(await newParade(sgt, 'SGT parade'), null);
+  const pid = await newParade(juo, 'JUO parade');
+  assert.ok(pid);
+  await flush(juo);
+  await refresh(sgt); await refresh(lcpl);
+  await run(lcpl, id => setParadeMark(id, 'cadet-7', 'present'), pid);
+  assert.equal(await run(lcpl, id => findParade(id).marks?.['cadet-7'] ?? null, pid), null, 'the LCPL cannot mark attendance');
+  await run(sgt, id => setParadeMark(id, 'cadet-7', 'present'), pid);
+  await flush(lcpl); await flush(sgt);
+  assert.equal(db.row.state.parades.find(p => p.id === pid).marks['cadet-7'], 'present');
+  // The server agrees: notifications only from JUO/SUO and the administrator
+  await assert.rejects(db.api('user-g', 'notify', { paradeId: pid }), /JUOs, SUOs/);
+  assert.ok(db.calls.some(c => c.action === 'notify' && c.userId === 'user-j' && c.status === 200), "the JUO's new parade was announced");
+
+  // CQMS: uniform orders and payment details; nobody else
+  await refresh(cqms);
+  await run(cqms, () => { switchCadetFlowPage('uniform'); toggleUniformCadet('cadet-8', true); toggleUniformItem('socks'); createUniformRequests(); placeUniformOrder(); });
+  await flush(cqms);
+  assert.equal(db.row.state.uniform.find(r => r.cadetId === 'cadet-8').status, 'ordered');
+  await assert.rejects(db.api('user-g', 'setPayInfo', { upi: 'x@y' }), /CQMS/);
+  assert.deepEqual(await db.api('user-q', 'setPayInfo', { upi: 'unit@sbi', payee: 'NCC Unit' }), { ok: true });
+
+  // A new rank takes effect straight away
+  await run(admin, () => app.updateCadetField('cadet-1', 'rank', 'SGT'));
   await flush(admin);
-  assert.equal(db.row.state.cadets.find(c => c.id === 'cadet-1').name, 'Harsh R Koti');
-  assert.equal(await admin.locator('button:has-text("Edit timetables")').isVisible(), true);
+  await refresh(lcpl);
+  assert.deepEqual(await powers(lcpl), ['write', 'requests']);
 
-  // Viewers change nothing
+  // Members below LCPL change nothing
   const writes = db.writes;
-  await run(viewer, () => { window.prompt = () => 'x'; app.recordCallOut(['cadet-2']); app.openNewEventModal(); });
-  await run(viewer, () => app.flushRemoteSave());
+  await run(cdt, () => { window.prompt = () => 'x'; app.recordCallOut(['cadet-2']); app.openNewEventModal(); });
+  await run(cdt, () => app.flushRemoteSave());
   assert.equal(db.writes, writes);
-  noErrors(admin, senior, senior2, viewer);
+  noErrors(admin, lcpl, sgt, juo, cqms, cdt);
 }));
 
 test('parades: create, late/absence reports with cutoff, company-wise attendance', () => withBrowser(async browser => {
@@ -1515,8 +1552,9 @@ test('parades: create, late/absence reports with cutoff, company-wise attendance
   const admin = await openAs(browser, db, 'user-a');
   await run(admin, () => { app.updateCadetField('cadet-10', 'rank', 'SGT'); app.updateCadetField('cadet-20', 'rank', 'JUO'); });
   await flush(admin);
+  db.account('user-s', { cadetId: 'cadet-20' }); // the JUO
   const senior = await openAs(browser, db, 'user-s');
-  // Senior creates a parade for the whole battalion, 2 hours from now
+  // The JUO creates a parade for the whole battalion, 2 hours from now
   const pid = await run(senior, () => {
     switchCadetFlowPage('parades');
     openParadeModal();
@@ -1585,7 +1623,7 @@ test('parades: create, late/absence reports with cutoff, company-wise attendance
   // Seniors can't delete a parade; administrators can. Visitors only look.
   await run(senior, id => deleteParade(id), pid);
   assert.ok(await run(senior, id => !!findParade(id), pid));
-  const v = await openAs(browser, db, null);
+  const v = await openAs(browser, db, 'user-v');
   await run(v, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
   assert.match(await v.textContent('#paradeDetailView'), /Saturday parade/);
   assert.equal(await v.locator('#paradeDetailView button:has-text("Present")').first().isVisible(), false);
@@ -1635,7 +1673,7 @@ test('cadet profile: attendance %, calendar colours, call-outs', () => withBrows
   await run(a, () => { const p = app.state.parades.find(x => x.id === 'p3'); p.reports.push({ id: 'r2', cadetId: 'cadet-29', kind: 'late', reason: 'Bus', informedTo: 'cadet-10', at: 1 }); renderCadetProfile(); });
   assert.match(await a.textContent('#profileBody'), /100%/);
   // Visitors can open profiles too
-  const v = await openAs(browser, db, null);
+  const v = await openAs(browser, db, 'user-v');
   await run(v, () => openCadetProfile('cadet-29'));
   assert.equal(await v.isVisible('#profileModal'), true);
   noErrors(a, v);
@@ -1675,7 +1713,7 @@ test('installable app: manifest, icons, service worker and the "Get the app" blo
   assert.equal(await a.isVisible('#installAppBtn'), false);
 
   // Once installed (opened from the home screen) the block is hidden
-  const p = await openAs(browser, db, null, { init: () => { Object.defineProperty(navigator, 'standalone', { value: true }); } });
+  const p = await openAs(browser, db, 'user-v', { init: () => { Object.defineProperty(navigator, 'standalone', { value: true }); } });
   assert.equal(await p.isVisible('#getApp'), false);
   noErrors(a, p);
 }));
@@ -1743,7 +1781,10 @@ test('uniform prices: edited on the page, bill per order, placed orders keep the
   assert.match(await a.textContent('#uniBill'), /Bill\s*₹300/);
   await flush(a);
 
-  // Two seniors changing different prices at the same time keep both
+  // The CQMS and the administrator changing different prices at the same time keep both
+  await run(a, () => app.updateCadetField('cadet-6', 'rank', 'CQMS'));
+  await flush(a);
+  db.account('user-s', { cadetId: 'cadet-6' });
   const b = await openAs(browser, db, 'user-s');
   db.autoNotify = false;
   await run(b, () => switchCadetFlowPage('uniform'));
@@ -1754,7 +1795,7 @@ test('uniform prices: edited on the page, bill per order, placed orders keep the
   assert.equal(db.row.state.uniformPrices.find(p => p.id === 'belt').price, 90);
 
   // Visitors see the prices and the bill but cannot change them
-  const v = await openAs(browser, db, null);
+  const v = await openAs(browser, db, 'user-v');
   await run(v, () => switchCadetFlowPage('uniform'));
   assert.equal(await v.locator('#uniPriceList input').count(), 0);
   assert.match(await v.textContent('#uniPriceList'), /Beret\s*₹300/);
@@ -1881,102 +1922,603 @@ test('app shows "new version ready" when the site changed while it was in the ba
 /** Fake browser push support (the real thing needs https and a phone's push service). */
 const FAKE_PUSH = () => {
   window.__sub = null; window.__perm = 'default'; window.__permAnswer = 'granted';
-  const sub = { endpoint: 'https://push.example/device-1', toJSON() { return { endpoint: this.endpoint, keys: { p256dh: 'p', auth: 'a' } }; }, async unsubscribe() { window.__sub = null; return true; } };
+  // One device per test person: https://push.example/<user id>
+  const sub = { get endpoint() { return 'https://push.example/' + (window.__testUser ? window.__testUser.id : 'visitor'); },
+    toJSON() { return { endpoint: this.endpoint, keys: { p256dh: 'p', auth: 'a' } }; }, async unsubscribe() { window.__sub = null; return true; } };
   const pushManager = { async getSubscription() { return window.__sub; }, async subscribe(o) { window.__subOpts = o; window.__sub = sub; return sub; } };
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager }), addEventListener() {}, getRegistration: async () => null } });
   window.PushManager = function () {};
   window.Notification = { get permission() { return window.__perm; }, async requestPermission() { window.__perm = window.__permAnswer; return window.__perm; } };
 };
+const toast = page => page.evaluate(() => document.getElementById('toastText').textContent);
+const waitToast = (page, text) => page.waitForFunction(t => document.getElementById('toastText').textContent.includes(t), text);
 
-test('parade notifications: turn on per device, new parades are announced, tapping opens the parade', () => withBrowser(async browser => {
+test('parade notifications: per person and device, only the cadets a parade is for, tapping opens it', () => withBrowser(async browser => {
   const db = makeDb();
-  const calls = [];
-  const announced = new Set();
-  const fakeServer = (name, body) => {
-    calls.push({ name, ...body });
-    if (body.action === 'key') return { publicKey: 'BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' };
-    if (body.action === 'notify') {
-      if (!db.row.state.parades.some(p => p.id === body.paradeId)) return { __error: 'That parade is not saved yet.' };
-      if (announced.has(body.paradeId) && !body.again) return { alreadySent: true, sentAt: new Date().toISOString() };
-      announced.add(body.paradeId);
-      return { sent: 3, failed: 0, devices: 3 };
-    }
-    if (body.action === 'test') return { ok: true, sent: 1 };
-    return { ok: true };
-  };
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => {
+    app.updateCadetField('cadet-20', 'rank', 'JUO'); app.updateCadetField('cadet-20', 'year', '3rd');
+    app.updateCadetField('cadet-1', 'year', '2nd'); app.updateCadetField('cadet-3', 'year', '1st');
+  });
+  await flush(admin);
+  db.account('user-j', { cadetId: 'cadet-20' }).account('user-2', { cadetId: 'cadet-1' }).account('user-1', { cadetId: 'cadet-3' });
   const open = async (user, opts) => {
     const page = await openAs(browser, db, user, { init: FAKE_PUSH, ...opts });
-    await page.exposeFunction('__fnNode', fakeServer);
-    await run(page, async () => { window.__fn = (n, b) => window.__fnNode(n, b); window.pushSupported = () => true; await renderNotifyBoxes(); });
+    await run(page, async () => { window.pushSupported = () => true; await renderNotifyBoxes(); });
     return page;
   };
-
-  // Anyone (no sign-in needed) can turn notifications on for their device
-  const v = await open(null);
   const box = '#homePage [data-notify]';
-  assert.match(await v.textContent(box), /Get a notification on this device/);
-  await v.click(`${box} button:has-text("Turn on notifications")`);
-  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'on');
-  assert.deepEqual(calls.map(c => c.action), ['key', 'subscribe']);
-  assert.equal(calls[1].subscription.endpoint, 'https://push.example/device-1');
-  assert.equal(await run(v, () => window.__subOpts.userVisibleOnly), true);
-  assert.match(await v.textContent('#paradePage [data-notify]'), /On for this device/, 'the Parades page shows it too');
-  // Test and turn off
-  await v.click(`${box} button:has-text("Send a test")`);
-  await v.waitForFunction(() => document.getElementById('toastText').textContent.includes('Test sent'));
-  assert.ok(calls.some(c => c.action === 'test' && c.endpoint === 'https://push.example/device-1'));
-  await v.click(`${box} button:has-text("Turn off")`);
-  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'off');
-  assert.ok(calls.some(c => c.action === 'unsubscribe'));
-  // Saying no to the permission request
-  await run(v, () => { window.__permAnswer = 'denied'; });
-  await v.click(`${box} button:has-text("Turn on notifications")`);
-  await v.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'blocked');
-  assert.match(await v.textContent(box), /blocked/);
-  // iPhone in Safari (not added to the Home Screen) is told to add it first
-  assert.equal(await run(v, () => { window.pushSupported = () => false; window.isIOS = () => true; return pushState(); }), 'ios-install');
+  const turnOn = async page => {
+    await page.click(`${box} button:has-text("Turn on notifications")`);
+    await page.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'on');
+  };
+  const devices = () => db.tables.cadetflow_push_subscriptions.map(s => [s.endpoint.replace('https://push.example/', ''), s.user_id]).sort();
 
-  // A senior creates an upcoming parade: it is saved first, then announced
-  calls.length = 0;
-  const s = await open('user-s');
-  const make = (page, days) => run(page, days => {
+  // Each person turns notifications on for their own device; the device is saved for them
+  const two = await open('user-2');
+  assert.match(await two.textContent(box), /when a parade for you is posted/);
+  await turnOn(two);
+  assert.equal(await run(two, () => window.__subOpts.userVisibleOnly), true);
+  assert.match(await two.textContent('#paradePage [data-notify]'), /On for this device/, 'the Parades page shows it too');
+  const one = await open('user-1'); await turnOn(one);
+  const juo = await open('user-j'); await turnOn(juo);
+  assert.deepEqual(devices(), [['user-1', 'user-1'], ['user-2', 'user-2'], ['user-j', 'user-j']]);
+  // Test, then turn off
+  await two.click(`${box} button:has-text("Send a test")`);
+  await waitToast(two, 'Test sent');
+  assert.deepEqual(db.pushes.map(p => [p.userId, p.payload.title]), [['user-2', 'CadetFlow']]);
+  await one.click(`${box} button:has-text("Turn off")`);
+  await one.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'off');
+  assert.deepEqual(devices().map(d => d[0]), ['user-2', 'user-j']);
+  await turnOn(one);
+  // Saying no to the permission request; iPhone in Safari is told to add CadetFlow to the Home Screen first
+  const no = await open('user-v');
+  await run(no, () => { window.__permAnswer = 'denied'; });
+  await no.click(`${box} button:has-text("Turn on notifications")`);
+  await no.waitForFunction(() => document.querySelector('#homePage [data-notify]').dataset.state === 'blocked');
+  assert.match(await no.textContent(box), /blocked/);
+  assert.equal(await run(no, () => { window.pushSupported = () => false; window.isIOS = () => true; return pushState(); }), 'ios-install');
+
+  // The JUO posts a 2nd-year drill parade: saved first, then announced to 2nd years only
+  db.pushes.length = 0;
+  const make = (page, days, years) => run(page, ({ days, years }) => {
     switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('drill');
     const at = new Date(Date.now() + days * 86400000); const pad = n => String(n).padStart(2, '0');
     document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
     document.getElementById('paradeTime').value = '07:00';
+    if (years) document.querySelectorAll('#paradeEventYears input').forEach(i => { i.checked = years.includes(i.value); });
     saveParade(); return PAR.openId;
-  }, days);
-  const pid = await make(s, 2);
-  await s.waitForFunction(() => document.getElementById('toastText').textContent.includes('Notification sent to 3 devices'));
-  assert.deepEqual(calls.filter(c => c.action === 'notify').map(c => c.paradeId), [pid]);
+  }, { days, years });
+  const pid = await make(juo, 2, ['2nd']);
+  await waitToast(juo, 'Notification sent to 1 device');
+  assert.deepEqual(db.row.state.parades.find(p => p.id === pid).years, ['2nd']);
+  assert.deepEqual(db.pushes.map(p => p.userId), ['user-2'], 'only the 2nd year');
+  assert.equal(db.pushes[0].payload.title, 'New parade: Drill');
+  assert.match(db.pushes[0].payload.body, /For: All companies \(2nd year\)/);
+  assert.equal(db.pushes[0].payload.url, './?parade=' + encodeURIComponent(pid));
   // Past parades (entered for the record) and edits are not announced
-  await make(s, -3);
-  await run(s, id => { openParadeModal(id); saveParade(); }, pid);
-  await flush(s);
-  assert.equal(calls.filter(c => c.action === 'notify').length, 1);
+  await make(juo, -3);
+  await run(juo, id => { openParadeModal(id); saveParade(); }, pid);
+  await flush(juo);
+  assert.equal(db.calls.filter(c => c.action === 'notify').length, 1);
+  assert.equal(db.pushes.length, 1);
 
-  // "Send notification" on an upcoming parade: a senior can't send it twice...
-  await run(s, id => openParadeDetail(id), pid);
-  assert.equal(await s.isVisible('#paradeDetailView button:has-text("Send notification")'), true);
-  await s.click('#paradeDetailView button:has-text("Send notification")');
-  await s.waitForFunction(() => document.getElementById('toastText').textContent.includes('Only an administrator can send it again'));
-  assert.equal(calls.filter(c => c.action === 'notify' && c.again).length, 0);
-  // ...an administrator can send it again
-  const adm = await open('user-a');
-  await run(adm, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
-  await adm.click('#paradeDetailView button:has-text("Send notification")');
-  await adm.waitForFunction(() => document.getElementById('toastText').textContent.includes('Notification sent to 3 devices'));
-  assert.equal(calls.filter(c => c.action === 'notify' && c.again === true && c.paradeId === pid).length, 1);
-  // Visitors don't get the button; nobody is told "sent" when no device has notifications on
-  const vis = await openAs(browser, db, null);
-  await run(vis, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
-  assert.equal(await vis.isVisible('#paradeDetailView button:has-text("Send notification")'), false);
-  assert.match(await run(s, () => paradeNotifyResult({ sent: 0, failed: 0, devices: 0 })), /No device has notifications turned on/);
+  // "Send notification": the JUO can't send it twice; the administrator can
+  await run(juo, id => openParadeDetail(id), pid);
+  await juo.click('#paradeDetailView button:has-text("Send notification")');
+  await waitToast(juo, 'Only an administrator can send it again');
+  await refresh(admin);
+  await run(admin, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  await admin.click('#paradeDetailView button:has-text("Send notification")');
+  await waitToast(admin, 'Notification sent to 1 device');
+  assert.deepEqual(db.pushes.map(p => p.userId), ['user-2', 'user-2']);
+  // A cadet without the power doesn't get the button; nobody is told "sent" when no device is on
+  await refresh(two);
+  await run(two, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.equal(await two.isVisible('#paradeDetailView button:has-text("Send notification")'), false);
+  assert.match(await run(two, () => paradeNotifyResult({ sent: 0, failed: 0, devices: 0, people: 3 })), /Nobody this parade is for has notifications turned on/);
+  // A phone that stopped accepting notifications is forgotten
+  db.goneEndpoints.add('https://push.example/user-2');
+  assert.deepEqual(await db.api('user-a', 'notify', { paradeId: pid, again: true }).then(r => [r.sent, r.removed]), [0, 1]);
+  assert.ok(!devices().some(d => d[0] === 'user-2'));
 
-  // Tapping the notification opens CadetFlow on that parade
+  // Signing out takes the device away from that person
+  await run(one, () => app.signOut());
+  await one.waitForFunction(() => document.body.classList.contains('locked'));
+  assert.ok(!devices().some(d => d[0] === 'user-1'));
+
+  // Tapping the notification opens CadetFlow on that parade (after signing in if needed)
   const t = await openAs(browser, db, null, { url: PAGE_URL + '?parade=' + encodeURIComponent(pid) });
+  assert.equal(await gateView(t), 'signin');
+  await t.fill('#signinEmail', 'user-2@example.com'); await t.fill('#signinPassword', 'pass-user-2');
+  await t.click('#gateSubmit');
   await t.waitForFunction(() => !document.getElementById('paradePage').classList.contains('hidden') && PAR.openId);
   assert.equal(await run(t, () => PAR.openId), pid);
   assert.equal(await run(t, () => location.search), '', 'the link is tidied up');
-  noErrors(v, s, adm, vis, t);
+  noErrors(admin, two, one, juo, no, t);
+}));
+
+// ---- Accounts and sign-in ----------------------------------------------------------------------
+
+test('sign-in: signed-out visitors see nothing; cadets register, wait for approval and get in', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-9' }); // already has an account
+
+  // Signed out: only the sign-in screen, and the database gives nothing away
+  const v = await openAs(browser, db, null);
+  assert.equal(await gateView(v), 'signin');
+  assert.equal(await v.isVisible('#gate'), true);
+  assert.equal(await v.isVisible('#homePage'), false);
+  assert.equal(await run(v, () => app.state.cadets.length), 0);
+  assert.equal((await run(v, () => app.supabase.from('cadetflow_state').select('state').eq('id', 1).maybeSingle())).data, null);
+  await v.fill('#signinEmail', 'user-c@example.com'); await v.fill('#signinPassword', 'wrong-one');
+  await v.click('#gateSubmit');
+  await v.waitForFunction(() => /Wrong email or password/.test(document.getElementById('gateMsg').textContent));
+
+  // Register: pick your name, regimental number, email, password
+  await v.click('#gate button[role="tab"]:has-text("Register")');
+  await v.waitForSelector('#regList .pick-row');
+  assert.equal(await v.locator('#regList .pick-row:has-text("Amber Singhai")').isDisabled(), true, 'a cadet with an account cannot be picked');
+  await v.fill('#regSearch', 'abhinav');
+  assert.equal(await v.locator('#regList .pick-row').count(), 1);
+  await v.click('#regList .pick-row');
+  assert.match(await v.textContent('#regPicked'), /CDT Abhinav Pathak/);
+  await v.fill('#regNo', 'ka 21 sd 123'); await v.fill('#regEmail', 'Abhinav@Example.com');
+  await v.fill('#regPassword', 'secret-123'); await v.fill('#regPassword2', 'secret-124');
+  await v.click('#gateSubmit');
+  assert.match(await v.textContent('#gateMsg'), /not the same/);
+  await v.fill('#regPassword2', 'secret-123');
+  await v.click('#gateSubmit');
+  await v.waitForFunction(() => GATE.view === 'pending');
+  assert.match(await v.textContent('#gateBody'), /Waiting for approval[\s\S]*Abhinav Pathak[\s\S]*KA21SD123/);
+  const id = db.userByEmail('abhinav@example.com').id;
+  const p = db.profile(id);
+  assert.deepEqual([p.status, p.role, p.cadet_id, p.regimental_no], ['pending', 'viewer', 'cadet-29', 'KA21SD123']);
+  assert.equal(await run(v, () => app.state.cadets.length), 0, 'still nothing to see');
+  await assert.rejects(db.api(null, 'register', { cadetId: 'cadet-29', email: 'other@example.com', regNo: 'KA21SD777', password: 'secret-123' }), /already has an account/);
+
+  // The administrator approves it on the Accounts page
+  await run(admin, () => switchCadetFlowPage('accounts'));
+  await admin.waitForSelector('#accountsBody button:has-text("Approve")');
+  assert.match(await admin.textContent('#accountsBody'), /Waiting for approval \(1\)[\s\S]*Abhinav Pathak[\s\S]*KA21SD123[\s\S]*roster has none yet/);
+  await admin.click('#accountsBody button:has-text("Approve")');
+  await admin.waitForFunction(() => /Waiting for approval \(0\)/.test(document.getElementById('accountsBody').textContent));
+  assert.equal(db.profile(id).status, 'approved');
+  assert.equal(db.cadet('cadet-29').regNo, 'KA21SD123', 'their regimental number goes onto the roster');
+
+  // They get in (the waiting screen also checks by itself)
+  await v.click('#gateBody button:has-text("Check again")');
+  await v.waitForFunction(() => !document.body.classList.contains('locked') && app.remoteReady);
+  assert.match(await v.textContent('#accountName'), /CDT Abhinav Pathak/);
+  assert.deepEqual(await run(v, () => [app.can('write'), app.isAdmin()]), [false, false]);
+  await run(v, () => openMyProfile());
+  assert.match(await v.textContent('#profileHead'), /CDT Abhinav Pathak[\s\S]*Cadet · Regimental no\. KA21SD123/);
+
+  // A rejected registration stays out
+  await db.api(null, 'register', { cadetId: 'cadet-30', email: 'shaurya@example.com', regNo: 'KA21SD999', password: 'secret-123' });
+  await run(admin, () => loadAccounts(true));
+  await admin.waitForSelector('#accountsBody button:has-text("Reject")');
+  await admin.click('#accountsBody button:has-text("Reject")');
+  await admin.waitForFunction(() => /Not approved \(1\)/.test(document.getElementById('accountsBody').textContent));
+  const r = await openAs(browser, db, null);
+  await r.fill('#signinEmail', 'shaurya@example.com'); await r.fill('#signinPassword', 'secret-123');
+  await r.click('#gateSubmit');
+  await r.waitForFunction(() => GATE.view === 'rejected');
+  assert.equal(await run(r, () => app.state.cadets.length), 0);
+
+  // Signing out wipes CadetFlow from the device
+  await run(v, () => app.signOut());
+  await v.waitForFunction(() => GATE.view === 'signin');
+  assert.equal(await run(v, () => app.state.cadets.length), 0);
+  assert.equal(await run(v, () => localStorage.getItem(app.storageKey)), null);
+  noErrors(admin, v, r);
+}));
+
+test('passwords: forgotten ones are reset by the administrator with an emailed or shared link', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' });
+
+  // The cadet asks from the sign-in screen; unknown emails get the same answer
+  const c = await openAs(browser, db, null);
+  await c.click('#gateBody button:has-text("Forgot your password?")');
+  await c.fill('#forgotEmail', 'user-c@example.com');
+  await c.click('#gateSubmit');
+  await c.waitForFunction(() => /administrator will send you a link/.test(document.getElementById('gateMsg').textContent));
+  assert.ok(db.profile('user-c').reset_requested_at);
+  assert.deepEqual(await db.api(null, 'forgot', { email: 'nobody@example.com' }), { ok: true });
+
+  // The administrator emails a reset link
+  await run(admin, () => switchCadetFlowPage('accounts'));
+  await admin.waitForSelector('#accountsBody button:has-text("Email reset link")');
+  assert.match(await admin.textContent('#accountsBody'), /Asked for a new password \(1\)[\s\S]*CDT Samahith M Rao/);
+  await admin.click('#accountsBody button:has-text("Email reset link")');
+  await waitToast(admin, 'Reset link emailed to user-c@example.com');
+  assert.deepEqual(db.mails.map(m => [m.type, m.email]), [['recovery', 'user-c@example.com']]);
+  assert.equal(db.profile('user-c').reset_requested_at, null);
+  // Without email set up, the link is shown to copy or share on WhatsApp
+  db.mailWorks = false;
+  await run(admin, () => sendResetLink('user-c', true));
+  await admin.waitForSelector('#accountsBody a:has-text("Share on WhatsApp")');
+  assert.match(await run(admin, () => ACC.links['user-c']), /#access_token=tok-user-c&type=recovery/);
+  assert.equal(db.mails.length, 1);
+
+  // The cadet opens the link, sets a new password and is in
+  const l = await openAs(browser, db, null, { url: PAGE_URL + new URL(db.mails[0].link).hash });
+  assert.equal(await gateView(l), 'password');
+  await l.fill('#newPassword', 'brand-new-1'); await l.fill('#newPassword2', 'brand-new-1');
+  await l.click('#gateSubmit');
+  await l.waitForFunction(() => !document.body.classList.contains('locked') && app.remoteReady);
+  assert.equal(db.users.get('user-c').password, 'brand-new-1');
+  assert.equal(await run(l, () => location.hash), '', 'the token is taken out of the address');
+  // The administrator can also set one; members change their own from the account menu
+  await run(admin, () => { openPasswordModal('user-c'); document.getElementById('pwNew').value = 'set-by-admin'; });
+  await admin.click('#pwSubmit');
+  await waitToast(admin, 'Password set');
+  assert.equal(db.users.get('user-c').password, 'set-by-admin');
+  await run(l, () => { openPasswordModal(); document.getElementById('pwNew').value = 'mine-12345'; document.getElementById('pwConfirm').value = 'mine-12345'; });
+  await l.click('#pwSubmit');
+  await waitToast(l, 'Password changed');
+  assert.equal(db.users.get('user-c').password, 'mine-12345');
+  await assert.rejects(db.api('user-c', 'resetLink', { userId: 'user-v' }), /Only the administrator/);
+  noErrors(admin, c, l);
+}));
+
+test('accounts: import a list to invite cadets, links when email is not set up, roles, linking and removing', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await flush(admin);
+  db.account('user-old', { email: 'old@example.com' }); // has an account already, not linked
+  await run(admin, () => switchCadetFlowPage('accounts'));
+  await admin.waitForSelector('#accountsBody h3:has-text("Members")');
+  const csv = 'Name,Email,Regimental No\nHarsh Rajesh Koti,harsh@example.com,KA21SD001\n"Mani Karnica",Mani@Example.com,ka21 sw002\nSomeone Else,else@example.com,\nSamahith M Rao,old@example.com,KA21SD003\n';
+  await admin.setInputFiles('#accountsBody input[type=file]', { name: 'cadets.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await admin.waitForFunction(() => ACC.import && ACC.import.length === 4);
+  assert.deepEqual(await run(admin, () => ACC.import.map(r => [r.email, r.regNo, r.cadetId])),
+    [['harsh@example.com', 'KA21SD001', 'cadet-1'], ['mani@example.com', 'KA21SW002', 'cadet-2'], ['else@example.com', '', ''], ['old@example.com', 'KA21SD003', 'cadet-3']]);
+  const preview = await admin.textContent('#accountsBody');
+  assert.match(preview, /Pick who this is on the roster/);
+  assert.match(preview, /Has an account: it will be linked/);
+  assert.match(preview, /Send invites \(3\)/);
+  await admin.click('#accountsBody button:has-text("Send invites")');
+  await admin.waitForFunction(() => ACC.results && ACC.results.length === 3 && !ACC.busy);
+  assert.deepEqual(await run(admin, () => ACC.results.map(r => r.result)), ['sent', 'sent', 'linked']);
+  assert.deepEqual(db.mails.map(m => [m.type, m.email]), [['invite', 'harsh@example.com'], ['invite', 'mani@example.com']]);
+  const harsh = db.userByEmail('harsh@example.com').id;
+  assert.deepEqual([db.profile(harsh).status, db.profile(harsh).cadet_id], ['approved', 'cadet-1']);
+  assert.deepEqual([db.profile('user-old').status, db.profile('user-old').cadet_id], ['approved', 'cadet-3']);
+  assert.equal(db.cadet('cadet-2').regNo, 'KA21SW002', 'regimental numbers go onto the roster');
+
+  // Without email set up: a link to copy or share instead
+  db.mailWorks = false;
+  await run(admin, () => { ACC.one = { cadetId: 'cadet-12', email: 'prahast@example.com', regNo: '' }; renderAccountsPage(); });
+  await admin.click('#accountsBody button:text-is("Send invite")');
+  await admin.waitForFunction(() => ACC.results?.[0]?.result === 'link' && !ACC.busy);
+  const link = await run(admin, () => ACC.results[0].link);
+  assert.match(link, /type=invite/);
+  assert.equal(db.mails.length, 2, 'no email went out');
+
+  // The invited cadet opens the link, sets a password and is in, linked to their name
+  const p = await openAs(browser, db, null, { url: PAGE_URL + new URL(link).hash });
+  assert.equal(await gateView(p), 'password');
+  await p.fill('#newPassword', 'prahast-pw1'); await p.fill('#newPassword2', 'prahast-pw1');
+  await p.click('#gateSubmit');
+  await p.waitForFunction(() => !document.body.classList.contains('locked') && app.remoteReady);
+  assert.match(await p.textContent('#accountName'), /LCPL Prahast Mohanty/);
+  assert.deepEqual(await run(p, () => [app.can('write'), app.can('requests')]), [true, false]);
+
+  // Roles, linking and removing
+  const prahast = db.userByEmail('prahast@example.com').id;
+  await run(admin, () => loadAccounts(true));
+  await run(admin, id => setAccountRole(id, 'admin'), prahast);
+  await admin.waitForFunction(() => !ACC.busy);
+  assert.equal(db.profile(prahast).role, 'admin');
+  await run(admin, id => linkAccount(id, 'cadet-13'), harsh);
+  await admin.waitForFunction(() => !ACC.busy);
+  assert.equal(db.profile(harsh).cadet_id, 'cadet-13');
+  await assert.rejects(db.api('user-a', 'link', { userId: harsh, cadetId: 'cadet-3' }), /already linked/);
+  await db.api('user-a', 'setRole', { userId: 'user-b', role: 'viewer' });
+  await db.api('user-a', 'setRole', { userId: prahast, role: 'viewer' });
+  await assert.rejects(db.api('user-a', 'setRole', { userId: 'user-a', role: 'viewer' }), /only administrator/);
+  await run(admin, id => removeAccount(id), harsh);
+  await admin.waitForFunction(() => !ACC.busy);
+  assert.equal(db.users.has(harsh), false);
+  assert.equal(db.profile(harsh), null);
+  assert.equal(await admin.locator('#accountsBody li:has-text("harsh@example.com")').count(), 0);
+  noErrors(admin, p);
+}));
+
+// ---- Requests from cadets, uniform payments, server rules ---------------------------------------
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+/** Create a custom parade `hours` from now through the dialog; returns its id. */
+const makeParade = (page, hours, title) => run(page, ({ hours, title }) => {
+  switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('custom');
+  const at = new Date(Date.now() + hours * 3600000), pad = n => String(n).padStart(2, '0');
+  document.getElementById('paradeTitle').value = title;
+  document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  document.getElementById('paradeTime').value = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  saveParade();
+  return PAR.openId;
+}, { hours, title });
+
+test('cadets send late/absence requests with a screenshot; sergeants and above approve; the screenshot goes after the parade', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-10', 'rank', 'SGT'));
+  const pid = await makeParade(admin, 3, 'Sunday parade');
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-g', { cadetId: 'cadet-10' }).account('user-l', { cadetId: 'cadet-1' });
+  db.tables.cadetflow_push_subscriptions.push({ endpoint: 'https://push.example/c', p256dh: 'p', auth: 'a', user_id: 'user-c' });
+
+  // The cadet will be late and attaches a screenshot of the bus ticket
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  await c.click(`#paradeDetailView button:has-text("I'll be late")`);
+  assert.equal(await c.isVisible('#selfReportModal'), true);
+  await c.fill('#srReason', 'Bus from the hostel is late');
+  await c.setInputFiles('#srImage', { name: 'ticket.png', mimeType: 'image/png', buffer: PNG });
+  await c.waitForFunction(() => !!SR.image);
+  await c.click('#srSubmit');
+  await c.waitForFunction(() => document.getElementById('selfReportModal').classList.contains('hidden'));
+  const first = db.tables.cadetflow_requests[0];
+  assert.deepEqual([first.cadet_id, first.kind, first.status, first.user_id], ['cadet-3', 'late', 'pending', 'user-c']);
+  assert.ok(first.image_path && db.files.has(first.image_path), 'the screenshot is stored privately');
+  assert.match(await c.textContent('#paradeDetailView'), /Coming late[\s\S]*Waiting for a sergeant or above[\s\S]*screenshot attached/);
+
+  // Below sergeant nobody sees it; the cadet sees only their own
+  const l = await openAs(browser, db, 'user-l');
+  await run(l, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.doesNotMatch(await l.textContent('#paradeDetailView'), /Requests from cadets|Bus from the hostel/);
+  assert.equal((await db.api('user-l', 'requests')).requests.length, 0);
+  await assert.rejects(db.api('user-l', 'reportImage', { id: first.id }), /sergeants and above/);
+  assert.equal((await db.api('user-c', 'requests')).requests.length, 1);
+
+  // The sergeant sees it waiting, looks at the screenshot and approves it; the cadet is told
+  const g = await openAs(browser, db, 'user-g');
+  await run(g, () => switchCadetFlowPage('parades'));
+  await g.waitForFunction(() => /1 request to approve/.test(document.getElementById('paradePage').textContent));
+  await run(g, id => openParadeDetail(id), pid);
+  await g.click('#paradeDetailView button:has-text("View screenshot")');
+  await g.waitForFunction(() => !document.getElementById('imageModal').classList.contains('hidden') && document.getElementById('imageView').src.startsWith('data:image/'));
+  await run(g, () => app.closeModal('imageModal'));
+  await g.click('#paradeDetailView button:has-text("Approve")');
+  await waitToast(g, 'Approved');
+  const rep = db.row.state.parades.find(p => p.id === pid).reports.find(r => r.cadetId === 'cadet-3');
+  assert.deepEqual([rep.kind, rep.reason, rep.fromCadet, rep.informedTo, rep.by], ['late', 'Bus from the hostel is late', true, 'cadet-10', 'SGT Manusree T']);
+  assert.equal(db.tables.cadetflow_requests[0].status, 'approved');
+  assert.deepEqual(db.pushes.map(p => [p.userId, p.payload.title]), [['user-c', 'Request approved']]);
+  await refresh(c);
+  await run(c, id => openParadeDetail(id), pid);
+  assert.match(await c.textContent('#paradeDetailView'), /Coming late[\s\S]*Approved by SGT Manusree T/);
+
+  // A sergeant's own request is decided by someone else; a refusal carries a note
+  await db.api('user-g', 'report', { paradeId: pid, kind: 'absent', reason: 'Exam that day' });
+  const own = db.tables.cadetflow_requests.find(r => r.cadet_id === 'cadet-10');
+  await assert.rejects(db.api('user-g', 'decide', { id: own.id, approve: true }), /Another senior/);
+  await db.api('user-a', 'decide', { id: own.id, approve: false, note: 'Come after the exam' });
+  assert.deepEqual([own.status, own.note], ['rejected', 'Come after the exam']);
+
+  // Requests close 30 minutes before reporting time
+  const soon = await makeParade(admin, 0.4, 'Soon parade');
+  await flush(admin);
+  await assert.rejects(db.api('user-c', 'report', { paradeId: soon, kind: 'late', reason: 'Traffic jam' }), /closed 30 minutes before/);
+  await refresh(c);
+  await run(c, id => openParadeDetail(id), soon);
+  assert.match(await c.textContent('#paradeDetailView'), /Requests closed at/);
+
+  // Once the parade is over, the screenshot is deleted; the request stays
+  await run(admin, id => { findParade(id).reportAt = Date.now() - 4 * 3600000; app.saveStorage(); }, pid);
+  const later = await makeParade(admin, 5, 'Later parade');
+  await flush(admin);
+  await db.api('user-l', 'report', { paradeId: later, kind: 'absent', reason: 'Fever since morning' });
+  await db.api('user-a', 'decide', { id: db.tables.cadetflow_requests.find(r => r.cadet_id === 'cadet-1').id, approve: true });
+  assert.equal(db.files.has(first.image_path || 'gone'), false);
+  const after = db.tables.cadetflow_requests.find(r => r.id === first.id);
+  assert.deepEqual([after.image_path, after.had_image, after.status], [null, true, 'approved']);
+  noErrors(admin, c, l, g);
+}));
+
+test('uniform: cadets ask for their own items and pay with the QR and a screenshot; CQMS approves before they can mark it received', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-5', 'rank', 'CQMS'));
+  await flush(admin);
+  db.account('user-q', { cadetId: 'cadet-5' }).account('user-c', { cadetId: 'cadet-3' });
+  db.tables.cadetflow_push_subscriptions.push({ endpoint: 'https://push.example/q', p256dh: 'p', auth: 'a', user_id: 'user-q' },
+    { endpoint: 'https://push.example/c', p256dh: 'p', auth: 'a', user_id: 'user-c' });
+
+  // CQMS sets prices and where to pay: a QR code that stays until it is changed
+  const q = await openAs(browser, db, 'user-q');
+  await run(q, () => switchCadetFlowPage('uniform'));
+  await q.fill('#uniPriceList input[data-key="beret"]', '300');
+  await q.fill('#uniPriceList input[data-key="hackle"]', '40');
+  await run(q, () => saveUniformPrices());
+  await q.waitForSelector('#uniPaySettings input[placeholder="e.g. name@okaxis"]');
+  await q.fill('#uniPaySettings input[placeholder="Name on the account"]', 'NCC Unit Fund');
+  await q.fill('#uniPaySettings input[placeholder="e.g. name@okaxis"]', 'nccunit@sbi');
+  await q.setInputFiles('#uniPaySettings input[type=file]', { name: 'qr.png', mimeType: 'image/png', buffer: PNG });
+  await q.waitForFunction(() => !!UPAY.draft?.image);
+  await q.click('#uniPaySettings button:has-text("Save")');
+  await waitToast(q, 'Cadets now see these details');
+  const where = db.tables.cadetflow_settings.find(s => s.key === 'payment').value;
+  assert.deepEqual([where.upi, where.payee], ['nccunit@sbi', 'NCC Unit Fund']);
+  assert.ok(db.files.has(where.qr), 'the QR code is stored');
+  await flush(q);
+
+  // The cadet asks for a beret and a hackle; CQMS is told
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => switchCadetFlowPage('uniform'));
+  assert.match(await c.textContent('#uniMine'), /My uniform[\s\S]*You have not asked for anything yet/);
+  await run(c, () => { toggleAskItem('beret'); toggleAskItem('hackle'); });
+  await c.fill('#uniAskSize', '57');
+  await c.click('#uniAskBtn');
+  await waitToast(c, 'Asked for 2 items');
+  const mine = () => db.row.state.uniform.filter(r => r.cadetId === 'cadet-3');
+  assert.deepEqual(mine().map(r => [r.item, r.size || '', r.status, r.self]).sort(), [['beret', '57', 'requested', true], ['hackle', '', 'requested', true]]);
+  assert.deepEqual(db.pushes.map(p => [p.userId, p.payload.title]), [['user-q', 'Uniform request']]);
+  const beret = mine().find(r => r.item === 'beret').id, hackle = mine().find(r => r.item === 'hackle').id;
+  const received = id => c.click(`#uniMine button[data-id="${id}"]:has-text("Received")`);
+  await received(beret);
+  assert.match(await c.textContent('#uniMine'), /CQMS has not placed the order yet/);
+
+  // Paying: the total, the QR and the UPI ID; the screenshot is for the beret only
+  await c.waitForSelector('#uniMinePay img[alt="QR code to pay"]');
+  assert.match(await c.textContent('#uniMinePay'), /To pay\s*₹340[\s\S]*NCC Unit Fund[\s\S]*nccunit@sbi/);
+  await c.uncheck(`#uniMinePay input[data-id="${hackle}"]`);
+  assert.match(await c.textContent('#uniMinePay'), /To pay\s*₹300/);
+  await c.setInputFiles('#uniMinePay input[type=file]', { name: 'paid.png', mimeType: 'image/png', buffer: PNG });
+  await waitToast(c, 'Payment screenshot sent');
+  const b = () => db.row.state.uniform.find(r => r.id === beret);
+  assert.equal(b().pay.status, 'submitted');
+  assert.ok(db.files.has(b().pay.file));
+  assert.equal(db.pushes.at(-1).payload.title, 'Payment to check');
+  assert.match(db.pushes.at(-1).payload.body, /CDT Samahith M Rao paid Rs 300 for Beret \(size 57\)/);
+
+  // CQMS places the order and it arrives; until the payment is approved the cadet can't collect
+  await refresh(q);
+  await run(q, () => placeUniformOrder());
+  await flush(q); await refresh(c);
+  await received(beret);
+  assert.match(await c.textContent('#uniMine'), /CQMS has not received the order yet/);
+  await run(q, () => markUniformOrderArrived());
+  await flush(q); await refresh(c);
+  await received(beret);
+  assert.match(await c.textContent('#uniMine'), /CQMS has not approved your payment yet/);
+  await received(hackle);
+  assert.match(await c.textContent('#uniMine'), /Pay for it first and upload the payment screenshot/);
+  await assert.rejects(db.api('user-c', 'uniformReceived', { id: beret }), /CQMS has not approved your payment yet/);
+
+  // CQMS looks at the screenshot and approves the payment; the cadet is told
+  await refresh(q);
+  assert.match(await q.textContent('#uniPayChecks'), /Payments to check\s*1[\s\S]*CDT Samahith M Rao\s*₹300/);
+  await q.click('#uniPayChecks button:has-text("Screenshot")');
+  await q.waitForFunction(() => document.getElementById('imageView').src.startsWith('data:image/'));
+  await run(q, () => app.closeModal('imageModal'));
+  await q.click('#uniPayChecks button:has-text("Approve")');
+  await waitToast(q, 'Payment approved');
+  assert.equal(b().pay.status, 'approved');
+  assert.deepEqual([db.pushes.at(-1).userId, db.pushes.at(-1).payload.title], ['user-c', 'Payment approved']);
+  assert.equal(await q.isVisible('#uniPayChecks'), false, 'nothing left to check');
+
+  // The cadet collects it and marks it received; the screenshot is no longer kept
+  await refresh(c);
+  await received(beret);
+  await waitToast(c, 'Marked received');
+  assert.equal(b().status, 'received');
+  assert.equal(b().pay.file, undefined);
+  assert.equal([...db.files.keys()].some(k => k.startsWith('pay/')), false);
+
+  // A payment that is not accepted: the cadet sees why and can send it again
+  assert.match(await c.textContent('#uniMinePay'), /To pay\s*₹0/, 'the hackle is still unticked');
+  await c.check(`#uniMinePay input[data-id="${hackle}"]`);
+  await c.setInputFiles('#uniMinePay input[type=file]', { name: 'paid.png', mimeType: 'image/png', buffer: PNG });
+  await waitToast(c, 'Payment screenshot sent');
+  await refresh(q);
+  await setPrompt(q, 'Amount not received');
+  await q.click('#uniPayChecks button:has-text("Not accepted")');
+  await waitToast(q, 'Marked not accepted');
+  await refresh(c);
+  assert.match(await c.textContent('#uniMine'), /Payment not accepted[\s\S]*CQMS: Amount not received/);
+  assert.match(await c.textContent('#uniMinePay'), /send again/);
+  assert.equal(db.pushes.at(-1).payload.title, 'Payment not accepted');
+  await assert.rejects(db.api('user-c', 'payDecide', { proofId: 'x', ok: true }), /CQMS/);
+
+  // A QR picture that does not load is fetched again once, not over and over
+  const qrFile = db.files.get(db.tables.cadetflow_settings.find(s => s.key === 'payment').value.qr);
+  qrFile.base64 = Buffer.from('not a picture').toString('base64');
+  const payInfoCalls = () => db.calls.filter(x => x.action === 'payInfo' && x.userId === 'user-c').length;
+  const callsBefore = payInfoCalls();
+  await run(c, () => loadPayInfo(true));
+  await c.waitForFunction(() => UPAY.qrRetryAt > 0);
+  await c.waitForTimeout(1500);
+  assert.equal(payInfoCalls() - callsBefore, 2, 'one fetch, then one more after the picture failed');
+
+  // Something not ordered yet can be withdrawn
+  await c.click('#uniAsk summary');
+  await run(c, () => toggleAskItem('socks'));
+  await c.click('#uniAskBtn');
+  await waitToast(c, 'Asked for 1 item');
+  const socks = mine().find(r => r.item === 'socks').id;
+  await c.click(`#uniMine button[data-id="${socks}"]:has-text("Withdraw")`);
+  await waitToast(c, 'Request withdrawn');
+  assert.equal(mine().some(r => r.item === 'socks'), false);
+  noErrors(admin, q, c);
+}));
+
+test('server rules: who gets a parade notification, which screenshots go, when items can be collected', async () => {
+  const rules = await import(require('node:url').pathToFileURL(path.join(__dirname, '..', 'supabase', 'functions', 'cadetflow-api', 'rules.mjs')).href);
+  const cadets = [{ id: 'c1', year: '1st', company: 'Jessami' }, { id: 'c2', year: '2nd', company: 'Kohima' }, { id: 'c3', year: '2nd', company: 'Jessami' }];
+  const profiles = [{ user_id: 'u1', cadet_id: 'c1', status: 'approved' }, { user_id: 'u2', cadet_id: 'c2', status: 'approved' },
+    { user_id: 'u3', cadet_id: 'c3', status: 'pending' }, { user_id: 'staff', cadet_id: null, status: 'approved' }];
+  assert.deepEqual(rules.paradeRecipients(profiles, cadets, { scope: 'All', years: ['2nd'] }), ['u2', 'staff'], 'only 2nd years (and staff accounts)');
+  assert.deepEqual(rules.paradeRecipients(profiles, cadets, { scope: 'Jessami' }), ['u1', 'staff']);
+  assert.deepEqual(rules.paradeRecipients(profiles, cadets, { cadetIds: ['c2'] }), ['u2', 'staff']);
+  assert.deepEqual(rules.paradeRecipients(profiles, cadets, { years: ['1st', '2nd', '3rd'] }), ['u1', 'u2', 'staff']);
+  assert.equal(rules.audienceText({ scope: 'Kohima', years: ['2nd'] }), 'Kohima (2nd year)');
+
+  const who = rank => ({ admin: false, rank });
+  assert.deepEqual(rules.RANKS.map(r => ['task', 'requests', 'parade', 'uniform'].filter(p => rules.can(who(r), p)).join('+')),
+    ['', 'task', 'task', 'task+requests', 'task+requests+uniform', 'task+requests', 'task+requests+parade', 'task+requests+parade']);
+  assert.equal(rules.can({ admin: true, rank: null }, 'admin'), true);
+  assert.equal(rules.can({ admin: false, rank: null }, 'task'), false, 'not linked to a cadet: no powers');
+
+  const now = Date.now();
+  assert.equal(rules.requestsOpen({ reportAt: now + 31 * 60000 }, now), true);
+  assert.equal(rules.requestsOpen({ reportAt: now + 29 * 60000 }, now), false);
+  const parades = [{ id: 'p-old', reportAt: now - 4 * 3600000 }, { id: 'p-new', reportAt: now + 3600000 }];
+  const { deleteRows, clearImages } = rules.requestCleanup([
+    { id: 'a', parade_id: 'p-old', status: 'approved', image_path: 'x' },
+    { id: 'b', parade_id: 'p-old', status: 'pending', image_path: 'y' },
+    { id: 'c', parade_id: 'p-new', status: 'approved', image_path: 'z' },
+    { id: 'd', parade_id: 'deleted', status: 'pending', image_path: 'w' },
+  ], parades, now);
+  assert.deepEqual([deleteRows.map(r => r.id), clearImages.map(r => r.id)], [['d'], ['a']]);
+
+  const u = (id, status, pay) => ({ id, status, pay });
+  assert.deepEqual(rules.payProofsToDelete([
+    u('1', 'received', { status: 'approved', proofId: 'P1', file: 'f1' }), u('2', 'received', { status: 'approved', proofId: 'P1', file: 'f1' }),
+    u('3', 'arrived', { status: 'approved', proofId: 'P2', file: 'f2' }),
+    u('4', 'ordered', { status: 'rejected', proofId: 'P3', file: 'f3', at: now - 40 * 86400000, decidedAt: now - 31 * 86400000 }),
+    u('5', 'ordered', { status: 'rejected', proofId: 'P4', file: 'f4', at: now - 40 * 86400000, decidedAt: now - 2 * 86400000 }),
+  ], now), ['P1', 'P3']);
+
+  const prices = [{ id: 'beret', price: 300 }, { id: 'lanyard', price: 0 }];
+  const block = r => rules.uniformReceiveBlock({ item: 'beret', qty: 1, ...r }, prices);
+  assert.equal(block({ status: 'requested' }), 'CQMS has not placed the order yet.');
+  assert.equal(block({ status: 'ordered', pay: { status: 'approved' } }), 'CQMS has not received the order yet.');
+  assert.equal(block({ status: 'arrived' }), 'Pay for it first and upload the payment screenshot.');
+  assert.equal(block({ status: 'arrived', pay: { status: 'submitted' } }), 'CQMS has not approved your payment yet.');
+  assert.equal(block({ status: 'arrived', pay: { status: 'approved' } }), '');
+  assert.equal(block({ status: 'arrived', paid: true }), '', 'older entries marked paid');
+  assert.equal(block({ status: 'arrived', item: 'lanyard' }), '', 'free items need no payment');
+  assert.equal(block({ status: 'arrived', item: 'belt' }), 'CQMS has not set a price for this item yet, so it cannot be paid.');
+  assert.equal(block({ status: 'received' }), 'Already received.');
+});
+
+test('regimental numbers: set in the roster editor (capitals, no spaces, no duplicates), shown with the rank on the profile', () => withBrowser(async browser => {
+  const db = makeDb();
+  const a = await openAs(browser, db, 'user-a');
+  await run(a, () => app.openRosterModal());
+  // The editor puts the cursor in its search box a moment after opening; type only after that.
+  await a.waitForFunction(() => document.activeElement?.id === 'rosterSearch');
+  const box = id => `#modalRosterTableBody tr[data-cadet-id="${id}"] input[aria-label="Regimental number"]`;
+  await a.fill(box('cadet-1'), 'ka 21 sd 001'); await a.press(box('cadet-1'), 'Enter');
+  await flush(a);
+  assert.equal(db.cadet('cadet-1').regNo, 'KA21SD001');
+  assert.equal(await a.inputValue(box('cadet-1')), 'KA21SD001');
+  await a.fill(box('cadet-2'), 'KA21SD001'); await a.press(box('cadet-2'), 'Enter');
+  await waitToast(a, 'already has regimental number KA21SD001');
+  assert.equal(await a.inputValue(box('cadet-2')), '');
+  await run(a, () => { app.closeModal('rosterModal'); openCadetProfile('cadet-1'); });
+  assert.match(await a.textContent('#profileHead'), /LCPL Harsh Rajesh Koti\s*Lance Corporal · Regimental no\. KA21SD001/);
+  await run(a, () => { app.closeModal('profileModal'); openCadetProfile('cadet-2'); });
+  assert.match(await a.textContent('#profileHead'), /Regimental no\. not added yet/);
+  // On a phone the number sits on its own line of the cadet's card
+  await a.setViewportSize({ width: 390, height: 800 });
+  await run(a, () => { app.closeModal('profileModal'); app.openRosterModal(); });
+  assert.equal(await a.isVisible(box('cadet-1')), true);
+  noErrors(a);
 }));

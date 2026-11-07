@@ -3,9 +3,9 @@
 //   away; the saved copy is used only when offline.
 // - Libraries and fonts from CDNs are served from the cache and refreshed in the background.
 // - Supabase (data and sign-in) is never cached.
-// - Shows parade notifications pushed by the Supabase function cadetflow-push; tapping one
-//   opens that parade.
-const VERSION = 'cadetflow-v3';
+// - Shows notifications pushed by the Supabase function cadetflow-api; tapping one opens the
+//   parade (?parade=id) or page (?page=uniform) it is about.
+const VERSION = 'cadetflow-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-48.png', './icons/badge-96.png'];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -56,7 +56,7 @@ self.addEventListener('fetch', event => {
 });
 
 // ---- Push notifications ------------------------------------------------------------------
-// Payload from cadetflow-push: { title, body, tag, url }
+// Payload from cadetflow-api: { title, body, tag, url } (url relative to the site, e.g. ./?parade=id)
 self.addEventListener('push', event => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch (_) { d = { body: event.data && event.data.text() }; }
@@ -73,12 +73,13 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const url = new URL(event.notification.data?.url || './', self.registration.scope);
-  const paradeId = url.searchParams.get('parade');
+  const paradeId = url.searchParams.get('parade'), page = url.searchParams.get('page');
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    // CadetFlow already open: bring it forward and show the parade there.
+    // CadetFlow already open: bring it forward and show the parade or page there.
     const open = list.find(c => c.url.startsWith(self.registration.scope));
     if (open) {
       if (paradeId) open.postMessage({ type: 'open-parade', id: paradeId });
+      else if (page) open.postMessage({ type: 'open-page', page });
       return open.focus();
     }
     return self.clients.openWindow(url.href);
