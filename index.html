@@ -327,8 +327,8 @@
     body:not(.can-requests) .requests-only,
     body:not(.can-requests) button[onclick*="openParadeReport"],
     body:not(.can-requests) button[onclick*="deleteParadeReport"],
-    body:not(.can-requests) button[onclick*="setParadeMark"],
-    body:not(.can-requests) button[onclick*="paradeBulkMark"],
+    body:not(.can-attendance) button[onclick*="setParadeMark"],
+    body:not(.can-attendance) button[onclick*="paradeBulkMark"],
     body:not(.can-uniform) .uni-edit { display: none !important; }
     body.can-requests .requests-hide { display: none !important; }
     body:not(.has-cadet) .cadet-only { display: none !important; }
@@ -341,7 +341,7 @@
     body:not(.is-admin) .admin-only { display: none !important; }
     /* Read-only status badges shown to visitors in place of editor toggles. */
     body.can-edit .viewer-only { display: none !important; }
-    body.can-requests .marks-viewer-only { display: none !important; }
+    body.can-attendance .marks-viewer-only { display: none !important; }
     /* Sign-in screen: nothing of CadetFlow shows until an approved account is signed in. */
     #gate { display: none; }
     body.locked #gate { display: flex; }
@@ -2101,7 +2101,7 @@
       /** The roster entry this account belongs to, if it is linked to one. */
       myCadet() { const id = this.profile?.cadet_id; return id != null ? (this.state.cadets.find(c => c.id === String(id)) || null) : null; }
       myRank() { const c = this.myCadet(); return c ? (c.rank || 'CDT') : null; }
-      can(perm) { return this.isApproved() && canDo({ admin: this.profile.role === 'admin', rank: this.myRank() }, perm); }
+      can(perm) { return this.isApproved() && canDo({ admin: this.profile.role === 'admin', poc: this.myCadet()?.poc === true, rank: this.myRank() }, perm); }
       accessLevel() {
         if (!this.isApproved()) return 'viewer';
         if (this.profile.role === 'admin') return 'admin';
@@ -2303,6 +2303,8 @@
 
       /** Redraw everything that shows shared data, after it changed underneath us. */
       rerenderAfterRemote() {
+        // Ranks and POCs may have changed: buttons follow the powers they give now.
+        this.applyAccessUI();
         this.renderEventDropdown();
         this.renderAll();
         if (typeof renderOngoingTasks === 'function') renderOngoingTasks();
@@ -2482,6 +2484,7 @@
         body.toggle('is-admin', level === 'admin');
         body.toggle('can-parade', this.can('parade'));
         body.toggle('can-requests', this.can('requests'));
+        body.toggle('can-attendance', this.can('attendance'));
         body.toggle('can-uniform', this.can('uniform'));
         body.toggle('signed-in', this.isApproved());
         body.toggle('has-cadet', !!this.myCadet());
@@ -3423,7 +3426,7 @@
           return `<tr data-cadet-id="${c.id}" class="${this.rosterUI.ticked.has(c.id) ? 'bg-amber-950/30' : 'hover:bg-slate-800/40'}">
             <td class="p-1.5 text-center"><input type="checkbox" class="cadet-cb" ${this.rosterUI.ticked.has(c.id) ? 'checked' : ''} onchange="app.tickRosterRow('${c.id}', this.checked)" aria-label="Tick ${this.escape(c.name)}"></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'rank', this.value, this)" class="${sel} text-slate-300" aria-label="Rank">${RANKS.map(rk => opt(rk, r)).join('')}</select></td>
-            <td class="p-1.5"><input type="text" value="${this.escape(c.name)}" onchange="app.rosterEdit('${c.id}', 'name', this.value, this)" onkeydown="if(event.key==='Enter'){this.blur()}" class="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-md text-xs font-semibold text-white focus:outline-none focus:border-amber-500" aria-label="Name"></td>
+            <td class="p-1.5"><div class="flex items-center gap-1.5"><input type="text" value="${this.escape(c.name)}" onchange="app.rosterEdit('${c.id}', 'name', this.value, this)" onkeydown="if(event.key==='Enter'){this.blur()}" class="min-w-0 flex-1 w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-md text-xs font-semibold text-white focus:outline-none focus:border-amber-500" aria-label="Name"><button type="button" onclick="app.rosterEdit('${c.id}', 'poc', '${c.poc ? 'no' : 'yes'}', this)" aria-pressed="${!!c.poc}" aria-label="POC" title="POC (point of contact): can also mark attendance and create tasks" class="shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold ${c.poc ? 'bg-amber-500/20 border-amber-500/60 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-500'}">POC</button></div></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'wing', this.value, this)" class="${sel} ${c.wing === 'SD' ? 'text-sky-400' : 'text-rose-400'}" aria-label="Wing">${opt('SD', c.wing)}${opt('SW', c.wing)}</select></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'year', this.value, this)" class="${sel} ${YEARS.includes(c.year) ? 'text-violet-300' : 'text-amber-400 border-amber-700/60'}" aria-label="Year">${opt('', YEARS.includes(c.year) ? c.year : '', 'Not set')}${YEARS.map(y => opt(y, c.year)).join('')}</select></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'company', this.value, this)" class="${sel} text-slate-300" aria-label="Company">${COMPANY_CHOICES.map(x => opt(x, c.company)).join('')}</select></td>
@@ -3463,6 +3466,17 @@
           if (dup && !confirm(`Another cadet is already called “${dup.name}” (${dup.company}). Keep both with the same name?`)) { if (el) el.value = cadet.name; return; }
         }
         if (field === 'cycle') v = v === 'yes' ? 'yes' : 'no';
+        if (field === 'poc') {
+          // POC (point of contact): marks attendance and creates tasks, whatever the rank.
+          const on = v === 'yes';
+          if (!!cadet.poc === on) return;
+          if (on) cadet.poc = true; else delete cadet.poc;
+          this.saveStorage();
+          this.renderModalRosterTable();
+          this.showToast(on ? `${cadet.name} is a POC: can mark attendance and create tasks.` : `${cadet.name} is no longer a POC.`);
+          this.refreshAfterRosterChange();
+          return;
+        }
         if (field === 'regNo') {
           v = v.toUpperCase().replace(/\s+/g, '').slice(0, 30);
           if (el) el.value = v;
@@ -3477,6 +3491,11 @@
           const coySel = el?.closest('tr')?.querySelector('select[aria-label="Company"]');
           if (coySel) coySel.value = NO_COMPANY;
           this.showToast(`${cadet.name} is now ${v}, listed under “No company”. Change it back if needed.`);
+        }
+        // Powers follow the rank at once. A second CQMS (or JUO/SUO) keeps their powers until their rank changes.
+        if (field === 'rank' && v === 'CQMS') {
+          const others = this.state.cadets.filter(c => c.id !== id && c.rank === 'CQMS');
+          if (others.length) setTimeout(() => this.showToast(`${others.map(c => c.name).join(', ')} ${others.length === 1 ? 'is' : 'are'} also CQMS and can still place uniform orders. Change ${others.length === 1 ? 'their' : 'those'} rank if they handed over.`), 50);
         }
         this.saveStorage();
         // Restyle in place (no full redraw).
@@ -5128,7 +5147,7 @@
           wing: c.wing === 'SW' ? 'SW' : 'SD',
           company: COMPANY_CHOICES.includes(c.company) ? c.company : (c.company ? String(c.company) : 'Jessami'),
           ...(c.free !== undefined ? { free: Array.isArray(c.free) ? ['MON1', 'MON2', 'TUE1', 'TUE2', 'WED1', 'WED2', 'THU1', 'THU2', 'FRI1', 'FRI2', 'SAT1', 'SAT2'].filter(sl => c.free.includes(sl)) : [] } : {}) };
-      });
+      }).map(c => { if (c.poc !== true) delete c.poc; return c; });
     }
     function normalizeEvent(ev) {
       if (!ev.type) ev.type = 'task';
@@ -6216,7 +6235,7 @@
 
     // ---- Attendance
     function setParadeMark(paradeId, cadetId, status) {
-      if (!app?.can?.('requests')) { app?.showToast?.('Only sergeants and above can mark attendance.'); return; }
+      if (!app?.can?.('attendance')) { app?.showToast?.('Only sergeants and above, and POCs, can mark attendance.'); return; }
       const pd = findParade(paradeId); if (!pd || !['present', 'late', 'absent'].includes(status)) return;
       if (!pd.marks) pd.marks = {};
       if (pd.marks[cadetId] === status) delete pd.marks[cadetId]; else pd.marks[cadetId] = status;
@@ -6230,7 +6249,7 @@
       else renderParadeAttendanceKeepScroll();
     }
     function paradeBulkMark(paradeId, status) {
-      if (!app?.can?.('requests')) return;
+      if (!app?.can?.('attendance')) return;
       const pd = findParade(paradeId); if (!pd) return;
       const q = PAR.q.toLowerCase().trim();
       const targets = paradeCadets(pd).filter(c => (PAR.coy === 'all' || c.company === PAR.coy) && (!q || c.name.toLowerCase().includes(q)) && paradeStatus(pd, c.id) === 'unmarked');
@@ -6324,7 +6343,7 @@
       document.getElementById('profileHead').innerHTML = `
         <p class="text-[11px] font-semibold text-amber-400">Cadet profile</p>
         <h3 class="text-xl font-extrabold text-white mt-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)}</h3>
-        <p class="text-xs text-slate-400 mt-0.5">${esc(RANK_TITLES[c.rank || 'CDT'] || c.rank || 'Cadet')} · Regimental no. ${c.regNo ? `<b class="text-slate-200 font-mono-num">${esc(c.regNo)}</b>` : '<span class="text-slate-500">not added yet</span>'}</p>
+        <p class="text-xs text-slate-400 mt-0.5">${esc(RANK_TITLES[c.rank || 'CDT'] || c.rank || 'Cadet')}${c.poc ? ' · POC' : ''} · Regimental no. ${c.regNo ? `<b class="text-slate-200 font-mono-num">${esc(c.regNo)}</b>` : '<span class="text-slate-500">not added yet</span>'}${!c.regNo && c.id === app.myCadet()?.id ? ' <button type="button" onclick="addMyRegNo()" class="ml-1 px-2 py-0.5 text-[11px] font-bold border border-amber-600/60 text-amber-200 rounded-lg">Add mine</button>' : ''}</p>
         <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
           <span class="px-2 py-0.5 rounded border border-slate-700 text-slate-300">${esc(c.company)}</span>
           <span class="px-2 py-0.5 rounded border border-slate-700 text-slate-300">${esc(yearLabel(c.year))}</span>
@@ -7598,21 +7617,26 @@
       task: r => rankAtLeast(r, 'LCPL'),           // create and mark tasks, special events, updates
       callout: r => rankAtLeast(r, 'LCPL'),        // +1 work call-outs on Availability
       parade: r => r === 'JUO' || r === 'SUO',     // create and edit parades, send parade notifications
-      requests: r => rankAtLeast(r, 'SGT'),        // see and approve late/absence requests, reports, attendance
+      requests: r => rankAtLeast(r, 'SGT'),        // see and approve late/absence requests, reports
+      attendance: r => rankAtLeast(r, 'SGT'),      // mark parade attendance
       uniform: r => r === 'CQMS',                  // place orders, mark arrived, approve payments, prices
       admin: () => false                           // roster, timetables, accounts, deleting, restoring
     };
     function rankAtLeast(rank, min) { return RANKS.indexOf(rank) >= RANKS.indexOf(min); }
+    // A POC (point of contact) account can also mark attendance and create tasks, whatever their rank.
+    const POC_POWERS = ['write', 'task', 'attendance'];
     function canDo(who, perm) {
       if (!who) return false;
       if (who.admin) return true;
+      if (who.poc && POC_POWERS.includes(perm)) return true;
       const rank = RANKS.includes(who.rank) ? who.rank : null;
       return !!rank && !!RANK_POWERS[perm]?.(rank);
     }
     function powersText(a) {
       const list = [];
       if (a.can('task')) list.push('tasks, call-outs');
-      if (a.can('requests')) list.push('requests, attendance');
+      if (a.can('requests')) list.push('requests');
+      if (a.can('attendance')) list.push('attendance');
       if (a.can('parade')) list.push('parades');
       if (a.can('uniform')) list.push('uniform orders');
       return `${a.myRank()} · ${list.length ? list.join(', ') : 'view and own requests'}`;
@@ -7735,7 +7759,7 @@
               <div id="regList" class="mt-1 max-h-56 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800 bg-slate-950"></div>
             </div>
           </div>
-          ${gateField('regNo', 'Regimental number', 'text', 'required maxlength="30" autocapitalize="characters" spellcheck="false" placeholder="As on your NCC card"')}
+          ${gateField('regNo', 'Regimental number (optional, you can add it later)', 'text', 'maxlength="30" autocapitalize="characters" spellcheck="false" placeholder="As on your NCC card"')}
           ${gateField('regEmail', 'Email', 'email', 'required autocomplete="email"')}
           ${gateField('regPassword', 'Password (at least 8 characters)', 'password', 'required minlength="8" autocomplete="new-password"')}
           ${gateField('regPassword2', 'Type the password again', 'password', 'required autocomplete="new-password"')}
@@ -8071,7 +8095,7 @@
         <input type="search" value="${esc(ACC.q)}" oninput="ACC.q = this.value; renderAccountsPageNow()" placeholder="Search name or email…" class="w-full sm:w-72 px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs">
         <ul class="divide-y divide-slate-800">${members.map(a => {
           const c = accountCadet(a);
-          const powers = a.role === 'admin' ? 'Administrator: everything' : c ? powersFor(c.rank) : 'No powers until linked to a cadet';
+          const powers = a.role === 'admin' ? 'Administrator: everything' : c ? powersFor(c.rank, c.poc === true) : 'No powers until linked to a cadet';
           return `<li class="py-3 space-y-2"><div class="flex flex-wrap items-center gap-2">${who(a)}
               <span class="text-[11px] ${a.lastSignIn ? 'text-slate-500' : 'text-amber-300'}">${a.lastSignIn ? 'last in ' + esc(when(a.lastSignIn)) : a.invitedAt ? 'invited, has not set a password yet' : 'never signed in'}</span></div>
             <p class="text-[11px] text-slate-400">${esc(powers)}</p>
@@ -8099,8 +8123,19 @@
       const again = document.querySelector('#accountsBody input[type="search"]');
       if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (_) {} }
     }
-    function powersFor(rank) {
-      const fake = { can: p => canDo({ admin: false, rank: rank || 'CDT' }, p), myRank: () => rank || 'CDT' };
+    /** A cadet adds their own regimental number once; changing it later is for the administrator. */
+    async function addMyRegNo() {
+      const v = String(prompt('Your regimental number, as on your NCC card:') || '').toUpperCase().replace(/\s+/g, '');
+      if (!v) return;
+      try {
+        await api('myRegNo', { regNo: v });
+        await app.refreshFromRemote();
+        app.showToast('Regimental number added.');
+        const me = app.myCadet(); if (me && !document.getElementById('profileModal')?.classList.contains('hidden')) openCadetProfile(me.id);
+      } catch (e) { app.showToast(e.message || 'Could not add it.'); }
+    }
+    function powersFor(rank, poc) {
+      const fake = { can: p => canDo({ admin: false, poc, rank: rank || 'CDT' }, p), myRank: () => (rank || 'CDT') + (poc ? ' (POC)' : '') };
       return powersText(fake);
     }
     async function accountAction(action, userId, extra = {}) {

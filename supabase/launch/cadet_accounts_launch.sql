@@ -29,7 +29,7 @@ returns text language sql stable security definer set search_path = public as $$
       select 1 from public.cadetflow_state s,
         jsonb_array_elements(case when jsonb_typeof(s.state->'cadets') = 'array' then s.state->'cadets' else '[]'::jsonb end) c
       where s.id = 1 and c->>'id' = p.cadet_id
-        and upper(c->>'rank') in ('LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO')
+        and (upper(c->>'rank') in ('LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO') or c->'poc' = 'true'::jsonb)
     ) then 'writer'
     else 'member'
   end

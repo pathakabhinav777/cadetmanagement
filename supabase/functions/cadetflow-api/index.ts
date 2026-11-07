@@ -16,6 +16,7 @@
 //   withdraw  { id }                       -> { ok }
 //   requests                               -> { requests }       SGT and above: everyone's; others: own
 //   payInfo                                -> { upi, payee, note, qrUrl }      where to pay CQMS
+//   myRegNo   { regNo }                    -> { ok }             own regimental number, once, if the roster has none
 //   uniformRequest  { items: [{ item, custom?, size? }], qty?, note? } -> { added, skipped }   own items
 //   uniformCancel   { id }  /  uniformReceived { id }  /  uniformPay { ids, image } -> { ok }
 // SGT and above:   decide { id, approve, note? }, reportImage { id }
@@ -65,7 +66,7 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, serverKey(), { auth: { pe
 type Obj = Record<string, any>;
 type Profile = { user_id: string; display_name: string | null; role: string; status: string; cadet_id: string | null; regimental_no: string | null; email: string | null };
 type Caller = { id: string; email: string; profile: Profile | null };
-type Who = { admin: boolean; rank: string | null; cadet: Obj | null };
+type Who = { admin: boolean; poc: boolean; rank: string | null; cadet: Obj | null };
 
 // ---- shared data (the same JSON the site edits) -----------------------------------------------
 async function readState(): Promise<{ state: Obj; updatedAt: string | null }> {
@@ -130,7 +131,7 @@ async function access(me: Caller | null, perm: string | null, known?: Obj) {
   if (!me.profile || me.profile.status !== "approved") fail(403, "Your account is waiting for the administrator's approval.");
   const state = known || (await readState()).state;
   const cadet = findCadet(state, me.profile.cadet_id);
-  const who: Who = { admin: me.profile.role === "admin", rank: cadet ? String(cadet.rank || "CDT").toUpperCase() : null, cadet };
+  const who: Who = { admin: me.profile.role === "admin", poc: cadet?.poc === true, rank: cadet ? String(cadet.rank || "CDT").toUpperCase() : null, cadet };
   if (perm && !can(who, perm)) fail(403, DENIED[perm] || "Not allowed.");
   return { state, who, me: me as Caller & { profile: Profile } };
 }
@@ -341,7 +342,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const email = cleanEmail(body.email);
     const regNo = cleanRegNo(body.regNo);
     if (!EMAIL.test(email)) fail(400, "Enter a valid email address.");
-    if (regNo.length < 4) fail(400, "Enter your regimental number.");
+    if (regNo && regNo.length < 4) fail(400, "That regimental number looks too short. Leave it empty to add it later.");
     const password = checkPassword(body.password);
     const { state } = await readState();
     const cadet = findCadet(state, body.cadetId);
@@ -360,7 +361,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     }
     const { error: profErr } = await db.from("cadetflow_profiles").insert({
       user_id: made.user.id, display_name: cadet.name, role: "viewer", status: "pending", email,
-      cadet_id: String(cadet.id), regimental_no: regNo, requested_at: new Date().toISOString(),
+      cadet_id: String(cadet.id), regimental_no: regNo || null, requested_at: new Date().toISOString(),
     });
     if (profErr) {
       await db.auth.admin.deleteUser(made.user.id);
@@ -413,6 +414,27 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       user_agent: String(req.headers.get("user-agent") || "").slice(0, 300), updated_at: new Date().toISOString(),
     }, { onConflict: "endpoint" });
     if (error) throw error;
+    return json({ ok: true });
+  }
+
+  // ---- own regimental number, added once (changing it later is for the administrator)
+  if (action === "myRegNo") {
+    const a = await access(me, null);
+    if (!a.who.cadet) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    const regNo = cleanRegNo(body.regNo);
+    if (regNo.length < 4 || !/^[A-Z0-9/-]+$/.test(regNo)) fail(400, "Enter your regimental number as on your NCC card.");
+    const cadetId = String(a.who.cadet.id);
+    await changeState(a.me.id, (s) => {
+      const c = findCadet(s, cadetId);
+      if (!c) fail(404, "You are no longer on the roster.");
+      if (c.regNo) fail(409, "Your regimental number is already on the roster. Ask the administrator to change it.");
+      const dup = cadetsOf(s).find((x) => String(x.id) !== cadetId && cleanRegNo(x.regNo) === regNo);
+      if (dup) fail(409, "Another cadet already has that regimental number. Ask the administrator.");
+      c.regNo = regNo;
+      addHistory(s, "roster-regno", cadetId, `Regimental number added by ${rankName(c)}`);
+      return true;
+    });
+    await db.from("cadetflow_profiles").update({ regimental_no: regNo }).eq("user_id", a.me.id);
     return json({ ok: true });
   }
 

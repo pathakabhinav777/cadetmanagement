@@ -891,7 +891,7 @@ test('roster editor: search, filters, in-place edits, add, bulk changes and remo
   await a.waitForFunction(() => document.activeElement && document.activeElement.id === 'rosterSearch', null, { timeout: 2000 });
   assert.match(await a.textContent('#rosterShowing'), /Showing all 37 cadets/);
   assert.match(await a.textContent('#rosterSummary'), /0 with a cycle/, 'nobody has a cycle to start with');
-  assert.equal(await a.locator('#modalRosterTableBody button[aria-pressed="false"]').count(), 37);
+  assert.equal(await a.locator(`#modalRosterTableBody button[onclick*="'cycle'"][aria-pressed="false"]`).count(), 37);
 
   // Search (case/space-insensitive) + filters
   await a.fill('#rosterSearch', '  ABHINAV ');
@@ -904,8 +904,8 @@ test('roster editor: search, filters, in-place edits, add, bulk changes and remo
 
   // In-place edits: the row stays where it is, scroll/focus not lost, saved immediately.
   const row = a.locator('#modalRosterTableBody tr[data-cadet-id="cadet-22"]');
-  await row.locator('button[aria-pressed]').click();          // cycle → yes
-  assert.equal(await row.locator('button[aria-pressed]').textContent(), 'Yes');
+  await row.locator('button[title="Click to change"]').click();          // cycle → yes
+  assert.equal(await row.locator('button[title="Click to change"]').textContent(), 'Yes');
   await row.locator('select[aria-label="Year"]').selectOption('2nd');
   await row.locator('input[aria-label="Name"]').fill('Sejal Sharma');
   await row.locator('input[aria-label="Name"]').press('Enter');
@@ -2786,4 +2786,79 @@ test('names, titles and ids written to attack the page never run as code', () =>
   assert.ok(dbEvent(db, task) && dbEvent(db, ev));
   assert.deepEqual(await leaks(lcpl), { pwned: 0, imgs: 0, handlers: [] });
   noErrors(lcpl);
+}));
+
+test('POC is ticked on the roster: they mark attendance and create tasks whatever their rank; the regimental number can wait', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  const pid = await makeParade(admin, 3, 'Sunday parade');
+  // The administrator ticks POC in the roster editor
+  await run(admin, () => app.openRosterModal());
+  await admin.click('#modalRosterTableBody tr[data-cadet-id="cadet-6"] button[aria-label="POC"]');
+  assert.equal(await run(admin, () => app.state.cadets.find(c => c.id === 'cadet-6').poc), true);
+  assert.equal(await admin.getAttribute('#modalRosterTableBody tr[data-cadet-id="cadet-6"] button[aria-label="POC"]', 'aria-pressed'), 'true');
+  await flush(admin);
+  assert.equal(db.cadet('cadet-6').poc, true);
+
+  // Registering without a regimental number works; the cadet adds it later, once
+  assert.deepEqual(await db.api(null, 'register', { cadetId: 'cadet-6', email: 'six@example.com', regNo: '', password: 'secret-123' }), { ok: true });
+  const six = db.userByEmail('six@example.com').id;
+  assert.equal(db.profile(six).regimental_no, null);
+  await db.api('user-a', 'approve', { userId: six });
+  assert.equal(db.cadet('cadet-6').rank || 'CDT', 'CDT');
+
+  const poc = await openAs(browser, db, six);
+  assert.deepEqual(await run(poc, () => ['task', 'attendance', 'write', 'requests', 'parade', 'uniform', 'callout'].map(p => app.can(p))), [true, true, true, false, false, false, false]);
+  await run(poc, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  const markBtn = `button[onclick*="setParadeMark('${pid}', 'cadet-2', 'present')"]`;
+  assert.equal(await poc.isVisible(markBtn), true);
+  await run(poc, id => setParadeMark(id, 'cadet-2', 'present'), pid);
+  const tid = await createTask(poc, 'Clean the armoury');
+  await flush(poc);
+  assert.equal(db.row.state.parades.find(p => p.id === pid).marks['cadet-2'], 'present');
+  assert.ok(dbEvent(db, tid));
+  assert.equal(await run(poc, () => app.hasUnsyncedChanges), false);
+
+  // Own regimental number: added once from the profile, then only the administrator changes it
+  await run(poc, () => { window.prompt = () => 'ka21 sd 606'; openCadetProfile('cadet-6'); });
+  await poc.click('#profileModal button:has-text("Add mine")');
+  await poc.waitForFunction(() => app.myCadet()?.regNo === 'KA21SD606');
+  assert.equal(db.cadet('cadet-6').regNo, 'KA21SD606');
+  assert.equal(db.profile(six).regimental_no, 'KA21SD606');
+  await assert.rejects(db.api(six, 'myRegNo', { regNo: 'KA21SD607' }), /already on the roster/);
+  await run(poc, () => app.closeModal('profileModal'));
+
+  // Un-ticking POC takes the powers away on their open page as soon as the change arrives
+  await run(admin, () => app.rosterEdit('cadet-6', 'poc', 'no'));
+  await flush(admin);
+  await refresh(poc);
+  assert.deepEqual(await run(poc, () => [app.can('attendance'), app.can('task'), document.body.classList.contains('can-attendance')]), [false, false, false]);
+  assert.equal(await poc.isVisible(markBtn), false);
+  noErrors(admin, poc);
+}));
+
+test('a new CQMS takes over uniform at once; the old one loses it as soon as their rank changes', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.rosterEdit('cadet-5', 'rank', 'CQMS'));
+  await flush(admin);
+  db.account('user-old', { cadetId: 'cadet-5' }).account('user-new', { cadetId: 'cadet-8' });
+  const old = await openAs(browser, db, 'user-old');
+  await run(old, () => switchCadetFlowPage('uniform'));
+  assert.equal(await run(old, () => [app.can('uniform'), document.body.classList.contains('can-uniform')].join()), 'true,true');
+
+  // The administrator makes cadet-8 CQMS (told that cadet-5 still is), then changes cadet-5's rank
+  await run(admin, () => app.rosterEdit('cadet-8', 'rank', 'CQMS'));
+  await waitToast(admin, 'also CQMS and can still place uniform orders');
+  await run(admin, () => app.rosterEdit('cadet-5', 'rank', 'SGT'));
+  await flush(admin);
+
+  await refresh(old);
+  assert.deepEqual(await run(old, () => [app.can('uniform'), document.body.classList.contains('can-uniform'), app.can('requests')]), [false, false, true]);
+  // The server and the database follow the roster too
+  await assert.rejects(db.api('user-old', 'setPayInfo', { upi: 'x@upi' }), /Only the CQMS/);
+  const fresh = await openAs(browser, db, 'user-new');
+  assert.equal(await run(fresh, () => app.can('uniform')), true);
+  assert.deepEqual(await db.api('user-new', 'setPayInfo', { upi: 'new@upi', payee: 'CQMS' }), { ok: true });
+  noErrors(admin, old, fresh);
 }));

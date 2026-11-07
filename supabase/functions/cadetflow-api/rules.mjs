@@ -13,14 +13,18 @@ export const PERMISSIONS = {
   task: r => atLeast(r, 'LCPL'),           // create and mark tasks, special events, updates
   callout: r => atLeast(r, 'LCPL'),        // +1 work call-outs on Availability
   parade: r => r === 'JUO' || r === 'SUO', // create and edit parades, send parade notifications
-  requests: r => atLeast(r, 'SGT'),        // see and approve late/absence requests, reports, attendance
+  requests: r => atLeast(r, 'SGT'),        // see and approve late/absence requests, reports
+  attendance: r => atLeast(r, 'SGT'),      // mark parade attendance
   uniform: r => r === 'CQMS',              // place orders, mark arrived, approve payments, prices
   admin: () => false,                      // roster, timetables, accounts, deleting, restoring
 };
-/** who: { admin: boolean, rank: 'CDT'… | null } of an approved account. */
+// A POC (point of contact) account can also mark attendance and create tasks, whatever their rank.
+export const POC_POWERS = ['write', 'task', 'attendance'];
+/** who: { admin: boolean, poc?: boolean, rank: 'CDT'… | null } of an approved account. */
 export function can(who, perm) {
   if (!who) return false;
   if (who.admin) return true;
+  if (who.poc && POC_POWERS.includes(perm)) return true;
   const rank = RANKS.includes(who.rank) ? who.rank : null;
   return !!rank && !!PERMISSIONS[perm]?.(rank);
 }

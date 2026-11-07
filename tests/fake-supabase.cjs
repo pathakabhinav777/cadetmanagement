@@ -170,7 +170,7 @@ class Backend {
     if (!p || p.status !== 'approved') return null;
     if (p.role === 'admin') return 'admin';
     const c = cadetOf(this.row.state, p.cadet_id);
-    return c && WRITER_RANKS.includes(String(c.rank ?? '').toUpperCase()) ? 'writer' : 'member';
+    return c && (WRITER_RANKS.includes(String(c.rank ?? '').toUpperCase()) || c.poc === true) ? 'writer' : 'member';
   }
   /**
    * Same as the trigger cadetflow_state_guard in supabase/launch: why the database refuses this save of
