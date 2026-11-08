@@ -2862,3 +2862,41 @@ test('a new CQMS takes over uniform at once; the old one loses it as soon as the
   assert.deepEqual(await db.api('user-new', 'setPayInfo', { upi: 'new@upi', payee: 'CQMS' }), { ok: true });
   noErrors(admin, old, fresh);
 }));
+
+test('Back closes the open dialog, "/" finds the search box, offline is shown, and the header shows a save on its way', () => withBrowser(async browser => {
+  const db = makeDb();
+  const page = await openAs(browser, db, 'user-a');
+  const profileHidden = () => page.evaluate(() => document.getElementById('profileModal').classList.contains('hidden'));
+
+  // Back closes the dialog and stays on the site
+  await run(page, () => openCadetProfile('cadet-1'));
+  assert.equal(await profileHidden(), false);
+  await page.goBack();
+  await page.waitForFunction(() => document.getElementById('profileModal').classList.contains('hidden'));
+  assert.equal(await run(page, () => typeof app), 'object');
+  // A dialog closed another way takes its Back step with it
+  await run(page, () => openCadetProfile('cadet-1'));
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('profileModal').classList.contains('hidden') && !history.state?.cfModal);
+
+  // "/" puts the cursor in the page's search box, but not while typing elsewhere
+  await run(page, () => switchCadetFlowPage('directory'));
+  await page.keyboard.press('/');
+  assert.equal(await run(page, () => document.activeElement.id), 'dirSearch');
+  await page.keyboard.type('/x');
+  assert.equal(await page.inputValue('#dirSearch'), '/x');
+
+  // Offline
+  assert.equal(await page.isVisible('#netStatus'), false);
+  await page.context().setOffline(true);
+  await page.waitForFunction(() => document.body.classList.contains('is-offline'));
+  assert.equal(await page.isVisible('#netStatus'), true);
+  await page.context().setOffline(false);
+  await page.waitForFunction(() => !document.body.classList.contains('is-offline'));
+
+  // A save on its way lights the tricolour rule until it is done
+  assert.equal(await run(page, () => { app.state.events = app.state.events || []; app.saveStorage(); return document.body.classList.contains('is-syncing'); }), true);
+  await flush(page);
+  assert.equal(await run(page, () => document.body.classList.contains('is-syncing')), false);
+  noErrors(page);
+}));
