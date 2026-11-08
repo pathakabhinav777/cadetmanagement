@@ -416,6 +416,43 @@
     #toast.toast-on .toast-time { animation: fxDrain var(--toast-ms, 2800ms) linear forwards; }
     @keyframes fxDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
+    /* ---------- Motion, part three: the page breathes a little ---------- */
+    .home-hello { font-size: .85rem; font-weight: 560; letter-spacing: .02em; color: var(--brass-hi); margin-bottom: .6rem; min-height: 1.2em; animation: fxRise .6s var(--snap) both .05s; }
+    .home-hello span { color: var(--muted); font-weight: 450; }
+    /* Online now: a soft pulse on the dot. */
+    .hn-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #35996E; box-shadow: 0 0 0 0 rgba(53,153,110,.6); animation: hnPulse 2.4s ease-out infinite; }
+    @keyframes hnPulse { 0% { box-shadow: 0 0 0 0 rgba(53,153,110,.55); } 70%, 100% { box-shadow: 0 0 0 7px rgba(53,153,110,0); } }
+    .hn-soon { border-color: rgba(200,16,46,.55); color: #F2B8C0; }
+    .hn-soon b { color: #fff; }
+    [data-until] { font-variant-numeric: tabular-nums; }
+    /* Cards further down come up as they scroll into view. */
+    .rv { opacity: 0; transform: translateY(16px); }
+    .rv-in { opacity: 1; transform: none; transition: opacity .55s var(--snap), transform .65s var(--spring); }
+    /* A faint light follows the pointer across a card (mouse only). */
+    @media (pointer: fine) {
+      main .rounded-2xl.cf-glow { background-image: radial-gradient(420px circle at var(--mx, -500px) var(--my, -500px), rgba(229,196,108,.07), transparent 45%); }
+    }
+    /* Ticking a box lands with a small stamp; the current phone tab's icon hops once. */
+    input[type="checkbox"]:checked { animation: fxStamp .3s var(--spring); }
+    @media (max-width: 640px) { #phoneNav button[aria-current="page"] svg { animation: tabHop .5s var(--spring); } }
+    @keyframes tabHop { 0% { transform: translateY(0); } 40% { transform: translateY(-4px) scale(1.08); } 100% { transform: none; } }
+    /* Something removed folds away instead of vanishing. */
+    .fx-out { animation: fxOut .32s var(--snap) forwards; overflow: hidden; pointer-events: none; }
+    @keyframes fxOut { to { opacity: 0; transform: translateX(18px); max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; } }
+    /* Pull down at the top of the page (phone) to check for changes. */
+    body { overscroll-behavior-y: contain; }
+    #ptr { position: fixed; left: 50%; top: 0; z-index: 60; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--surface); border: 1px solid var(--line); color: var(--brass-hi); box-shadow: 0 10px 24px -12px rgba(0,0,0,.9);
+      transform: translateY(-48px); opacity: 0; pointer-events: none; }
+    #ptr svg { width: 16px; height: 16px; }
+    #ptr.ptr-ready { border-color: rgba(201,154,53,.7); }
+    #ptr.ptr-busy svg { animation: ptrSpin .8s linear infinite; }
+    #ptr.ptr-back { transition: transform .35s var(--spring), opacity .25s ease; }
+    @keyframes ptrSpin { to { transform: rotate(360deg); } }
+    /* A count that changes because of someone else ticks with a short glow. */
+    .fx-tick { animation: fxTick .9s var(--snap); }
+    @keyframes fxTick { 0% { color: var(--brass-hi); text-shadow: 0 0 14px rgba(229,196,108,.6); } 100% { text-shadow: none; } }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
       #fxGrid { opacity: .6; }
@@ -604,6 +641,7 @@
   <!-- Main Container -->
   <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-4">
     <section id="homePage" class="home py-6 sm:py-14" aria-labelledby="homeHeading">
+      <p id="homeHello" class="home-hello" aria-live="off"></p>
       <h2 id="homeHeading" class="home-title" data-split>CadetFlow</h2>
       <p class="home-lede">Tasks, availability and the roster for Jessami, Kohima and Naushera companies, kept in one place for every cadet of the unit.</p>
       <div id="homeNow" class="home-now" aria-label="Today"></div>
@@ -7942,6 +7980,7 @@
         const id = { home: 'homePage', availability: 'availabilityPage', directory: 'directoryPage', parades: 'paradePage', uniform: 'uniformPage', accounts: 'accountsPage', activity: 'activityPage' }[page] || 'rosterPage';
         if (page !== 'home') playEnter(document.getElementById(id));
         staggerIn(document.getElementById(id));
+        setTimeout(() => revealBelow(document.getElementById(id)), 60);
         window.scrollTo({ top: 0, behavior: 'auto' });
         movePhoneNavIndicator();
         return r;
@@ -7988,6 +8027,7 @@
     function renderFeatures() {
       if (!cfState()) return;
       if (app.remoteReady && app.isApproved?.() && !renderFeatures.nudged) { renderFeatures.nudged = true; nudgeReminders(); }
+      if (app.remoteReady && app.isApproved?.()) startPresence();
       renderNotices(); renderHomeNow();
       if (isVisible('directoryPage')) { renderCamps(); renderAlumni(); }
       if (isVisible('availabilityPage')) renderMessCard();
@@ -8049,7 +8089,7 @@
         const item = 'notice:' + n.id;
         return `<article class="nb-item" data-notice="${esc(n.id)}" style="--i:${i}">
           <p class="nb-text">${esc(n.text)}</p>
-          <p class="nb-meta">${esc(n.by || 'A senior')} · <span title="${esc(fmtWhen(n.at))}">${esc(ago(n.at))}</span>${n.until ? ` · up until ${esc(new Date(n.until).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : ''}</p>
+          <p class="nb-meta">${esc(n.by || 'A senior')} · <span title="${esc(fmtWhen(n.at))}" data-ago="${Number(n.at) || 0}">${esc(ago(n.at))}</span>${n.until ? ` · up until ${esc(new Date(n.until).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : ''}</p>
           <div class="nb-actions">${seenButton(item)}${canRemoveNotice(n) ? `<button type="button" class="nb-link" onclick="removeNotice('${esc(n.id)}')">Remove</button>` : ''}</div>
           ${seenPanel(item)}
         </article>`;
@@ -8098,8 +8138,8 @@
       app.state.notices = app.state.notices.filter(x => x.id !== id);
       app.logHistory('notice-removed', null, `Removed a notice: ${String(n.text).slice(0, 90)}`);
       app.saveStorage();
-      renderNotices();
       app.showToast('Notice removed.');
+      foldAway(document.querySelector(`#noticeList [data-notice="${CSS.escape(id)}"]`), renderNotices);
     }
 
     // ---- Home: a live line with the time, the half of the day, the next parade and your mess duty
@@ -8113,15 +8153,44 @@
       const next = paradeList().find(x => x.reportAt >= Date.now());
       const me = app?.myCadet?.();
       const myMess = me ? messList().find(d => d.date >= ymd(now) && (d.cadetIds || []).includes(me.id)) : null;
+      const soon = next && next.reportAt - Date.now() < 3600000;
       const parts = [
         `<span class="hn-item"><b class="hn-clock">${hh}<i>:</i>${mm}</b> ${esc(now.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }))}</span>`,
         `<span class="hn-item">${esc(half)}</span>`,
-        next ? `<button type="button" class="hn-item hn-link" onclick="switchCadetFlowPage('parades'); openParadeDetail('${esc(next.id)}')">Next parade <b>${esc(next.title)}</b> in ${esc(untilText(next.reportAt - Date.now()))}</button>` : '<span class="hn-item">No parade planned</span>',
+        next ? `<button type="button" class="hn-item hn-link${soon ? ' hn-soon' : ''}" onclick="switchCadetFlowPage('parades'); openParadeDetail('${esc(next.id)}')">Next parade <b>${esc(next.title)}</b> in <span data-until="${next.reportAt}">${esc(untilShort(next.reportAt - Date.now()))}</span></button>` : '<span class="hn-item">No parade planned</span>',
         myMess ? `<button type="button" class="hn-item hn-link hn-mine" onclick="switchCadetFlowPage('availability')">Your mess duty <b>${myMess.date === ymd(now) ? 'today' : esc(dayLabel(myMess.date))}</b></button>` : '',
+        LIVE.count > 0 ? `<span class="hn-item hn-live" title="Devices with CadetFlow open right now"><b>${LIVE.count}</b> online now</span>` : '',
       ];
-      host.innerHTML = parts.join('');
+      // Rebuilt only when something in it changed, so a focused button is not lost every few seconds.
+      const html = parts.join('');
+      if (host.dataset.html !== html) { host.innerHTML = html; host.dataset.html = html; }
+      renderHello();
     }
     setInterval(() => { if (isVisible('homePage') && document.visibilityState === 'visible') renderHomeNow(); }, 15000);
+    /** Countdown text: minutes and seconds in the last hour, so it visibly ticks. */
+    function untilShort(ms) {
+      if (ms >= 3600000) return untilText(ms);
+      const s = Math.max(0, Math.floor(ms / 1000));
+      return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
+    }
+    function renderHello() {
+      const el = document.getElementById('homeHello');
+      if (!el || typeof app === 'undefined' || !app?.user) { if (el) el.textContent = ''; return; }
+      const h = new Date().getHours();
+      const part = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      const me = app.myCadet?.();
+      const who = me ? `${me.rank || 'CDT'} ${me.name}` : (app.profile?.display_name || '');
+      const html = `${escapeHtml(part)}${who ? `, ${escapeHtml(who)}` : ''}`;
+      if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+    }
+    // Every second: countdowns tick, and "5 min ago" style times stay true.
+    setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (isVisible('homePage')) renderHello(); // the name arrives after sign-in; cheap when unchanged
+      document.querySelectorAll('[data-until]').forEach(el => { const t = untilShort(Number(el.dataset.until) - now); if (el.textContent !== t) el.textContent = t; });
+      if (now % 30000 < 1000) document.querySelectorAll('[data-ago]').forEach(el => { const t = ago(Number(el.dataset.ago)); if (el.textContent !== t) el.textContent = t; });
+    }, 1000);
 
     // ---- Parades as a month calendar
     Object.assign(PAR, { view: 'list', calY: new Date().getFullYear(), calM: new Date().getMonth(), calDay: null });
@@ -8671,6 +8740,125 @@
       b.remove('remote-pulse'); void document.body.offsetWidth; b.add('remote-pulse');
       clearTimeout(pulseRemote.t); pulseRemote.t = setTimeout(() => b.remove('remote-pulse'), 1300);
     }
+
+    // ---- Motion, part three
+    /** Fold an element away, then run `then` (usually a re-render). */
+    function foldAway(el, then) {
+      if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { then?.(); return; }
+      el.style.maxHeight = el.offsetHeight + 'px';
+      el.classList.add('fx-out');
+      let done = false;
+      const finish = () => { if (done) return; done = true; then?.(); };
+      el.addEventListener('animationend', finish, { once: true });
+      setTimeout(finish, 450);
+    }
+
+    /** Cards below the first screen come up as they are scrolled to. */
+    var revealer = ('IntersectionObserver' in window) ? new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        revealer.unobserve(el);
+        el.classList.add('rv-in');
+        el.classList.remove('rv');
+        setTimeout(() => el.classList.remove('rv-in'), 800);
+      });
+    }, { rootMargin: '0px 0px -6% 0px' }) : null;
+    function revealBelow(root) {
+      if (!root || !revealer || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const h = window.innerHeight;
+      root.querySelectorAll('.rounded-2xl, .nb-item, .act-row, .mess-day, .camp-row').forEach(el => {
+        if (el.closest('.hidden, .fixed') || el.offsetParent === null || el.classList.contains('rv')) return;
+        if (el.parentElement?.closest('.rv, .rounded-2xl.rv')) return; // its card already reveals it
+        if (el.getBoundingClientRect().top < h) return;
+        el.classList.add('rv');
+        revealer.observe(el);
+      });
+    }
+
+    // A faint light follows the mouse across the card under it.
+    (function cardGlow() {
+      if (!window.matchMedia('(pointer: fine)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      let last = null, raf = 0, ev = null;
+      document.addEventListener('pointermove', e => {
+        ev = e;
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const card = ev.target instanceof Element ? ev.target.closest('main .rounded-2xl') : null;
+          if (last && last !== card) last.classList.remove('cf-glow');
+          last = card;
+          if (!card) return;
+          const r = card.getBoundingClientRect();
+          card.style.setProperty('--mx', (ev.clientX - r.left) + 'px');
+          card.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+          card.classList.add('cf-glow');
+        });
+      }, { passive: true });
+    })();
+
+    // Online now: how many devices have CadetFlow open (Supabase Realtime presence).
+    // Each device sends only a random id it keeps for itself; no names or emails go out.
+    var LIVE = { count: 0, channel: null };
+    function startPresence() {
+      if (LIVE.channel || typeof app === 'undefined' || !app?.supabase?.channel || !app.isApproved?.()) return;
+      let key = '';
+      try { key = localStorage.getItem('cf-device') || ''; if (!key) { key = Math.random().toString(36).slice(2, 12); localStorage.setItem('cf-device', key); } }
+      catch (_) { key = Math.random().toString(36).slice(2, 12); }
+      try {
+        const ch = app.supabase.channel('cadetflow-online', { config: { presence: { key } } });
+        if (typeof ch.presenceState !== 'function' || typeof ch.track !== 'function') return;
+        LIVE.channel = ch;
+        ch.on('presence', { event: 'sync' }, () => {
+          const n = Object.keys(ch.presenceState() || {}).length;
+          if (n === LIVE.count) return;
+          LIVE.count = n;
+          renderHomeNow();
+          const b = document.querySelector('#homeNow .hn-live b');
+          if (b) { b.classList.remove('fx-tick'); void b.offsetWidth; b.classList.add('fx-tick'); }
+        }).subscribe(status => { if (status === 'SUBSCRIBED') ch.track({}).catch?.(() => {}); });
+      } catch (e) { console.warn('CadetFlow presence unavailable.', e); }
+    }
+
+    // Phone: pull down at the very top of the page to check for changes now.
+    (function pullToRefresh() {
+      if (!('ontouchstart' in window)) return;
+      const ind = document.createElement('div');
+      ind.id = 'ptr'; ind.setAttribute('aria-hidden', 'true');
+      ind.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>';
+      const add = () => document.body.appendChild(ind);
+      if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+      let y0 = null, pull = 0, busy = false;
+      const LIMIT = 70;
+      const modalOpen = () => [...document.querySelectorAll('.fixed.inset-0')].some(m => !m.classList.contains('hidden') && m.getClientRects().length > 0);
+      const place = () => {
+        const d = Math.min(pull, 110);
+        ind.style.transform = `translateY(${d * .7 - 40}px) rotate(${d * 3}deg)`;
+        ind.style.opacity = String(Math.min(1, d / LIMIT));
+        ind.classList.toggle('ptr-ready', pull >= LIMIT);
+      };
+      document.addEventListener('touchstart', e => {
+        if (busy || window.scrollY > 0 || e.touches.length !== 1 || modalOpen()) { y0 = null; return; }
+        y0 = e.touches[0].clientY; pull = 0; ind.classList.remove('ptr-back');
+      }, { passive: true });
+      document.addEventListener('touchmove', e => {
+        if (y0 == null) return;
+        pull = Math.max(0, (e.touches[0].clientY - y0) * .55);
+        if (window.scrollY > 0) { pull = 0; y0 = null; }
+        place();
+      }, { passive: true });
+      document.addEventListener('touchend', async () => {
+        if (y0 == null) return;
+        y0 = null;
+        ind.classList.add('ptr-back');
+        if (pull < LIMIT || typeof app === 'undefined' || !app?.remoteReady) { pull = 0; place(); return; }
+        busy = true; ind.classList.add('ptr-busy');
+        ind.style.transform = 'translateY(22px)'; ind.style.opacity = '1';
+        if (navigator.vibrate) navigator.vibrate(8);
+        try { await app.refreshFromRemote(); app.showToast(navigator.onLine === false ? 'You are offline.' : 'Up to date.'); }
+        finally { busy = false; pull = 0; ind.classList.remove('ptr-busy'); place(); }
+      });
+    })();
 
 
     // ==================== SMALL CONVENIENCES ====================

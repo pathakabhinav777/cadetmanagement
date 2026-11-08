@@ -3159,3 +3159,54 @@ test('uniform payment summary for the CQMS, and the activity log page with searc
   assert.match(await admin.textContent('#actList'), /Nothing matches/);
   noErrors(admin);
 }));
+
+test('a lively Home: greeting, a countdown that ticks in the last hour, online count, notices fold away, pull down to refresh', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await flush(admin);
+  db.account('user-l', { cadetId: 'cadet-1' });
+  const lcpl = await openAs(browser, db, 'user-l', { init: () => { window.ontouchstart = null; } });
+  await lcpl.waitForFunction(() => /LCPL/.test(document.getElementById('homeHello').textContent), null, { timeout: 3000 });
+  assert.match(await lcpl.textContent('#homeHello'), /^(Good (morning|afternoon|evening)|Up late), LCPL Harsh Rajesh Koti$/);
+
+  // A parade 40 minutes away: the countdown shows seconds and moves on its own
+  await run(lcpl, () => {
+    const at = Date.now() + 40 * 60000;
+    app.state.parades = [...(app.state.parades || []), { id: 'p-soon', title: 'Drill', date: new Date(at).toISOString().slice(0, 10), reportAt: at, time: '', expected: { mode: 'all' } }];
+    app.saveStorage(); renderFeatures();
+  });
+  const soon = await lcpl.$('#homeNow .hn-soon [data-until]');
+  assert.ok(soon, 'the next parade is marked as soon');
+  const t1 = await soon.textContent();
+  assert.match(t1, /^\d+ min \d\d s$/);
+  await lcpl.waitForFunction(t => document.querySelector('#homeNow [data-until]')?.textContent !== t, t1, { timeout: 3000 });
+
+  // Online now (presence): shown when the server reports devices
+  await run(lcpl, () => { LIVE.count = 3; renderHomeNow(); });
+  assert.match(await lcpl.textContent('#homeNow .hn-live'), /3 online now/);
+
+  // A removed notice folds away, then is gone
+  await lcpl.click('#noticeNewBtn');
+  await lcpl.fill('#noticeText', 'Bring water bottles.');
+  await lcpl.uncheck('#noticeNotify');
+  await lcpl.click('#noticePostBtn');
+  await lcpl.waitForSelector('#noticeList [data-notice]');
+  assert.equal(await lcpl.getAttribute('#noticeList [data-ago]', 'data-ago') > 0, true);
+  await lcpl.click('#noticeList button:has-text("Remove")');
+  await lcpl.waitForSelector('#noticeList [data-notice].fx-out', { timeout: 1000 }).catch(() => {});
+  await lcpl.waitForSelector('#noticeList [data-notice]', { state: 'detached', timeout: 2000 });
+
+  // Pull down from the top of the page: it checks for changes and says so
+  await run(lcpl, () => { window.__pulls = 0; const r = app.refreshFromRemote.bind(app); app.refreshFromRemote = () => { window.__pulls++; return r(); }; });
+  await run(lcpl, () => window.scrollTo(0, 0));
+  await run(lcpl, () => {
+    const t = y => new Touch({ identifier: 1, target: document.body, clientX: 100, clientY: y });
+    document.dispatchEvent(new TouchEvent('touchstart', { touches: [t(100)] }));
+    document.dispatchEvent(new TouchEvent('touchmove', { touches: [t(180)] }));
+    document.dispatchEvent(new TouchEvent('touchmove', { touches: [t(300)] }));
+    document.dispatchEvent(new TouchEvent('touchend', { touches: [] }));
+  });
+  await waitToast(lcpl, 'Up to date.');
+  assert.ok(await run(lcpl, () => window.__pulls) >= 1);
+  noErrors(lcpl);
+}));

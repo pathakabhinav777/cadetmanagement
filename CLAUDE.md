@@ -120,3 +120,8 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 ## Launched (2026-11-07) and the restore point
 The sign-in version is live on `main`. On live the lock-down was applied with `alter policy` (same rules as `supabase/launch/cadet_accounts_launch.sql`); unowned old push devices were left in place (they get no notifications).
 To go back to the old public site, follow `supabase/launch/rollback_to_public_site.sql`: git tag `restore-before-signin` (c74f579, the old site and old `cadetflow-push`), table `cadetflow_restore_point` row 1 on live (data, accounts and access rules as they were), and a local copy of the data in `~/Documents/NCC/cadetflow-restore-point/` (never commit it).
+
+## Liveliness (2026-11-08)
+- Home: `#homeHello` greeting (`renderHello`), "online now" count from Realtime presence on channel `cadetflow-online` (`startPresence`, `LIVE`; each device sends only a random id kept in localStorage `cf-device`, never names), and a countdown that shows seconds in the last hour (`[data-until]`, `untilShort`). A 1-second ticker updates `[data-until]` and, every 30 s, `[data-ago]` times. `renderHomeNow` rewrites only when its HTML changed.
+- `revealBelow` (IntersectionObserver, classes `.rv`/`.rv-in`) reveals cards below the first screen as they scroll in; `foldAway(el, then)` animates a removal; mouse-only `.cf-glow` light on `main .rounded-2xl` cards; ticked checkboxes stamp; the current phone tab icon hops.
+- Phone pull-to-refresh (`#ptr`): at scrollY 0 with no dialog on screen, pull 70 px to call `app.refreshFromRemote()`. `body { overscroll-behavior-y: contain }` turns off the browser's own reload-on-pull.
