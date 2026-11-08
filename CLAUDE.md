@@ -43,6 +43,18 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
   - Uniform requests and payments notify the CQMS. Decisions notify the cadet.
   - `sw.js` shows the push and opens `?parade=<id>` or `?page=<page>`. iPhone needs Add to Home Screen first (iOS 16.4+).
 
+## Notices, parade calendar, camps, mess duty, new year, payments, activity (2026-11-08)
+- Shared data keys `notices`, `camps`, `alumni`, `messDuty` (lists with safe ids) and `messConfig` (object) go through `EXTRA_LISTS`/`extraLists()` in every load, save, merge, backup and restore path. Add a new key there.
+- Notice board on Home (`renderNotices`): `write` power posts (`postNotice`), with an optional notification (server `announce`, once per notice). The poster or the administrator removes it.
+- "Seen by": `markSeen()` sends `seen` for notices shown on Home and for upcoming parades on the Parades page the cadet is expected at; `write` power opens the list (`seenBy`). Stored in table `cadetflow_seen` (migration `20261108_seen_and_alumni.sql`).
+- Parades: List/Calendar toggle (`PAR.view`, remembered per device), repeating parades (Repeat + How many in the parade dialog; separate parades sharing a `seriesId`; only the first is announced; deleting offers to remove the later ones of the series).
+- Reminders: server action `remind` (no sign-in, idempotent; rules `paradesToRemind`, `messToRemind` in rules.mjs) sends parade reminders 2 hours before and mess duty reminders from 6 pm the evening before, each once (`cadetflow_push_sent` keys `remind:<id>`, `mess:<id>`). Scheduled by `supabase/launch/reminders_cron.sql` (pg_cron every 10 min); the site also nudges it on open.
+- Camps (Cadet Roster page, `renderCamps`, `#campModal`): `parade` power (JUO, SUO, administrator) records them; shown on profiles.
+- New academic year (administrator, Cadet Roster page): 1st → 2nd, 2nd → 3rd, 3rd years move to `alumni` ("Past cadets", with Bring back). `alumni` is locked like `cadets` (`lockedKeys`, the guard trigger, `guardRefuses`).
+- Mess duty (Availability page, `renderMessCard`): `write` power plans the next 7 days (fewest duties first, then longest since the last), swaps a cadet, sets cadets a day, days, years and excused cadets.
+- Uniform payment summary for the CQMS (`renderUniPaySummary`): billed, collected, to check, not paid, per order, who still owes.
+- Activity log page (`#activityPage`, from the account menu or Data menu): the history with search, kinds and dates. History entries now carry `by`.
+
 ## Server: Edge Function `cadetflow-api`
 - Source in `supabase/functions/cadetflow-api/index.ts` plus `rules.mjs` (plain rules shared with the tests). The list of actions is at the top of `index.ts`.
 - Deployed with verify_jwt off: every action checks who is calling itself.

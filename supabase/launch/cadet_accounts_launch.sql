@@ -72,7 +72,8 @@ begin
     raise exception 'The shared data cannot be moved.' using errcode = '42501';
   end if;
   if public.cadetflow_my_access() = 'admin' then return new; end if;
-  if (new.state -> 'cadets') is distinct from (old.state -> 'cadets') then
+  if (new.state -> 'cadets') is distinct from (old.state -> 'cadets')
+     or (new.state -> 'alumni') is distinct from (old.state -> 'alumni') then  -- past cadets too (2026-11-08)
     raise exception 'Only the administrator can change the roster.' using errcode = '42501';
   end if;
   if exists (

@@ -21,6 +21,7 @@ const now = () => new Date().toISOString();
 const KEYS = {
   cadetflow_state: ['id'], cadetflow_profiles: ['user_id'], cadetflow_requests: ['id'], cadetflow_settings: ['key'],
   cadetflow_push_subscriptions: ['endpoint'], cadetflow_push_keys: ['id'], cadetflow_push_sent: ['parade_id'],
+  cadetflow_seen: ['item', 'user_id'],
 };
 const UNIQUE = {
   cadetflow_profiles: [{ cols: ['cadet_id'], where: r => r.cadet_id != null && r.status !== 'rejected' }],
@@ -34,6 +35,7 @@ const DEFAULTS = {
   cadetflow_settings: () => ({ updated_at: now(), updated_by: null }),
   cadetflow_push_subscriptions: () => ({ created_at: now(), user_id: null }),
   cadetflow_push_sent: () => ({ sent_at: now(), sent_by: null, delivered: null, failed: null }),
+  cadetflow_seen: () => ({ seen_at: now() }),
 };
 
 const isTime = v => typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v);
@@ -182,7 +184,7 @@ class Backend {
     const before = oldRow.state, after = values.state;
     // jsonb: a missing key is SQL null, JSON null is a value; objects compare without key order.
     const part = (s, k) => (s && typeof s === 'object' && !Array.isArray(s) && k in s ? canonical(s[k]) : undefined);
-    if (part(after, 'cadets') !== part(before, 'cadets')) return 'Only the administrator can change the roster.';
+    if (part(after, 'cadets') !== part(before, 'cadets') || part(after, 'alumni') !== part(before, 'alumni')) return 'Only the administrator can change the roster.';
     const ids = s => new Set((Array.isArray(s?.events) ? s.events : []).filter(e => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && SAFE_ID.test(e.id)).map(e => e.id));
     const kept = new Set((Array.isArray(after?.events) ? after.events : []).filter(e => e && typeof e === 'object').map(e => String(e.id)));
     if ([...ids(before)].some(id => !kept.has(id))) return 'Only the administrator can remove tasks.';
@@ -320,6 +322,7 @@ class Backend {
     this.users.delete(id);
     this.tables.cadetflow_profiles = this.tables.cadetflow_profiles.filter(p => p.user_id !== id);            // on delete cascade
     this.tables.cadetflow_push_subscriptions = this.tables.cadetflow_push_subscriptions.filter(s => s.user_id !== id);
+    this.tables.cadetflow_seen = this.tables.cadetflow_seen.filter(s => s.user_id !== id);
     this.tables.cadetflow_requests.forEach(r => { if (r.user_id === id) r.user_id = null; });                   // on delete set null
     if (this.row.updated_by === id) this.row.updated_by = null;
   }

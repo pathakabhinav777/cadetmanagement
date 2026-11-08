@@ -212,8 +212,8 @@
       #headerSub, #headerCadetCount { display: none; }
 
       /* Dialogs become sheets from the bottom edge; the roster editor fills the screen. */
-      #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #profileModal, #historyModal, #passwordModal, #selfReportModal { padding: 0 !important; align-items: flex-end !important; }
-      #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #profileModal > div, #historyModal > div, #passwordModal > div, #selfReportModal > div {
+      #campModal, #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #profileModal, #historyModal, #passwordModal, #selfReportModal { padding: 0 !important; align-items: flex-end !important; }
+      #campModal > div, #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #profileModal > div, #historyModal > div, #passwordModal > div, #selfReportModal > div {
         max-width: none !important; width: 100% !important; max-height: 94dvh !important; border-radius: 18px 18px 0 0 !important;
         border-left: 0; border-right: 0; border-bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; overflow-y: auto; }
       #rosterModal > div { height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; border-top: 0; overflow: hidden; }
@@ -268,6 +268,143 @@
       .pn-ind { display: block; position: absolute; top: -1px; left: 0; height: 2px; width: 0; border-radius: 0 0 2px 2px; background: var(--brass-hi);
         transition: transform .45s var(--spring), width .3s var(--snap); pointer-events: none; }
     }
+
+
+    /* ---------- Motion, part two: pages slide in from the side they are on, cards follow one by one ---------- */
+    @keyframes fxPage { from { opacity: 0; transform: translateX(calc(var(--dir, 1) * 22px)); } to { opacity: 1; transform: none; } }
+    .fx-page { animation: fxPage .42s var(--snap) both; }
+    @keyframes fxItem { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
+    .fx-item { animation: fxItem .5s var(--snap) both !important; animation-delay: calc(var(--d, 0) * 45ms + 60ms) !important; }
+    @keyframes fxFlash { 0% { box-shadow: 0 0 0 0 rgba(229,196,108,.0); background-color: rgba(229,196,108,.22); } 100% { box-shadow: 0 0 0 0 rgba(229,196,108,0); background-color: transparent; } }
+    .fx-flash { animation: fxFlash 1.6s ease-out; }
+    @keyframes fxGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .bar-fill { display: block; height: 100%; transform-origin: left; animation: fxGrow .9s var(--snap) both .1s; }
+    .lift { position: relative; transition: transform .35s var(--spring), border-color .2s var(--snap), box-shadow .3s var(--snap) !important; }
+    .lift:hover { transform: translateY(-3px); box-shadow: 0 16px 34px -22px rgba(0,0,0,.9); }
+    .lift:active { transform: translateY(0) scale(.99); }
+    /* Someone else's change arrived: one sky-blue run along the header rule. */
+    body.remote-pulse > header::before { opacity: 1; background: linear-gradient(90deg, transparent, rgba(108,180,228,.95), transparent); animation: fxSweep 1.2s var(--snap) 1; }
+    /* Home: arrow slides in on the row you point at; the NCC stripe draws itself. */
+    .tool-name::after { content: '→'; display: inline-block; margin-left: .4em; font-weight: 400; opacity: 0; transform: translateX(-10px); transition: opacity .25s var(--snap), transform .45s var(--spring); }
+    .tool-row:hover .tool-name::after, .tool-row:focus-visible .tool-name::after { opacity: .9; transform: none; }
+    .tool-stat b { transition: color .3s var(--snap); }
+    .tool-row:hover .tool-stat b { color: var(--brass-hi); }
+
+    /* Home: live line under the title */
+    .home-now { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: .5rem; animation: fxRise .7s var(--snap) both .5s; }
+    .hn-item { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .75rem; border: 1px solid var(--line); border-radius: 999px; font-size: .8rem; color: var(--muted); background: rgba(19,32,54,.55); }
+    .hn-item b { color: var(--ink); font-weight: 560; }
+    .hn-link { cursor: pointer; transition: border-color .2s var(--snap), color .2s var(--snap), transform .35s var(--spring) !important; }
+    .hn-link:hover { border-color: rgba(201,154,53,.6); color: var(--ink); transform: translateY(-1px); }
+    .hn-mine { border-color: rgba(201,154,53,.5); color: #E8C9A0; }
+    .hn-clock { font-variant-numeric: tabular-nums; }
+    .hn-clock i { font-style: normal; animation: hnBlink 2s steps(1) infinite; }
+    @keyframes hnBlink { 50% { opacity: .25; } }
+
+    /* Home: notice board */
+    .notice-board { margin-top: 2.25rem; }
+    .notice-board.hidden { display: none; }
+    .nb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-bottom: .6rem; border-bottom: 1px solid var(--line); }
+    .nb-head h3 { font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+    .nb-btn { font-size: .8rem; font-weight: 560; color: var(--brass-hi); padding: .3rem .1rem; }
+    .nb-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .nb-composer { margin-top: .9rem; display: grid; gap: .6rem; animation: fxRise .35s var(--snap) both; }
+    .nb-composer.hidden { display: none; }
+    .nb-composer-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+    .nb-list { display: grid; gap: .1rem; }
+    .nb-item { position: relative; padding: 1rem 0 1rem 1rem; border-bottom: 1px solid var(--line); animation: fxRise .5s var(--snap) both; animation-delay: calc(var(--i, 0) * 60ms + 550ms); }
+    .nb-item::before { content: ''; position: absolute; left: 0; top: 1.1rem; bottom: 1.1rem; width: 2px; border-radius: 2px; background: var(--brass); transform-origin: top; animation: fxGrowY .6s var(--snap) both; animation-delay: calc(var(--i, 0) * 60ms + 650ms); }
+    @keyframes fxGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    .nb-item.nb-fresh { animation: fxRise .5s var(--snap) both, fxFlash 2s ease-out .2s; }
+    .nb-text { color: var(--ink); font-size: 1rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .nb-meta { margin-top: .35rem; font-size: .78rem; color: #6B7F9C; }
+    .nb-actions { margin-top: .35rem; display: flex; flex-wrap: wrap; gap: 1rem; }
+    .nb-link { font-size: .75rem; font-weight: 560; color: var(--sky); padding: .1rem 0; }
+    .nb-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .nb-empty { padding: 1rem 0; font-size: .85rem; color: #6B7F9C; }
+    .seen-panel { margin-top: .6rem; padding: .75rem; border: 1px solid var(--line); border-radius: 10px; background: rgba(12,22,38,.6); animation: fxRise .3s var(--snap) both; }
+    .seen-bar { height: 4px; border-radius: 4px; background: #22324D; overflow: hidden; margin-bottom: .5rem; }
+    .seen-bar .bar-fill { background: var(--sky); }
+    .seen-h { margin-top: .5rem; font-size: .72rem; font-weight: 600; color: var(--muted); }
+    .seen-names { margin-top: .25rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+    .seen-names li { font-size: .72rem; color: #BCC8D8; padding: .15rem .5rem; border: 1px solid var(--line); border-radius: 999px; }
+    .seen-names li span { color: #6B7F9C; }
+
+    /* Segmented toggle with a sliding thumb (Parades: List / Calendar) */
+    .seg-toggle { position: relative; display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .seg-toggle button { position: relative; z-index: 1; padding: .4rem 1rem; font-size: .8rem; font-weight: 560; color: var(--muted); border-radius: 9px; }
+    .seg-toggle button[aria-pressed="true"] { color: var(--navy); }
+    .seg-ind { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 9px; background: var(--brass); transition: transform .45s var(--spring), width .3s var(--snap); }
+
+    /* Parade calendar */
+    .pc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .pc-head span { text-align: center; font-size: 11px; font-weight: 600; color: #6B7F9C; padding-bottom: 4px; }
+    .pc-cell { position: relative; min-height: 84px; padding: 6px; border: 1px solid #1E2E48; border-radius: 10px; text-align: left; display: flex; flex-direction: column; gap: 3px; overflow: hidden; background: rgba(12,22,38,.4); }
+    .pc-blank { border-color: transparent; background: transparent; }
+    .pc-num { font-size: 12px; font-variant-numeric: tabular-nums; color: #6B7F9C; }
+    .pc-has { background: var(--raised); border-color: #34496B; cursor: pointer; transition: border-color .2s var(--snap), transform .35s var(--spring), background-color .2s !important; }
+    .pc-has:hover { border-color: rgba(201,154,53,.7); transform: translateY(-2px); }
+    .pc-has .pc-num { color: var(--ink); font-weight: 600; }
+    .pc-today { box-shadow: inset 0 0 0 1px var(--brass-hi); }
+    .pc-today .pc-num { color: var(--brass-hi); }
+    .pc-sel { border-color: var(--brass) !important; background: #22365A; }
+    .pc-chip { display: block; font-size: 10.5px; line-height: 1.25; padding: 2px 5px; border-radius: 5px; background: rgba(108,180,228,.16); color: #CFE6F7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-chip.pc-past { background: rgba(145,163,188,.12); color: var(--muted); }
+    .pc-more { font-size: 10px; color: var(--muted); }
+    .pc-dots { display: none; gap: 3px; margin-top: auto; }
+    .pc-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--sky); }
+    .pc-body .pc-cell { animation: fxPop .35s var(--spring) both; animation-delay: calc(var(--i, 0) * 9ms); }
+    .pc-anim-next .pc-cell { animation-name: pcNext; } .pc-anim-prev .pc-cell { animation-name: pcPrev; }
+    @keyframes pcNext { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+    @keyframes pcPrev { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 640px) {
+      .pc-cell { min-height: 50px; padding: 4px; align-items: center; }
+      .pc-chip, .pc-more { display: none; }
+      .pc-dots { display: flex; }
+    }
+    .series-tag { float: right; margin-left: .5rem; font-size: 10px; font-weight: 600; color: var(--sky); border: 1px solid rgba(108,180,228,.4); border-radius: 999px; padding: 1px 7px; }
+
+    /* Camps */
+    .camp-row { border-radius: 0 !important; transition: background-color .2s var(--snap); }
+    .camp-row:hover { background: rgba(27,43,69,.6); }
+    .camp-kind { display: inline-block; min-width: 3.2rem; text-align: center; font-size: 10.5px; font-weight: 650; color: var(--navy); background: var(--brass); border-radius: 6px; padding: 2px 6px; }
+
+    /* Mess duty */
+    .mess-list { display: grid; gap: .5rem; }
+    @media (min-width: 768px) { .mess-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .mess-day { padding: .7rem .8rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(12,22,38,.45); }
+    .mess-today { border-color: rgba(201,154,53,.6); }
+    .mess-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: 11.5px; color: #D5DEEA; padding: .2rem .25rem .2rem .6rem; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); }
+    .mess-chip:not(:has(button)) { padding-right: .6rem; }
+    .mess-chip button { display: inline-flex; padding: 3px; border-radius: 999px; color: var(--muted); }
+    .mess-chip button:hover { color: var(--brass-hi); background: rgba(201,154,53,.15); }
+    .mess-chip button:hover svg { transform: rotate(180deg); }
+    .mess-chip svg { transition: transform .45s var(--spring); }
+    .mess-me { border-color: var(--brass); color: var(--brass-hi); }
+    .mess-mine-note { font-size: .85rem; color: #E8C9A0; padding: .55rem .8rem; border: 1px solid rgba(201,154,53,.45); border-radius: 10px; background: rgba(201,154,53,.07); }
+    .mess-settings { display: grid; gap: .7rem; padding: .8rem; border: 1px dashed var(--line); border-radius: 12px; }
+    .mess-count { display: grid; grid-template-columns: minmax(0, 1fr) 90px 24px; align-items: center; gap: .6rem; color: #BCC8D8; }
+    .mess-count b { text-align: right; color: var(--ink); font-weight: 560; }
+    .mess-bar { height: 5px; border-radius: 5px; background: #1E2E48; overflow: hidden; }
+    .mess-bar .bar-fill { background: var(--brass); }
+
+    /* Uniform payments */
+    .pay-tile { padding: .75rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(12,22,38,.5); }
+    .pay-tile b { display: block; margin-top: .15rem; font-size: 1.25rem; font-weight: 560; letter-spacing: -0.01em; }
+    .pay-bar { display: flex; height: 8px; border-radius: 8px; overflow: hidden; background: #1E2E48; }
+    .pay-bar .bar-fill { flex: none; }
+    .pay-bar .bar-fill:nth-child(2) { animation-delay: .35s; } .pay-bar .bar-fill:nth-child(3) { animation-delay: .6s; }
+
+    /* Activity log */
+    .act-day { position: sticky; top: 64px; z-index: 2; padding: .5rem 0; font-size: .85rem; font-weight: 600; color: var(--ink); background: linear-gradient(var(--navy) 70%, transparent); }
+    .act-day span { margin-left: .35rem; font-weight: 500; color: #6B7F9C; }
+    .act-list { position: relative; margin-left: .35rem; border-left: 1px solid var(--line); }
+    .act-row { position: relative; display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: .75rem; padding: .55rem 0 .55rem 1rem; animation: fxRise .4s var(--snap) both; animation-delay: calc(var(--i, 0) * 25ms); }
+    .act-row::before { content: ''; position: absolute; left: -4.5px; top: 1rem; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px var(--navy); }
+    .act-row time { font-size: .75rem; color: #6B7F9C; font-variant-numeric: tabular-nums; padding-top: .15rem; }
+    .act-parade::before { background: var(--sky); } .act-uniform::before { background: var(--brass); } .act-roster::before { background: #A78BFA; }
+    .act-duty::before { background: #35996E; } .act-notice::before { background: var(--brass-hi); } .act-camp::before { background: var(--red); }
+    @media (max-width: 640px) { .act-day { top: 56px; } }
 
     /* Marking attendance: the chosen button lands with a small stamp. */
     .fx-stamp { animation: fxStamp .32s var(--spring); }
@@ -370,6 +507,7 @@
     body:not(.is-admin) button[onclick*="deleteParade("],
     body:not(.is-admin) button[onclick*="restoreFileInput"],
     body:not(.is-admin) .admin-only { display: none !important; }
+    body:not(.can-edit) .edit-only { display: none !important; }
     /* Read-only status badges shown to visitors in place of editor toggles. */
     body.can-edit .viewer-only { display: none !important; }
     body.can-attendance .marks-viewer-only { display: none !important; }
@@ -431,6 +569,7 @@
             <div class="px-4 py-3 border-b border-slate-800"><p id="accountName" class="text-sm font-bold text-white">Guest</p><p id="accountRole" class="text-xs text-slate-400 mt-1">Public view</p><p id="accountRegNo" class="hidden text-xs text-slate-500 mt-0.5 font-mono-num"></p></div>
             <button id="accountProfileBtn" type="button" onclick="closeAccountMenu(); openMyProfile()" class="hidden w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">My profile</button>
             <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('accounts')" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Accounts <span data-accounts-waiting class="ml-1 text-amber-400"></span></button>
+            <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('activity')" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Activity log</button>
             <button type="button" onclick="closeAccountMenu(); openPasswordModal()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Change password</button>
             <button id="accountAction" type="button" onclick="handleAccountAction()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800">Sign out</button>
           </div>
@@ -467,6 +606,29 @@
     <section id="homePage" class="home py-6 sm:py-14" aria-labelledby="homeHeading">
       <h2 id="homeHeading" class="home-title" data-split>CadetFlow</h2>
       <p class="home-lede">Tasks, availability and the roster for Jessami, Kohima and Naushera companies, kept in one place for every cadet of the unit.</p>
+      <div id="homeNow" class="home-now" aria-label="Today"></div>
+      <section id="noticeBoard" class="notice-board" aria-labelledby="noticeHeading">
+        <div class="nb-head">
+          <h3 id="noticeHeading">Notice board</h3>
+          <button type="button" id="noticeNewBtn" onclick="openNoticeComposer()" class="edit-only nb-btn">Post a notice</button>
+        </div>
+        <form id="noticeComposer" class="nb-composer hidden" onsubmit="event.preventDefault(); postNotice()">
+          <label class="sr-only" for="noticeText">Notice</label>
+          <textarea id="noticeText" rows="3" maxlength="600" placeholder="e.g. Drill is moved to the main ground tomorrow. Bring water bottles." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></textarea>
+          <div class="nb-composer-row">
+            <label class="text-xs text-slate-300">Keep it up
+              <select id="noticeKeep" class="ml-1 bg-slate-950 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs">
+                <option value="1">1 day</option><option value="3" selected>3 days</option><option value="7">1 week</option><option value="30">1 month</option><option value="0">until removed</option>
+              </select>
+            </label>
+            <label class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeNotify" checked> Send a notification</label>
+            <span class="flex-1"></span>
+            <button type="button" onclick="closeNoticeComposer()" class="px-3 py-1.5 text-xs font-bold border border-slate-700 text-slate-300 rounded-lg">Cancel</button>
+            <button type="submit" id="noticePostBtn" class="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg">Post</button>
+          </div>
+        </form>
+        <div id="noticeList" class="nb-list"></div>
+      </section>
       <nav class="tool-list" aria-label="Tools">
         <button type="button" class="tool-row" style="--i:0" onclick="switchCadetFlowPage('availability')" aria-label="Open Cadet Availability">
           <span class="tool-name">Availability</span>
@@ -530,7 +692,7 @@
         <div id="memoryDropdown" class="hidden absolute right-0 top-full mt-1 min-w-44 border border-slate-700 bg-slate-900 shadow-xl z-40">
           <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="exportCadetFlowData()">Export data</button>
           <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="document.getElementById('restoreFileInput').click(); closeMemoryMenu()">Import data</button>
-          <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800" onclick="closeMemoryMenu(); app.openHistoryModal()">Change history</button>
+          <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800" onclick="closeMemoryMenu(); switchCadetFlowPage('activity')">Activity log</button>
         </div>
       </div>
     </nav>
@@ -930,6 +1092,13 @@
         </div>
         <div class="get-app-actions" data-notify-actions></div>
       </div>
+        <div class="seg-toggle" role="group" aria-label="Show parades as">
+          <button type="button" data-pv="list" aria-pressed="true" onclick="setParadeView('list')">List</button>
+          <button type="button" data-pv="calendar" aria-pressed="false" onclick="setParadeView('calendar')">Calendar</button>
+          <i class="seg-ind" aria-hidden="true"></i>
+        </div>
+        <div id="paradeCalendar" class="hidden"></div>
+        <div id="paradeListBlocks" class="space-y-4">
         <div>
           <h3 class="font-extrabold text-white mb-2">Upcoming</h3>
           <div id="paradeUpcoming" class="grid md:grid-cols-2 gap-3"></div>
@@ -937,6 +1106,7 @@
         <div>
           <h3 class="font-extrabold text-white mb-2">Past parades</h3>
           <div id="paradePast" class="space-y-2"></div>
+        </div>
         </div>
       </div>
       <div id="paradeDetailView" class="hidden space-y-4"></div>
@@ -954,6 +1124,7 @@
       <div id="uniPayChecks" class="uni-edit hidden bg-slate-900 rounded-2xl border border-amber-700/60 p-4 sm:p-5 space-y-3"></div>
 
       <div id="uniformContent" class="hidden space-y-4">
+        <div id="uniPaySummary" class="uni-edit bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniPaySumHeading"></div>
         <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="uniOrderHeading">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 id="uniOrderHeading" class="font-extrabold text-white">Order</h3>
@@ -1038,7 +1209,10 @@
             <h2 id="directoryHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Cadet Roster</h2>
             <p class="text-sm text-slate-400 mt-1">Everyone currently on the roster, by company. View only.</p>
           </div>
-          <button type="button" onclick="app.openRosterModal()" class="self-start px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit roster</button>
+          <div class="self-start flex flex-wrap gap-2">
+            <button type="button" onclick="startNewAcademicYear()" class="admin-only px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">New academic year</button>
+            <button type="button" onclick="app.openRosterModal()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit roster</button>
+          </div>
         </div>
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <label class="col-span-2 lg:col-span-1 text-xs font-bold text-slate-300">Search
@@ -1060,6 +1234,8 @@
         <div id="dirSummary" class="flex flex-wrap items-center gap-2 text-xs" aria-live="polite"></div>
       </div>
       <div id="dirResults" class="grid lg:grid-cols-3 gap-4"></div>
+      <div id="campsCard" class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="campsHeading"></div>
+      <div id="alumniCard" class="admin-only bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3"></div>
     </section>
 
     <section id="availabilityPage" class="hidden space-y-4" aria-labelledby="availabilityHeading">
@@ -1094,6 +1270,8 @@
         <div id="availabilityResults" class="mt-5" aria-live="polite"></div>
       </div>
 
+      <div id="messCard" class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="messHeading"></div>
+
       <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5" aria-labelledby="leaderboardHeading">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -1116,6 +1294,32 @@
         <div id="availabilityUnassigned" class="space-y-2"></div>
       </div>
       <p class="text-[11px] text-slate-500 px-1">Timetables are set by the administrator with “Edit timetables”. A missing schedule means “not assigned/unknown”, not “unavailable”. 3rd years are left out of availability. Anyone can view this page; only approved editors can record call-outs or change cycle details.</p>
+    </section>
+
+    <section id="activityPage" class="hidden space-y-4" aria-labelledby="activityHeading">
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div>
+            <p class="text-[10px] uppercase tracking-[.18em] font-black text-amber-400">Records</p>
+            <h2 id="activityHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Activity log</h2>
+            <p class="text-sm text-slate-400 mt-1">Who changed what, and when. Search it, or narrow it down by kind and date.</p>
+          </div>
+          <button type="button" onclick="app.exportHistoryCSV()" class="self-start px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Download CSV</button>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <label class="col-span-2 text-xs font-bold text-slate-300">Search
+            <input type="search" id="actSearch" oninput="ACT.limit = 80; renderActivityPage()" placeholder="Name, task, parade, anything…" autocomplete="off" class="mt-1 block w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          </label>
+          <label class="text-xs font-bold text-slate-300">From
+            <input type="date" id="actFrom" onchange="ACT.limit = 80; renderActivityPage()" class="mt-1 block w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          </label>
+          <label class="text-xs font-bold text-slate-300">To
+            <input type="date" id="actTo" onchange="ACT.limit = 80; renderActivityPage()" class="mt-1 block w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          </label>
+        </div>
+        <div id="actKinds" class="flex flex-wrap gap-1.5" role="group" aria-label="Kind of change"></div>
+      </div>
+      <div id="actList" class="space-y-4" aria-live="polite"></div>
     </section>
 
     <section id="accountsPage" class="hidden space-y-4" aria-labelledby="accountsHeading">
@@ -1545,6 +1749,43 @@
   </div>
 
   <!-- Modal: create / edit a parade -->
+  <div id="campModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Camps and courses</p><h3 id="campModalHeading" class="text-lg font-extrabold text-white mt-1">Add camp</h3></div>
+        <button type="button" onclick="app.closeModal('campModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-xs font-bold text-slate-300">Kind
+          <select id="campKind" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+            <option>CATC</option><option>ATC</option><option>TSC</option><option>RDC</option><option>NIC</option><option>SNIC</option><option>BLC</option><option>ALC</option><option>Trek</option><option>Other</option>
+          </select>
+        </label>
+        <label class="block text-xs font-bold text-slate-300">Name <span class="font-normal text-slate-500">(optional)</span>
+          <input type="text" id="campName" maxlength="80" placeholder="e.g. CATC-III" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        </label>
+        <label class="col-span-2 block text-xs font-bold text-slate-300">Place
+          <input type="text" id="campPlace" maxlength="80" placeholder="e.g. Kohima" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        </label>
+        <label class="block text-xs font-bold text-slate-300">From
+          <input type="date" id="campStart" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        </label>
+        <label class="block text-xs font-bold text-slate-300">To
+          <input type="date" id="campEnd" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        </label>
+      </div>
+      <div>
+        <div class="flex items-center justify-between"><span class="text-xs font-bold text-slate-300">Cadets who went</span><span id="campPickCount" class="text-[11px] text-slate-400">0 picked</span></div>
+        <input type="search" id="campSearch" oninput="renderCampPicker()" placeholder="Search name or company…" autocomplete="off" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        <div id="campPickList" class="mt-2 max-h-60 overflow-y-auto border border-slate-800 rounded-xl p-1"></div>
+      </div>
+      <p id="campError" class="hidden text-xs text-rose-300" role="alert"></p>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="app.closeModal('campModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+        <button type="button" onclick="saveCamp()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save camp</button>
+      </div>
+    </div>
+  </div>
   <div id="paradeModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
@@ -1576,6 +1817,17 @@
           <label class="block text-xs font-bold text-slate-300">Reporting time
             <input type="time" id="paradeTime" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
           </label>
+        </div>
+        <div id="paradeRepeatBox" class="grid grid-cols-2 gap-3">
+          <label class="block text-xs font-bold text-slate-300">Repeat
+            <select id="paradeRepeat" onchange="updateParadeRepeatHint()" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
+              <option value="0">Does not repeat</option><option value="7">Every week</option><option value="14">Every 2 weeks</option>
+            </select>
+          </label>
+          <label id="paradeRepeatCountWrap" class="hidden block text-xs font-bold text-slate-300">How many parades
+            <input type="number" id="paradeRepeatCount" min="2" max="26" value="4" oninput="updateParadeRepeatHint()" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          </label>
+          <p id="paradeRepeatHint" class="col-span-2 hidden text-[11px] text-slate-400"></p>
         </div>
         <label class="block text-xs font-bold text-slate-300">Venue
           <input type="text" id="paradeVenue" maxlength="120" placeholder="e.g. Main parade ground" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
@@ -2003,6 +2255,11 @@
           parades: [],  // parades: { id, title, reportAt, venue, agenda, scope, years?, cadetIds?, reports: [...], marks: { cadetId: 'present'|'late'|'absent' } }
           uniform: [],  // uniform requests for CQMS: see UNIFORM ORDERS below
           uniformPrices: [],  // price per uniform item: { id: item key (e.g. 'beret', 'custom:whistle cord'), price, updatedAt?, updatedBy? }
+          notices: [],   // notice board: { id, text, at, by, until? }
+          camps: [],     // camps and courses: { id, kind, name, place, start, end, cadetIds, at, by }
+          alumni: [],    // cadets who left with a new academic year: the cadet plus { leftAt, leftYear }
+          messDuty: [],  // mess duty days: { id: 'mess-YYYY-MM-DD', date, cadetIds, at, by }
+          messConfig: {},// { perDay, days: ['MON',…], years: ['1st','2nd'] }
           selectedCadets: new Set(),
           filters: {
             company: 'all',
@@ -2071,6 +2328,7 @@
             this.state.uniform = normalizeUniform(data.uniform);
             this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
             this.state.parades = normalizeParades(data.parades);
+            Object.assign(this.state, extraLists(data));
             this.state.events.forEach(ev => normalizeEvent(ev));
           } else {
             this.state.cadets = [...USER_EXACT_37_CADETS];
@@ -2101,7 +2359,8 @@
           duties: this.state.duties || [],
           uniform: this.state.uniform || [],
           uniformPrices: this.state.uniformPrices || [],
-          parades: this.state.parades || []
+          parades: this.state.parades || [],
+          ...extraLists(this.state)
         };
       }
 
@@ -2109,7 +2368,7 @@
        *  (trigger cadetflow_state_guard in supabase/launch/cadet_accounts_launch.sql). */
       lockedKeys() {
         if (this.isAdmin()) return [];
-        return this.can('uniform') ? ['cadets'] : ['cadets', 'uniform', 'uniformPrices'];
+        return this.can('uniform') ? ['cadets', 'alumni'] : ['cadets', 'alumni', 'uniform', 'uniformPrices'];
       }
       /** What a save sends: this device's data, with the locked parts exactly as the server last had them
        *  (not tidied up by this device), so a save never touches what this account may not change. */
@@ -2325,6 +2584,7 @@
         this.state.uniform = normalizeUniform(data.uniform);
         this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
         this.state.parades = normalizeParades(data.parades);
+        Object.assign(this.state, extraLists(data));
         this.state.events.forEach(ev => normalizeEvent(ev));
         // Drop ticked checkboxes for cadets that no longer exist.
         const ids = new Set(this.state.cadets.map(c => c.id));
@@ -2337,6 +2597,7 @@
 
       /** Redraw everything that shows shared data, after it changed underneath us. */
       rerenderAfterRemote() {
+        if (typeof pulseRemote === 'function') pulseRemote();
         // Ranks and POCs may have changed: buttons follow the powers they give now.
         this.applyAccessUI();
         this.renderEventDropdown();
@@ -2344,6 +2605,7 @@
         if (typeof renderOngoingTasks === 'function') renderOngoingTasks();
         if (typeof renderAvailabilityResults === 'function') renderAvailabilityResults();
         if (!document.getElementById('taskArchivePage')?.classList.contains('hidden')) renderTaskArchive();
+        if (typeof renderFeatures === 'function') renderFeatures();
         const roster = document.getElementById('rosterModal');
         // Don't redraw the roster table while someone is typing in it.
         if (roster && !roster.classList.contains('hidden') && !roster.contains(document.activeElement)) this.renderModalRosterTable();
@@ -2532,6 +2794,7 @@
         if (typeof renderParadePage === 'function') renderParadePage();
         if (typeof renderCadetProfile === 'function') renderCadetProfile();
         if (typeof renderAccountsPage === 'function') renderAccountsPage();
+        if (typeof renderFeatures === 'function') renderFeatures();
         const me = this.myCadet();
         const name = me ? `${me.rank || 'CDT'} ${me.name}` : (this.profile?.display_name || (this.user?.email || '').split('@')[0] || 'Guest');
         const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
@@ -4745,12 +5008,12 @@
 
       logHistory(action, cadetId, details, eventId) {
         if (!Array.isArray(this.state.history)) this.state.history = [];
-        this.state.history.unshift({ id: `hist-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, at: Date.now(), action, cadetId: cadetId || null, eventId: eventId || this.state.activeEventId || null, details });
+        this.state.history.unshift({ id: `hist-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, at: Date.now(), action, cadetId: cadetId || null, eventId: eventId || this.state.activeEventId || null, details, by: this.authorName() || null });
         this.state.history = this.state.history.slice(0, 3000);
       }
 
       backupAllData() {
-        const payload = { app: 'CadetFlow', schemaVersion: 2, exportedAt: new Date().toISOString(), cadets: this.state.cadets, events: this.state.events, activeEventId: this.state.activeEventId, history: this.state.history || [], duties: this.state.duties || [], uniform: this.state.uniform || [], uniformPrices: this.state.uniformPrices || [], parades: this.state.parades || [] };
+        const payload = { app: 'CadetFlow', schemaVersion: 2, exportedAt: new Date().toISOString(), cadets: this.state.cadets, events: this.state.events, activeEventId: this.state.activeEventId, history: this.state.history || [], duties: this.state.duties || [], uniform: this.state.uniform || [], uniformPrices: this.state.uniformPrices || [], parades: this.state.parades || [], ...extraLists(this.state) };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob); const a = document.createElement('a');
         a.href = url; a.download = `CadetFlow_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -4776,6 +5039,9 @@
             if (Array.isArray(data.uniform)) this.state.uniform = normalizeUniform(data.uniform);
             if (Array.isArray(data.uniformPrices)) this.state.uniformPrices = normalizeUniformPrices(data.uniformPrices);
             if (Array.isArray(data.parades)) this.state.parades = normalizeParades(data.parades);
+            const extra = extraLists(data);
+            EXTRA_LISTS.forEach(k => { if (Array.isArray(data[k])) this.state[k] = extra[k]; });
+            if (isPlainObject(data.messConfig)) this.state.messConfig = extra.messConfig;
             this.state.selectedCadets.clear();
             this.saveStorage(); this.renderEventDropdown(); this.renderAll(); renderOngoingTasks(); renderAvailabilityResults();
             this.showToast('Backup restored successfully.');
@@ -5007,6 +5273,14 @@
     // and deletions are respected.
     function cloneData(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
     function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+    // Newer parts of the shared data: lists of items with plain ids, plus the mess duty settings.
+    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty'];
+    function extraLists(data) {
+      const out = {};
+      EXTRA_LISTS.forEach(k => { out[k] = (Array.isArray(data?.[k]) ? data[k] : []).filter(x => isPlainObject(x) && safeId(x.id)); });
+      out.messConfig = isPlainObject(data?.messConfig) ? data.messConfig : {};
+      return out;
+    }
     // Postgres jsonb reorders object keys, so compare structurally, and treat null/undefined as "not set".
     function deepEqual(a, b) {
       if (a === b) return true;
@@ -5064,7 +5338,7 @@
       // Lists merge item by item (by id), so entries without a usable id are left out first, as on loading.
       const ids = (list, ok = x => safeId(x.id)) => (Array.isArray(list) ? list : []).filter(x => isPlainObject(x) && ok(x));
       const pick = s => ({ cadets: s?.cadets || [], events: ids(s?.events), history: ids(s?.history, x => x.id != null), duties: ids(s?.duties),
-        uniform: ids(s?.uniform), uniformPrices: ids(s?.uniformPrices, x => x.id != null), parades: ids(s?.parades) });
+        uniform: ids(s?.uniform), uniformPrices: ids(s?.uniformPrices, x => x.id != null), parades: ids(s?.parades), ...extraLists(s) });
       const merged = mergeValue(pick(base), pick(local), pick(remote));
       merged.parades = normalizeParades(merged.parades);
       merged.duties = (merged.duties || []).sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -5072,11 +5346,12 @@
       merged.uniformPrices = normalizeUniformPrices(merged.uniformPrices);
       merged.history = (merged.history || []).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 3000);
       merged.events = (merged.events || []).map(ev => normalizeEvent(ev));
+      Object.assign(merged, extraLists(merged));
       return merged;
     }
     /** True when two saved states hold the same shared data (ignores which task is open). */
     function stateEqual(a, b) {
-      const pick = s => ({ cadets: s?.cadets, events: s?.events, history: s?.history, duties: s?.duties || [], uniform: s?.uniform || [], uniformPrices: s?.uniformPrices || [], parades: s?.parades || [] });
+      const pick = s => ({ cadets: s?.cadets, events: s?.events, history: s?.history, duties: s?.duties || [], uniform: s?.uniform || [], uniformPrices: s?.uniformPrices || [], parades: s?.parades || [], ...extraLists(s) });
       return deepEqual(pick(a), pick(b));
     }
 
@@ -5313,7 +5588,9 @@
       if (page === 'accounts' && !app?.isAdmin?.()) page = 'home';
       const isHome = page === 'home'; const showAvailability = page === 'availability'; const showDirectory = page === 'directory'; const showUniform = page === 'uniform'; const showParades = page === 'parades';
       const showAccounts = page === 'accounts';
-      const showTasks = !isHome && !showAvailability && !showDirectory && !showUniform && !showParades && !showAccounts;
+      const showActivity = page === 'activity';
+      const showTasks = !isHome && !showAvailability && !showDirectory && !showUniform && !showParades && !showAccounts && !showActivity;
+      document.getElementById('activityPage').classList.toggle('hidden', !showActivity);
       document.getElementById('accountsPage').classList.toggle('hidden', !showAccounts);
       document.getElementById('accountsTab').setAttribute('aria-selected', String(showAccounts));
       document.getElementById('paradePage').classList.toggle('hidden', !showParades);
@@ -5329,12 +5606,13 @@
       document.getElementById('rosterTab').setAttribute('aria-selected', String(showTasks));
       document.getElementById('availabilityTab').setAttribute('aria-selected', String(showAvailability));
       document.getElementById('directoryTab').setAttribute('aria-selected', String(showDirectory));
-      const navPage = isHome ? 'home' : showAvailability ? 'availability' : showDirectory ? 'directory' : showUniform ? 'uniform' : showParades ? 'parades' : showAccounts ? 'accounts' : 'roster';
+      const navPage = isHome ? 'home' : showAvailability ? 'availability' : showDirectory ? 'directory' : showUniform ? 'uniform' : showParades ? 'parades' : showAccounts ? 'accounts' : showActivity ? 'activity' : 'roster';
       document.querySelectorAll('#phoneNav button').forEach(b => { if (b.dataset.page === navPage) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
       if (showAvailability) renderAvailabilityResults();
       if (showDirectory) renderRosterDirectory();
       if (showUniform) renderUniformPage();
       if (showParades) { PAR.openId = null; renderParadePage(); loadRequests(); }
+      if (showActivity) renderActivityPage();
       if (showAccounts) { renderAccountsPage(); loadAccounts(true); } // always fresh: someone may have just registered
       if (showTasks) { document.getElementById('rosterPage').classList.remove('hidden'); showTaskMasterSection('home'); renderOngoingTasks(); }
       if (isHome && typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) document.getElementById('homeCadetCount').textContent = `${app.state.cadets.length} active cadets`;
@@ -5967,7 +6245,8 @@
         const n = (x.reports || []).length, open = paradeOpenForReports(x);
         const seniors = app.can('requests'), waiting = seniors ? paradeRequests(x.id).filter(r => r.status === 'pending').length : 0;
         const mine = myParadeLine(x);
-        return `<button type="button" onclick="openParadeDetail('${esc(x.id)}')" class="text-left rounded-2xl border border-slate-800 bg-slate-900 p-4 hover:border-amber-600/70">
+        return `<button type="button" onclick="openParadeDetail('${esc(x.id)}')" class="lift text-left rounded-2xl border border-slate-800 bg-slate-900 p-4 hover:border-amber-600/70">
+          ${x.seriesId ? '<span class="series-tag">Repeats</span>' : ''}
           <p class="text-[11px] font-bold text-amber-400">${esc(paradeDay(x.reportAt))} · ${esc(paradeClock(x.reportAt))}</p>
           <p class="text-base font-extrabold text-white mt-0.5">${esc(x.title)}</p>
           <p class="text-xs text-slate-400 mt-0.5">${x.venue ? esc(x.venue) + ' · ' : ''}${esc(paradeAudience(x))}</p>
@@ -5984,6 +6263,9 @@
           <span class="text-xs font-semibold ${marked ? 'text-slate-300' : 'text-amber-300'}">${marked ? `<span class="text-emerald-300">${k.present} present</span> · <span class="text-sky-300">${k.late} late</span> · <span class="text-rose-300">${k.absent} absent</span>${k.unmarked ? ` · ${k.unmarked} not marked` : ''}` : 'Attendance not marked'}</span>
         </button>`;
       }).join('') : '<p class="text-sm text-slate-500">No past parades yet.</p>';
+      renderParadeCalendar();
+      const me = app.myCadet();
+      if (me) markSeen(upcoming.filter(x => x.reportAt >= now && paradeCadets(x).some(c => c.id === me.id)).map(x => 'parade:' + x.id));
     }
     function renderParadeHomeStat() {
       const el = document.getElementById('homeStatParade'); if (!el) return;
@@ -6025,6 +6307,7 @@
             <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 sm:col-span-2"><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Venue</dt><dd class="text-white font-bold mt-0.5 break-words">${esc(pd.venue || 'Not set')}</dd></div>
           </dl>
           <div class="rounded-xl bg-slate-950 border border-slate-800 p-3"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Agenda</p><p class="text-sm text-slate-200 mt-1 whitespace-pre-wrap break-words">${esc(pd.agenda || 'No agenda written.')}</p></div>
+          ${app.canEdit() && pd.reportAt + 3 * 3600000 >= Date.now() ? `<div class="nb-actions">${seenButton('parade:' + pd.id)}</div>${seenPanel('parade:' + pd.id)}` : ''}
         </div>`;
       // ---- late / absence reports
       const reports = (pd.reports || []).slice().sort((a, b) => (COMPANY_ORDER[(app.state.cadets.find(c => c.id === a.cadetId) || {}).company] ?? 3) - (COMPANY_ORDER[(app.state.cadets.find(c => c.id === b.cadetId) || {}).company] ?? 3) || (a.at || 0) - (b.at || 0));
@@ -6144,6 +6427,10 @@
       const picked = pd && Array.isArray(pd.cadetIds) && pd.cadetIds.length;
       app.resetTaskPicker('parade', picked ? 'pick' : 'group', picked ? pd.cadetIds : []);
       document.getElementById('paradeModalError').classList.add('hidden');
+      document.getElementById('paradeRepeatBox').classList.toggle('hidden', !!pd);
+      document.getElementById('paradeRepeat').value = '0';
+      document.getElementById('paradeRepeatCount').value = '4';
+      updateParadeRepeatHint();
       document.getElementById('paradeModal').classList.remove('hidden');
       setTimeout(() => document.getElementById(pd && pd.kind === 'custom' ? 'paradeTitle' : 'paradeDate')?.focus(), 50);
     }
@@ -6176,11 +6463,19 @@
         app.logHistory('parade-edited', null, `Edited parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast('Parade updated.');
       } else {
-        pd = { id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, kind, title, reportAt, venue, agenda, ...audience, createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} };
-        app.state.parades.push(pd);
-        app.logHistory('parade-created', null, `Created parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
-        app.showToast(`Created ${title}.`);
-        if (reportAt > Date.now()) announceNewParade(pd.id); // notify every device with notifications on
+        const times = paradeRepeatDates(date, time);
+        const seriesId = times.length > 1 ? newId('series') : null;
+        const made = times.map(t => ({ id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, kind, title, reportAt: t, venue, agenda, ...audience, ...(seriesId ? { seriesId } : {}), createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} }));
+        pd = made[0];
+        app.state.parades.push(...made);
+        if (made.length > 1) {
+          app.logHistory('parade-created', null, `Created ${made.length} ${title} parades, ${paradeDay(made[0].reportAt)} to ${paradeDay(made[made.length - 1].reportAt)} at ${paradeClock(reportAt)}`);
+          app.showToast(`Created ${made.length} ${title} parades, until ${paradeDay(made[made.length - 1].reportAt)}.`);
+        } else {
+          app.logHistory('parade-created', null, `Created parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
+          app.showToast(`Created ${title}.`);
+        }
+        if (reportAt > Date.now()) announceNewParade(pd.id); // notify every device with notifications on (the first of a series)
       }
       app.state.parades = normalizeParades(app.state.parades);
       app.closeModal('paradeModal');
@@ -6192,8 +6487,11 @@
       if (!app?.isAdmin?.()) { app?.showToast?.('Only administrators can delete parades.'); return; }
       const pd = findParade(id); if (!pd) return;
       if (!confirm(`Delete “${pd.title}” on ${paradeDay(pd.reportAt)}? Its reports and attendance will be removed too.`)) return;
-      app.state.parades = paradeList().filter(x => x.id !== id);
-      app.logHistory('parade-deleted', null, `Deleted parade: ${pd.title} (${paradeDay(pd.reportAt)})`);
+      const later = pd.seriesId ? paradeList().filter(x => x.seriesId === pd.seriesId && x.reportAt > pd.reportAt) : [];
+      const alsoLater = later.length > 0 && confirm(`This parade repeats. Also delete the ${later.length} later parade${later.length === 1 ? '' : 's'} of the series?`);
+      const gone = new Set([id, ...(alsoLater ? later.map(x => x.id) : [])]);
+      app.state.parades = paradeList().filter(x => !gone.has(x.id));
+      app.logHistory('parade-deleted', null, `Deleted parade: ${pd.title} (${paradeDay(pd.reportAt)})${alsoLater ? ` and ${later.length} later in the series` : ''}`);
       app.saveStorage();
       PAR.openId = null;
       renderParadePage();
@@ -6489,7 +6787,7 @@
             ${uni.length ? `<ul class="mt-2 space-y-1">${uni.map(r => `<li class="text-xs text-slate-300">${esc(uniformFullLabel(r))}${r.qty > 1 ? ' ×' + r.qty : ''} <span class="text-slate-500">· ${esc((UNI_STATUS_TEXT[r.status] || UNI_STATUS_TEXT.requested)[0])}${uniformCost(r) != null ? ' · ' + esc(rupees(uniformCost(r))) : ''}${uniformPayChip(r) ? ' · ' + esc(uniformPayChip(r)[0]) : ''}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">Nothing waiting.</p>'}
           </section>
         </div>`;
-      document.getElementById('profileBody').innerHTML = attendance + work + other;
+      document.getElementById('profileBody').innerHTML = attendance + work + other + cadetCampsHtml(c) + cadetMessHtml(c);
     }
 
     // ==================== UNIFORM ORDERS (CQMS) ====================
@@ -6655,6 +6953,7 @@
       renderUniformOrder();
       renderUniformPrices();
       renderUniformPaySettings();
+      renderUniPaySummary();
       loadPayInfo();
     }
     function renderUniformHomeStat() {
@@ -7628,14 +7927,21 @@
     // Short entrance whenever a page or Task Master section is switched to.
     function playEnter(el) {
       if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      el.classList.remove('fx-enter'); void el.offsetWidth; el.classList.add('fx-enter');
+      el.classList.remove('fx-page'); void el.offsetWidth; el.classList.add('fx-page');
     }
     {
       const switchPage = switchCadetFlowPage;
+      const ORDER = ['home', 'roster', 'parades', 'availability', 'uniform', 'directory', 'activity', 'accounts'];
+      let current = 'home';
       switchCadetFlowPage = function (page) {
+        const from = ORDER.indexOf(current), to = ORDER.indexOf(page);
+        document.documentElement.style.setProperty('--dir', to >= from ? '1' : '-1');
+        current = page;
         const r = switchPage(page);
-        const id = { home: 'homePage', availability: 'availabilityPage', directory: 'directoryPage' }[page] || 'rosterPage';
+        renderFeatures();
+        const id = { home: 'homePage', availability: 'availabilityPage', directory: 'directoryPage', parades: 'paradePage', uniform: 'uniformPage', accounts: 'accountsPage', activity: 'activityPage' }[page] || 'rosterPage';
         if (page !== 'home') playEnter(document.getElementById(id));
+        staggerIn(document.getElementById(id));
         window.scrollTo({ top: 0, behavior: 'auto' });
         movePhoneNavIndicator();
         return r;
@@ -7648,13 +7954,733 @@
       };
     }
 
+    // ==================== NOTICE BOARD, PARADE CALENDAR, CAMPS, MESS DUTY, NEW YEAR, ACTIVITY ====================
+    function cfState() { return (typeof app !== 'undefined' && app && app.state) ? app.state : null; }
+    function newId(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
+    function cadetById(id) { return (cfState()?.cadets || []).find(c => c.id === id) || null; }
+    function cadetLabel(id) {
+      const c = cadetById(id);
+      if (c) return `${c.rank || 'CDT'} ${c.name}`;
+      const old = (cfState()?.alumni || []).find(x => x.id === id);
+      return old ? `${old.rank || 'CDT'} ${old.name}` : 'Removed cadet';
+    }
+    function ago(ts) {
+      const s = Math.round((Date.now() - ts) / 1000);
+      if (s < 60) return 'just now';
+      const m = Math.round(s / 60); if (m < 60) return `${m} min ago`;
+      const h = Math.round(m / 60); if (h < 24) return `${h} h ago`;
+      const d = Math.round(h / 24);
+      return d === 1 ? 'yesterday' : d < 7 ? `${d} days ago` : new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+    function ymd(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+    function fromYmd(s) { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); }
+    function dayLabel(s) { return fromYmd(s).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }); }
+    function untilText(ms) {
+      const m = Math.max(0, Math.round(ms / 60000));
+      if (m < 60) return `${m} min`;
+      const h = Math.floor(m / 60), d = Math.floor(h / 24);
+      if (d >= 1) return `${d} d ${h % 24} h`;
+      return `${h} h ${String(m % 60).padStart(2, '0')} min`;
+    }
+    const isVisible = id => { const el = document.getElementById(id); return !!el && !el.classList.contains('hidden'); };
+
+    /** Redraw whatever of the newer parts is on screen (after a change here or from someone else). */
+    function renderFeatures() {
+      if (!cfState()) return;
+      if (app.remoteReady && app.isApproved?.() && !renderFeatures.nudged) { renderFeatures.nudged = true; nudgeReminders(); }
+      renderNotices(); renderHomeNow();
+      if (isVisible('directoryPage')) { renderCamps(); renderAlumni(); }
+      if (isVisible('availabilityPage')) renderMessCard();
+      if (isVisible('activityPage')) renderActivityPage();
+      if (isVisible('uniformPage')) renderUniPaySummary();
+      if (isVisible('paradePage')) renderParadeCalendar();
+    }
+
+    // ---- "Seen by": who has opened a notice or a parade (kept on the server, table cadetflow_seen)
+    const SEEN = { sent: new Set(), lists: {}, open: null };
+    function markSeen(items) {
+      if (typeof app === 'undefined' || !app?.isApproved?.() || document.visibilityState !== 'visible') return;
+      const todo = items.filter(i => i && !SEEN.sent.has(i)).slice(0, 50);
+      if (!todo.length) return;
+      todo.forEach(i => SEEN.sent.add(i));
+      api('seen', { items: todo }).catch(() => todo.forEach(i => SEEN.sent.delete(i)));
+    }
+    async function toggleSeen(item) {
+      SEEN.open = SEEN.open === item ? null : item;
+      if (SEEN.open) {
+        try { SEEN.lists[item] = await api('seenBy', { item }); }
+        catch (e) { app.showToast(e.message || 'Could not load who has seen it.'); SEEN.open = null; }
+      }
+      renderNotices();
+      if (isVisible('paradePage')) renderParadePage();
+    }
+    function seenButton(item) {
+      if (!app?.canEdit?.()) return '';
+      const l = SEEN.lists[item];
+      return `<button type="button" class="nb-link" aria-expanded="${SEEN.open === item}" onclick="toggleSeen('${escapeHtml(item)}')">${l ? `Seen by ${l.seen.length} of ${l.total}` : 'Who has seen it'}</button>`;
+    }
+    function seenPanel(item) {
+      const l = SEEN.lists[item];
+      if (SEEN.open !== item || !l) return '';
+      const names = (list, empty) => list.length ? `<ul class="seen-names">${list.map(p => `<li>${escapeHtml(p.name)}${p.at ? ` <span>${escapeHtml(ago(Date.parse(p.at)))}</span>` : ''}</li>`).join('')}</ul>` : `<p class="text-[11px] text-slate-500">${empty}</p>`;
+      const pct = l.total ? Math.round(l.seen.length / l.total * 100) : 0;
+      return `<div class="seen-panel">
+        <div class="seen-bar" role="img" aria-label="${pct}% have seen it"><i class="bar-fill" style="width:${pct}%"></i></div>
+        <p class="seen-h">Seen (${l.seen.length})</p>${names(l.seen, 'Nobody yet.')}
+        <p class="seen-h">Not seen yet (${l.notSeen.length})</p>${names(l.notSeen, 'Everyone has seen it.')}
+        <p class="text-[11px] text-slate-500 mt-1">Counts accounts that are approved${item.startsWith('parade:') ? ' and expected at this parade' : ''}.</p>
+      </div>`;
+    }
+
+    // ---- Notice board (Home). Lance corporals and above, and POCs, post; everyone reads.
+    function activeNotices() {
+      const now = Date.now();
+      return (cfState()?.notices || []).filter(n => !n.until || n.until > now).sort((a, b) => (b.at || 0) - (a.at || 0));
+    }
+    function canRemoveNotice(n) { return app.isAdmin() || (app.canEdit() && !!n.byCadet && n.byCadet === app.myCadet()?.id); }
+    function renderNotices() {
+      const board = document.getElementById('noticeBoard'), list = document.getElementById('noticeList');
+      if (!board || !list || !cfState()) return;
+      const items = activeNotices();
+      board.classList.toggle('hidden', !items.length && !app.canEdit());
+      const before = new Set([...list.querySelectorAll('[data-notice]')].map(e => e.dataset.notice));
+      const esc = escapeHtml;
+      list.innerHTML = items.length ? items.map((n, i) => {
+        const item = 'notice:' + n.id;
+        return `<article class="nb-item" data-notice="${esc(n.id)}" style="--i:${i}">
+          <p class="nb-text">${esc(n.text)}</p>
+          <p class="nb-meta">${esc(n.by || 'A senior')} · <span title="${esc(fmtWhen(n.at))}">${esc(ago(n.at))}</span>${n.until ? ` · up until ${esc(new Date(n.until).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : ''}</p>
+          <div class="nb-actions">${seenButton(item)}${canRemoveNotice(n) ? `<button type="button" class="nb-link" onclick="removeNotice('${esc(n.id)}')">Remove</button>` : ''}</div>
+          ${seenPanel(item)}
+        </article>`;
+      }).join('') : '<p class="nb-empty">Nothing on the board. A notice posted here shows on everyone\'s Home page.</p>';
+      // Notices that just arrived from someone else get a short highlight.
+      if (before.size) list.querySelectorAll('[data-notice]').forEach(el => { if (!before.has(el.dataset.notice)) el.classList.add('nb-fresh'); });
+      if (isVisible('homePage')) markSeen(items.map(n => 'notice:' + n.id));
+    }
+    function openNoticeComposer() {
+      if (!app?.canEdit?.()) { app?.showToast?.('Only lance corporals and above, and POCs, can post notices.'); return; }
+      document.getElementById('noticeComposer').classList.remove('hidden');
+      document.getElementById('noticeNewBtn').classList.add('hidden');
+      document.getElementById('noticeText').focus();
+    }
+    function closeNoticeComposer() {
+      document.getElementById('noticeComposer').classList.add('hidden');
+      document.getElementById('noticeNewBtn').classList.remove('hidden');
+      document.getElementById('noticeText').value = '';
+    }
+    async function postNotice() {
+      if (!app?.canEdit?.()) return;
+      const box = document.getElementById('noticeText');
+      const text = box.value.trim().slice(0, 600);
+      if (!text) { box.focus(); return; }
+      const days = Number(document.getElementById('noticeKeep').value) || 0;
+      const notify = document.getElementById('noticeNotify').checked;
+      const now = Date.now();
+      const n = { id: newId('notice'), text, at: now, by: app.authorName(), byCadet: app.myCadet()?.id || null, ...(days ? { until: now + days * 86400000 } : {}) };
+      // Notices that ended more than 30 days ago are dropped to keep the shared data small.
+      app.state.notices = [n, ...(app.state.notices || []).filter(x => !x.until || x.until > now - 30 * 86400000)];
+      app.logHistory('notice-posted', null, `Posted a notice: ${text.slice(0, 90)}${text.length > 90 ? '…' : ''}`);
+      app.saveStorage();
+      closeNoticeComposer();
+      renderNotices();
+      if (!notify) { app.showToast('Notice posted.'); return; }
+      try {
+        await app.flushRemoteSave(); // the server reads the notice from the saved data
+        const r = await api('announce', { id: n.id });
+        app.showToast(`Notice posted. Sent to ${r.devices || 0} device${r.devices === 1 ? '' : 's'}.`);
+      } catch (e) { app.showToast(`Notice posted, but the notification was not sent: ${e.message || e}`); }
+    }
+    function removeNotice(id) {
+      const n = (app.state.notices || []).find(x => x.id === id);
+      if (!n || !canRemoveNotice(n)) return;
+      if (!confirm('Remove this notice from the board?')) return;
+      app.state.notices = app.state.notices.filter(x => x.id !== id);
+      app.logHistory('notice-removed', null, `Removed a notice: ${String(n.text).slice(0, 90)}`);
+      app.saveStorage();
+      renderNotices();
+      app.showToast('Notice removed.');
+    }
+
+    // ---- Home: a live line with the time, the half of the day, the next parade and your mess duty
+    function renderHomeNow() {
+      const host = document.getElementById('homeNow');
+      if (!host || !cfState()) return;
+      const now = new Date(), esc = escapeHtml;
+      const hh = String(now.getHours()).padStart(2, '0'), mm = String(now.getMinutes()).padStart(2, '0');
+      const day = now.getDay();
+      const half = day === 0 ? 'Sunday, no timetable' : now.getHours() < 13 ? 'First half' : 'Second half';
+      const next = paradeList().find(x => x.reportAt >= Date.now());
+      const me = app?.myCadet?.();
+      const myMess = me ? messList().find(d => d.date >= ymd(now) && (d.cadetIds || []).includes(me.id)) : null;
+      const parts = [
+        `<span class="hn-item"><b class="hn-clock">${hh}<i>:</i>${mm}</b> ${esc(now.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }))}</span>`,
+        `<span class="hn-item">${esc(half)}</span>`,
+        next ? `<button type="button" class="hn-item hn-link" onclick="switchCadetFlowPage('parades'); openParadeDetail('${esc(next.id)}')">Next parade <b>${esc(next.title)}</b> in ${esc(untilText(next.reportAt - Date.now()))}</button>` : '<span class="hn-item">No parade planned</span>',
+        myMess ? `<button type="button" class="hn-item hn-link hn-mine" onclick="switchCadetFlowPage('availability')">Your mess duty <b>${myMess.date === ymd(now) ? 'today' : esc(dayLabel(myMess.date))}</b></button>` : '',
+      ];
+      host.innerHTML = parts.join('');
+    }
+    setInterval(() => { if (isVisible('homePage') && document.visibilityState === 'visible') renderHomeNow(); }, 15000);
+
+    // ---- Parades as a month calendar
+    Object.assign(PAR, { view: 'list', calY: new Date().getFullYear(), calM: new Date().getMonth(), calDay: null });
+    try { if (localStorage.getItem('cf-parade-view') === 'calendar') PAR.view = 'calendar'; } catch (_) {}
+    function setParadeView(view) {
+      PAR.view = view === 'calendar' ? 'calendar' : 'list';
+      try { localStorage.setItem('cf-parade-view', PAR.view); } catch (_) {}
+      renderParadeCalendar();
+    }
+    function paradeCalMonth(step) {
+      if (step === 0) { const t = new Date(); PAR.calY = t.getFullYear(); PAR.calM = t.getMonth(); PAR.calDay = ymd(t); }
+      else { const d = new Date(PAR.calY, PAR.calM + step, 1); PAR.calY = d.getFullYear(); PAR.calM = d.getMonth(); PAR.calDay = null; }
+      PAR.calAnim = step < 0 ? 'prev' : 'next';
+      renderParadeCalendar();
+    }
+    function paradeCalPick(key) { PAR.calDay = PAR.calDay === key ? null : key; PAR.calAnim = null; renderParadeCalendar(); }
+    function moveSegIndicator(group) {
+      const on = group?.querySelector('[aria-pressed="true"]'), ind = group?.querySelector('.seg-ind');
+      if (!on || !ind || !on.offsetWidth) return;
+      ind.style.width = on.offsetWidth + 'px';
+      ind.style.transform = `translateX(${on.offsetLeft}px)`;
+    }
+    function renderParadeCalendar() {
+      const host = document.getElementById('paradeCalendar'), blocks = document.getElementById('paradeListBlocks');
+      if (!host || !blocks) return;
+      const cal = PAR.view === 'calendar';
+      host.classList.toggle('hidden', !cal);
+      blocks.classList.toggle('hidden', cal);
+      const seg = document.querySelector('#paradeListView .seg-toggle');
+      seg?.querySelectorAll('[data-pv]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pv === PAR.view)));
+      requestAnimationFrame(() => moveSegIndicator(seg));
+      if (!cal) return;
+      const esc = escapeHtml;
+      const first = new Date(PAR.calY, PAR.calM, 1);
+      const daysIn = new Date(PAR.calY, PAR.calM + 1, 0).getDate();
+      const lead = (first.getDay() + 6) % 7;
+      const byDay = new Map();
+      paradeList().forEach(pd => { const k = ymd(new Date(pd.reportAt)); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(pd); });
+      const today = ymd(new Date()), now = Date.now();
+      let cells = '';
+      for (let i = 0; i < lead; i++) cells += '<span class="pc-cell pc-blank" aria-hidden="true"></span>';
+      for (let d = 1; d <= daysIn; d++) {
+        const key = ymd(new Date(PAR.calY, PAR.calM, d));
+        const list = byDay.get(key) || [];
+        const cls = ['pc-cell', key === today ? 'pc-today' : '', list.length ? 'pc-has' : '', PAR.calDay === key ? 'pc-sel' : ''].join(' ');
+        const chips = list.slice(0, 2).map(pd => `<span class="pc-chip ${pd.reportAt + 3 * 3600000 < now ? 'pc-past' : ''}">${esc(paradeClock(pd.reportAt))} ${esc(pd.title)}</span>`).join('') + (list.length > 2 ? `<span class="pc-more">+${list.length - 2}</span>` : '');
+        const label = list.length ? `${d}: ${list.map(pd => `${pd.title} at ${paradeClock(pd.reportAt)}`).join(', ')}` : String(d);
+        cells += list.length
+          ? `<button type="button" class="${cls}" style="--i:${d}" onclick="paradeCalPick('${key}')" aria-label="${esc(label)}" aria-pressed="${PAR.calDay === key}"><span class="pc-num">${d}</span>${chips}<span class="pc-dots" aria-hidden="true">${list.map(() => '<i></i>').join('')}</span></button>`
+          : `<span class="${cls}" style="--i:${d}"><span class="pc-num">${d}</span></span>`;
+      }
+      const sel = PAR.calDay ? (byDay.get(PAR.calDay) || []) : [];
+      const monthCount = [...byDay.keys()].filter(k => k.startsWith(`${PAR.calY}-${String(PAR.calM + 1).padStart(2, '0')}`)).reduce((n, k) => n + byDay.get(k).length, 0);
+      host.innerHTML = `
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-5">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <button type="button" onclick="paradeCalMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Previous month">‹</button>
+            <div class="text-center"><p class="text-base font-bold text-white">${esc(first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }))}</p><p class="text-[11px] text-slate-500">${monthCount} parade${monthCount === 1 ? '' : 's'}</p></div>
+            <div class="flex gap-1.5">
+              <button type="button" onclick="paradeCalMonth(0)" class="px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-bold text-slate-300 hover:bg-slate-800">Today</button>
+              <button type="button" onclick="paradeCalMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Next month">›</button>
+            </div>
+          </div>
+          <div class="pc-grid pc-head" aria-hidden="true">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<span>${w}</span>`).join('')}</div>
+          <div class="pc-grid pc-body ${PAR.calAnim ? 'pc-anim-' + PAR.calAnim : ''}" id="paradeCalGrid">${cells}</div>
+        </div>
+        ${PAR.calDay ? `<div class="space-y-2 fx-enter">
+          <h3 class="font-extrabold text-white">${esc(dayLabel(PAR.calDay))}</h3>
+          ${sel.length ? sel.map(pd => `<button type="button" onclick="openParadeDetail('${esc(pd.id)}')" class="lift w-full text-left rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 hover:border-amber-600/70">
+            <span class="block text-sm font-bold text-white">${esc(pd.title)}</span>
+            <span class="block text-[11px] text-slate-400">${esc(paradeClock(pd.reportAt))}${pd.venue ? ' · ' + esc(pd.venue) : ''} · ${esc(paradeAudience(pd))}</span>
+          </button>`).join('') : '<p class="text-sm text-slate-500">No parade on this day.</p>'}
+        </div>` : '<p class="text-[11px] text-slate-500">Tap a day with a parade to see it.</p>'}`;
+      PAR.calAnim = null;
+    }
+
+    // ---- Repeating parades (made as separate parades with the same seriesId)
+    function updateParadeRepeatHint() {
+      const every = Number(document.getElementById('paradeRepeat').value) || 0;
+      const wrap = document.getElementById('paradeRepeatCountWrap'), hint = document.getElementById('paradeRepeatHint');
+      wrap.classList.toggle('hidden', !every);
+      hint.classList.toggle('hidden', !every);
+      if (!every) return;
+      const n = Math.min(26, Math.max(2, Number(document.getElementById('paradeRepeatCount').value) || 2));
+      const date = document.getElementById('paradeDate').value;
+      if (!date) { hint.textContent = `${n} parades, ${every === 7 ? 'one every week' : 'one every 2 weeks'}. Pick the first date above.`; return; }
+      const last = fromYmd(date); last.setDate(last.getDate() + every * (n - 1));
+      hint.textContent = `${n} parades, from ${dayLabel(date)} to ${dayLabel(ymd(last))}. The first is announced now; every parade gets a reminder 2 hours before.`;
+    }
+    function paradeRepeatDates(date, time) {
+      const every = Number(document.getElementById('paradeRepeat')?.value) || 0;
+      const n = every ? Math.min(26, Math.max(2, Number(document.getElementById('paradeRepeatCount').value) || 2)) : 1;
+      return Array.from({ length: n }, (_, i) => { const d = fromYmd(date); d.setDate(d.getDate() + every * i); return new Date(`${ymd(d)}T${time}`).getTime(); });
+    }
+
+    // ---- Camps and courses (Cadet Roster page). JUOs, SUOs and the administrator keep them.
+    const CAMP_KINDS = ['CATC', 'ATC', 'TSC', 'RDC', 'NIC', 'SNIC', 'BLC', 'ALC', 'Trek', 'Other'];
+    const CAMP = { editId: null, picked: new Set(), open: null, q: '' };
+    function campList() { return (cfState()?.camps || []).slice().sort((a, b) => String(b.start || '').localeCompare(String(a.start || ''))); }
+    function campDates(c) {
+      if (!c.start) return 'Dates not set';
+      const f = s => fromYmd(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return c.end && c.end !== c.start ? `${f(c.start)} to ${f(c.end)}` : f(c.start);
+    }
+    function campTitle(c) { return c.kind === 'Other' ? (c.name || 'Camp') : `${c.kind}${c.name ? ' · ' + c.name : ''}`; }
+    function renderCamps() {
+      const host = document.getElementById('campsCard'); if (!host || !cfState()) return;
+      const esc = escapeHtml, list = campList(), edit = app.can('parade');
+      host.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 id="campsHeading" class="font-extrabold text-white">Camps and courses <span class="text-sm text-slate-500 font-mono-num">${list.length}</span></h3>
+          <p class="text-xs text-slate-400 mt-0.5">Which cadet went to which camp. Shown on each cadet's profile.</p></div>
+          ${edit ? '<button type="button" onclick="openCampModal()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Add camp</button>' : ''}
+        </div>
+        ${list.length ? `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${list.map(c => {
+          const open = CAMP.open === c.id;
+          return `<li>
+            <button type="button" class="camp-row w-full text-left px-3 py-3 flex flex-wrap items-center gap-x-3 gap-y-1" aria-expanded="${open}" onclick="CAMP.open = CAMP.open === '${esc(c.id)}' ? null : '${esc(c.id)}'; renderCamps()">
+              <span class="camp-kind">${esc(c.kind)}</span>
+              <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-white">${esc(c.kind === 'Other' ? (c.name || 'Camp') : (c.name || c.kind))}</span>
+              <span class="block text-[11px] text-slate-400">${esc(campDates(c))}${c.place ? ' · ' + esc(c.place) : ''}</span></span>
+              <span class="text-xs text-slate-300 font-mono-num">${(c.cadetIds || []).length} cadet${(c.cadetIds || []).length === 1 ? '' : 's'}</span>
+            </button>
+            ${open ? `<div class="px-3 pb-3 space-y-2 fx-enter">
+              <div class="flex flex-wrap gap-1.5">${(c.cadetIds || []).map(id => `<button type="button" onclick="openCadetProfile('${esc(id)}')" class="af-chip text-[11px]">${esc(cadetLabel(id))}</button>`).join('') || '<span class="text-xs text-slate-500">No cadets added.</span>'}</div>
+              ${edit ? `<div class="flex gap-2"><button type="button" onclick="openCampModal('${esc(c.id)}')" class="px-3 py-1.5 text-xs font-bold border border-slate-700 text-slate-200 rounded-lg">Edit</button>
+                <button type="button" onclick="deleteCamp('${esc(c.id)}')" class="px-3 py-1.5 text-xs font-bold border border-rose-900/60 text-rose-300 rounded-lg">Delete</button></div>` : ''}
+            </div>` : ''}
+          </li>`;
+        }).join('')}</ul>` : '<p class="text-xs text-slate-500">No camps recorded yet.</p>'}`;
+    }
+    function openCampModal(id) {
+      if (!app?.can?.('parade')) { app?.showToast?.('Only JUOs, SUOs and the administrator can record camps.'); return; }
+      const c = id ? (app.state.camps || []).find(x => x.id === id) : null;
+      CAMP.editId = c ? c.id : null;
+      CAMP.picked = new Set(c ? c.cadetIds || [] : []);
+      CAMP.q = '';
+      document.getElementById('campModalHeading').textContent = c ? 'Edit camp' : 'Add camp';
+      document.getElementById('campKind').value = c?.kind || 'CATC';
+      document.getElementById('campName').value = c?.name || '';
+      document.getElementById('campPlace').value = c?.place || '';
+      document.getElementById('campStart').value = c?.start || '';
+      document.getElementById('campEnd').value = c?.end || '';
+      document.getElementById('campSearch').value = '';
+      document.getElementById('campError').classList.add('hidden');
+      renderCampPicker();
+      document.getElementById('campModal').classList.remove('hidden');
+    }
+    function renderCampPicker() {
+      const host = document.getElementById('campPickList'); if (!host) return;
+      const q = document.getElementById('campSearch').value.trim().toLowerCase();
+      const esc = escapeHtml;
+      const list = (app.state.cadets || []).filter(c => !q || c.name.toLowerCase().includes(q) || String(c.company).toLowerCase().includes(q));
+      host.innerHTML = list.map(c => `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 text-sm text-slate-200">
+        <input type="checkbox" ${CAMP.picked.has(c.id) ? 'checked' : ''} onchange="campPick('${esc(c.id)}', this.checked)">
+        <span>${esc(c.rank || 'CDT')} ${esc(c.name)}</span><span class="ml-auto text-[11px] text-slate-500">${esc(c.company)} · ${esc(c.year || '')}</span></label>`).join('') || '<p class="text-xs text-slate-500 px-2">No cadet matches.</p>';
+      document.getElementById('campPickCount').textContent = `${CAMP.picked.size} picked`;
+    }
+    function campPick(id, on) { if (on) CAMP.picked.add(id); else CAMP.picked.delete(id); document.getElementById('campPickCount').textContent = `${CAMP.picked.size} picked`; }
+    function saveCamp() {
+      if (!app?.can?.('parade')) return;
+      const err = document.getElementById('campError');
+      const fail = m => { err.textContent = m; err.classList.remove('hidden'); };
+      const kind = document.getElementById('campKind').value;
+      const name = document.getElementById('campName').value.trim().slice(0, 80);
+      const place = document.getElementById('campPlace').value.trim().slice(0, 80);
+      const start = document.getElementById('campStart').value, end = document.getElementById('campEnd').value;
+      if (!CAMP_KINDS.includes(kind)) { fail('Pick the kind of camp.'); return; }
+      if (kind === 'Other' && !name) { fail('Write the name of the camp.'); return; }
+      if (!start) { fail('Pick the date it started.'); return; }
+      if (end && end < start) { fail('The end date is before the start date.'); return; }
+      const data = { kind, name, place, start, end: end || start, cadetIds: [...CAMP.picked].filter(id => cadetById(id)) };
+      if (!Array.isArray(app.state.camps)) app.state.camps = [];
+      if (CAMP.editId) {
+        const c = app.state.camps.find(x => x.id === CAMP.editId);
+        if (!c) { fail('This camp was deleted meanwhile.'); return; }
+        Object.assign(c, data);
+        app.logHistory('camp-edited', null, `Edited camp: ${campTitle(c)} (${data.cadetIds.length} cadets)`);
+      } else {
+        const c = { id: newId('camp'), ...data, at: Date.now(), by: app.authorName() };
+        app.state.camps.push(c);
+        app.logHistory('camp-added', null, `Added camp: ${campTitle(c)} (${data.cadetIds.length} cadets)`);
+        CAMP.open = c.id;
+      }
+      app.saveStorage();
+      app.closeModal('campModal');
+      renderCamps();
+      app.showToast('Camp saved.');
+    }
+    function deleteCamp(id) {
+      if (!app?.can?.('parade')) return;
+      const c = (app.state.camps || []).find(x => x.id === id); if (!c) return;
+      if (!confirm(`Delete ${campTitle(c)} (${campDates(c)})? The cadets' profiles will no longer show it.`)) return;
+      app.state.camps = app.state.camps.filter(x => x.id !== id);
+      app.logHistory('camp-deleted', null, `Deleted camp: ${campTitle(c)}`);
+      app.saveStorage();
+      renderCamps();
+    }
+    function cadetCampsHtml(c) {
+      const list = campList().filter(x => (x.cadetIds || []).includes(c.id));
+      return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+        <h4 class="font-extrabold text-white">Camps and courses <span class="text-sm text-slate-500 font-mono-num">${list.length}</span></h4>
+        ${list.length ? `<ul class="mt-2 space-y-1">${list.map(x => `<li class="text-xs text-slate-300"><span class="camp-kind">${escapeHtml(x.kind)}</span> ${escapeHtml(x.kind === 'Other' ? x.name || 'Camp' : x.name || '')} <span class="text-slate-500">· ${escapeHtml(campDates(x))}${x.place ? ' · ' + escapeHtml(x.place) : ''}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">No camps recorded.</p>'}
+      </section>`;
+    }
+
+    // ---- New academic year: 1st years become 2nd, 2nd become 3rd, 3rd years leave the roster
+    // (kept under Past cadets, from where the administrator can bring one back).
+    function startNewAcademicYear() {
+      if (!app?.isAdmin?.()) { app?.showToast?.('Only the administrator can start a new academic year.'); return; }
+      const cadets = app.state.cadets || [];
+      const n = y => cadets.filter(c => c.year === y).length;
+      const noYear = cadets.filter(c => !YEARS.includes(c.year)).length;
+      if (!n('1st') && !n('2nd') && !n('3rd')) { app.showToast('Nobody on the roster has a year set.'); return; }
+      const last = (app.state.history || []).find(h => h.action === 'year-promoted');
+      if (last && Date.now() - last.at < 150 * 86400000 && !confirm(`A new academic year was already started on ${fmtWhen(last.at)}. Start another one?`)) return;
+      const msg = `Start a new academic year?\n\n` +
+        `${n('1st')} cadet(s): 1st year → 2nd year\n${n('2nd')} cadet(s): 2nd year → 3rd year\n${n('3rd')} cadet(s) in 3rd year leave the roster (kept under Past cadets)\n` +
+        (noYear ? `${noYear} cadet(s) with no year set stay as they are\n` : '') +
+        `\nAccounts linked to cadets who leave keep signing in but lose their rank's powers. Download a backup first if unsure.`;
+      if (!confirm(msg)) return;
+      const now = Date.now(), year = String(new Date().getFullYear());
+      const leaving = cadets.filter(c => c.year === '3rd');
+      const leftIds = new Set(leaving.map(c => c.id));
+      app.state.alumni = [...(app.state.alumni || []).filter(a => !leftIds.has(a.id)), ...leaving.map(c => ({ ...c, leftAt: now, leftYear: year }))];
+      app.state.cadets = cadets.filter(c => c.year !== '3rd').map(c => c.year === '1st' ? { ...c, year: '2nd' } : c.year === '2nd' ? { ...c, year: '3rd' } : c);
+      [...app.state.selectedCadets].forEach(id => { if (leftIds.has(id)) app.state.selectedCadets.delete(id); });
+      app.logHistory('year-promoted', null, `New academic year: ${n('1st')} moved to 2nd year, ${n('2nd')} to 3rd year, ${leaving.length} 3rd years left the roster`);
+      app.saveStorage();
+      app.renderAll?.();
+      renderRosterDirectory();
+      renderFeatures();
+      app.showToast(`New academic year started. ${leaving.length} cadet${leaving.length === 1 ? '' : 's'} moved to Past cadets.`);
+    }
+    function renderAlumni() {
+      const host = document.getElementById('alumniCard'); if (!host || !cfState()) return;
+      const esc = escapeHtml;
+      const list = (app.state.alumni || []).slice().sort((a, b) => (b.leftAt || 0) - (a.leftAt || 0) || a.name.localeCompare(b.name));
+      const years = [...new Set(list.map(a => a.leftYear || 'Earlier'))];
+      host.innerHTML = `<details ${list.length && list.length < 8 ? 'open' : ''}>
+        <summary class="cursor-pointer font-extrabold text-white">Past cadets <span class="text-sm text-slate-500 font-mono-num">${list.length}</span></summary>
+        <p class="text-xs text-slate-400 mt-1">Cadets who left the roster with a new academic year. Bring one back if they left by mistake.</p>
+        ${list.length ? years.map(y => `<div class="mt-3"><p class="text-[11px] font-bold text-slate-500">Left in ${esc(y)}</p>
+          <ul class="mt-1 divide-y divide-slate-800 border border-slate-800 rounded-xl">${list.filter(a => (a.leftYear || 'Earlier') === y).map(a => `<li class="flex items-center justify-between gap-2 px-3 py-2">
+            <span class="text-sm text-slate-200">${esc(a.rank || 'CDT')} ${esc(a.name)} <span class="text-[11px] text-slate-500">${esc(a.company || '')}</span></span>
+            <button type="button" onclick="bringBackCadet('${esc(a.id)}')" class="px-2.5 py-1 text-[11px] font-bold border border-slate-700 text-slate-200 rounded-lg">Bring back</button></li>`).join('')}</ul></div>`).join('') : '<p class="text-xs text-slate-500 mt-2">Nobody yet.</p>'}
+      </details>`;
+    }
+    function bringBackCadet(id) {
+      if (!app?.isAdmin?.()) return;
+      const a = (app.state.alumni || []).find(x => x.id === id); if (!a) return;
+      if (cadetById(id)) { app.showToast('That cadet is already on the roster.'); return; }
+      const { leftAt, leftYear, ...cadet } = a;
+      app.state.cadets = normalizeCadets([...app.state.cadets, { ...cadet, year: '3rd' }]);
+      app.state.alumni = app.state.alumni.filter(x => x.id !== id);
+      app.logHistory('cadet-added', id, `Brought back ${a.rank || 'CDT'} ${a.name} from Past cadets (3rd year)`);
+      app.saveStorage();
+      app.renderAll?.();
+      renderRosterDirectory();
+      renderAlumni();
+      app.showToast(`${a.name} is back on the roster as a 3rd year.`);
+    }
+
+    // ---- Mess duty (Availability page): fair rotation, fewest duties first
+    const MESS_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const MESS_DAY_NAMES = { MON: 'Mon', TUE: 'Tue', WED: 'Wed', THU: 'Thu', FRI: 'Fri', SAT: 'Sat', SUN: 'Sun' };
+    const MESS = { settings: false, q: '' };
+    function messConfig() {
+      const c = cfState()?.messConfig || {};
+      const days = (Array.isArray(c.days) ? c.days : []).filter(d => MESS_DAYS.includes(d));
+      const years = (Array.isArray(c.years) ? c.years : []).filter(y => YEARS.includes(y));
+      return { perDay: Math.min(30, Math.max(1, Math.round(Number(c.perDay)) || 4)), days: days.length ? days : MESS_DAYS.slice(0, 6), years: years.length ? years : ['1st', '2nd'], exempt: Array.isArray(c.exempt) ? c.exempt : [] };
+    }
+    function messList() { return (cfState()?.messDuty || []).filter(d => /^\d{4}-\d\d-\d\d$/.test(d.date)).slice().sort((a, b) => a.date.localeCompare(b.date)); }
+    function messEligible(cfg = messConfig()) { return (cfState()?.cadets || []).filter(c => cfg.years.includes(c.year) && !cfg.exempt.includes(c.id)); }
+    function messCounts() {
+      const m = new Map();
+      messList().forEach(d => (d.cadetIds || []).forEach(id => { const x = m.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; m.set(id, x); }));
+      return m;
+    }
+    function messHash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+    /** The fairest cadets for a day: fewest duties, then longest since the last one; ties differ day to day. */
+    function messPick(date, count, counts, skip) {
+      return messEligible().filter(c => !skip.has(c.id))
+        .map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '', h: messHash(c.id + date) }))
+        .sort((a, b) => a.n - b.n || a.last.localeCompare(b.last) || a.h - b.h)
+        .slice(0, count).map(x => x.c.id);
+    }
+    function planMessWeek() {
+      if (!app?.canEdit?.()) return;
+      const cfg = messConfig();
+      if (messEligible(cfg).length < cfg.perDay) { app.showToast(`Only ${messEligible(cfg).length} cadet(s) can do mess duty with these settings; ${cfg.perDay} are needed each day.`); return; }
+      const counts = messCounts(), have = new Set(messList().map(d => d.date));
+      const added = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() + i);
+        const date = ymd(d), dayCode = MESS_DAYS[(d.getDay() + 6) % 7];
+        if (!cfg.days.includes(dayCode) || have.has(date)) continue;
+        const ids = messPick(date, cfg.perDay, counts, new Set());
+        ids.forEach(id => { const x = counts.get(id) || { n: 0, last: '' }; x.n++; if (date > x.last) x.last = date; counts.set(id, x); });
+        added.push({ id: 'mess-' + date, date, cadetIds: ids, at: Date.now(), by: app.authorName() });
+      }
+      if (!added.length) { app.showToast('The next 7 days are already planned.'); return; }
+      app.state.messDuty = [...(app.state.messDuty || []), ...added];
+      app.logHistory('mess-planned', null, `Planned mess duty for ${added.length} day(s): ${added.map(d => dayLabel(d.date)).join(', ')}`);
+      app.saveStorage();
+      MESS.flash = new Set(added.map(d => d.date));
+      renderMessCard();
+      app.showToast(`Mess duty planned for ${added.length} day${added.length === 1 ? '' : 's'}.`);
+    }
+    function swapMess(date, cadetId) {
+      if (!app?.canEdit?.()) return;
+      const d = (app.state.messDuty || []).find(x => x.date === date); if (!d) return;
+      const counts = messCounts();
+      const [next] = messPick(date, 1, counts, new Set(d.cadetIds));
+      if (!next) { app.showToast('Nobody else is free to take this duty.'); return; }
+      d.cadetIds = d.cadetIds.map(id => id === cadetId ? next : id);
+      app.logHistory('mess-swapped', null, `Mess duty ${dayLabel(date)}: ${cadetLabel(cadetId)} swapped for ${cadetLabel(next)}`);
+      app.saveStorage();
+      MESS.flash = new Set([date + ':' + next]);
+      renderMessCard();
+      app.showToast(`${cadetLabel(next)} takes it instead.`);
+    }
+    function removeMessDay(date) {
+      if (!app?.canEdit?.()) return;
+      if (!confirm(`Remove mess duty on ${dayLabel(date)}?`)) return;
+      app.state.messDuty = (app.state.messDuty || []).filter(x => x.date !== date);
+      app.logHistory('mess-removed', null, `Removed mess duty on ${dayLabel(date)}`);
+      app.saveStorage();
+      renderMessCard();
+    }
+    function setMessConfig(change) {
+      if (!app?.canEdit?.()) return;
+      const cfg = messConfig();
+      change(cfg);
+      app.state.messConfig = { perDay: cfg.perDay, days: cfg.days, years: cfg.years, exempt: cfg.exempt };
+      app.saveStorage();
+      renderMessCard();
+    }
+    function toggleMessList(key, value) {
+      setMessConfig(cfg => {
+        const list = cfg[key];
+        cfg[key] = list.includes(value) ? list.filter(x => x !== value) : [...list, value];
+        if (key === 'days') cfg.days = MESS_DAYS.filter(d => cfg.days.includes(d));
+        if (!cfg[key].length && key !== 'exempt') { cfg[key] = list; app.showToast('Keep at least one ticked.'); }
+      });
+    }
+    function copyMessDuty() {
+      const up = messList().filter(d => d.date >= ymd(new Date()));
+      if (!up.length) { app.showToast('Nothing planned yet.'); return; }
+      const msg = '*Mess duty*\n' + up.map(d => `\n*${dayLabel(d.date)}*\n${d.cadetIds.map((id, i) => `${i + 1}. ${cadetLabel(id)}`).join('\n')}`).join('\n');
+      app.copyToClipboard(msg, 'Copied mess duty list');
+    }
+    function renderMessCard() {
+      const host = document.getElementById('messCard'); if (!host || !cfState()) return;
+      const esc = escapeHtml, edit = app.canEdit(), cfg = messConfig(), today = ymd(new Date());
+      const all = messList(), upcoming = all.filter(d => d.date >= today), past = all.filter(d => d.date < today).reverse();
+      const me = app.myCadet(), mine = me ? upcoming.find(d => d.cadetIds.includes(me.id)) : null;
+      const counts = messCounts();
+      const flash = MESS.flash || new Set(); MESS.flash = null;
+      const dayRow = (d, isPast) => `<li class="mess-day ${flash.has(d.date) ? 'fx-flash' : ''} ${d.date === today ? 'mess-today' : ''}">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm font-bold ${isPast ? 'text-slate-400' : 'text-white'}">${d.date === today ? 'Today · ' : ''}${esc(dayLabel(d.date))}</p>
+          ${edit && !isPast ? `<button type="button" onclick="removeMessDay('${d.date}')" class="text-[11px] text-slate-500 hover:text-rose-300">Remove</button>` : ''}
+        </div>
+        <div class="mt-1.5 flex flex-wrap gap-1.5">${d.cadetIds.map(id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''} ${flash.has(d.date + ':' + id) ? 'fx-flash' : ''}">${esc(cadetLabel(id))}${edit && !isPast ? `<button type="button" onclick="swapMess('${d.date}', '${esc(id)}')" title="Give this duty to the next fairest cadet" aria-label="Swap ${esc(cadetLabel(id))}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>` : ''}</span>`).join('')}</div>
+      </li>`;
+      const ranked = messEligible(cfg).map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '' })).sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name));
+      const max = Math.max(1, ...ranked.map(r => r.n));
+      const exempt = cfg.exempt.map(id => cadetById(id)).filter(Boolean);
+      const q = MESS.q.trim().toLowerCase();
+      const addable = q ? (app.state.cadets || []).filter(c => !cfg.exempt.includes(c.id) && c.name.toLowerCase().includes(q)).slice(0, 6) : [];
+      host.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 id="messHeading" class="font-extrabold text-white">Mess duty</h3>
+          <p class="text-xs text-slate-400 mt-0.5">${cfg.perDay} cadet${cfg.perDay === 1 ? '' : 's'} a day, ${esc(cfg.days.map(d => MESS_DAY_NAMES[d]).join(', '))}, from ${esc(cfg.years.join(' & '))} years. Whoever has done it least goes next. Cadets on duty get a notification the evening before.</p></div>
+          <div class="flex flex-wrap gap-2">
+            ${edit ? '<button type="button" onclick="planMessWeek()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Plan next 7 days</button>' : ''}
+            <button type="button" onclick="copyMessDuty()" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy for WhatsApp</button>
+            ${edit ? `<button type="button" onclick="MESS.settings = !MESS.settings; renderMessCard()" aria-expanded="${MESS.settings}" class="px-3 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Settings</button>` : ''}
+          </div>
+        </div>
+        ${mine ? `<p class="mess-mine-note">Your next mess duty: <b>${mine.date === today ? 'today' : esc(dayLabel(mine.date))}</b></p>` : ''}
+        ${edit && MESS.settings ? `<div class="mess-settings fx-enter">
+          <label class="text-xs font-bold text-slate-300">Cadets a day
+            <input type="number" id="messPerDay" min="1" max="30" value="${cfg.perDay}" onchange="setMessConfig(c => { c.perDay = Math.min(30, Math.max(1, Math.round(Number(this.value)) || 1)); })" class="ml-2 w-20 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-sm">
+          </label>
+          <div class="flex flex-wrap items-center gap-1.5"><span class="text-xs font-bold text-slate-300 w-12">Days</span>${MESS_DAYS.map(d => `<button type="button" class="af-chip text-[11px]" aria-pressed="${cfg.days.includes(d)}" onclick="toggleMessList('days', '${d}')">${MESS_DAY_NAMES[d]}</button>`).join('')}</div>
+          <div class="flex flex-wrap items-center gap-1.5"><span class="text-xs font-bold text-slate-300 w-12">Years</span>${YEARS.map(y => `<button type="button" class="af-chip text-[11px]" aria-pressed="${cfg.years.includes(y)}" onclick="toggleMessList('years', '${y}')">${y}</button>`).join('')}</div>
+          <div><p class="text-xs font-bold text-slate-300">Excused from mess duty</p>
+            <div class="mt-1 flex flex-wrap gap-1.5">${exempt.map(c => `<button type="button" class="af-chip text-[11px]" aria-pressed="true" title="Remove from the excused list" onclick="toggleMessList('exempt', '${esc(c.id)}')">${esc(c.rank || 'CDT')} ${esc(c.name)}</button>`).join('') || '<span class="text-[11px] text-slate-500">Nobody.</span>'}</div>
+            <input type="search" id="messExemptSearch" value="${esc(MESS.q)}" oninput="MESS.q = this.value; renderMessCard(); const b = document.getElementById('messExemptSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Add a cadet: type a name…" autocomplete="off" class="mt-2 w-full sm:w-72 px-3 py-1.5 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-lg text-xs">
+            ${addable.length ? `<div class="mt-1 flex flex-wrap gap-1.5">${addable.map(c => `<button type="button" class="af-chip text-[11px]" onclick="MESS.q = ''; toggleMessList('exempt', '${esc(c.id)}')">+ ${esc(c.rank || 'CDT')} ${esc(c.name)}</button>`).join('')}</div>` : ''}
+          </div>
+        </div>` : ''}
+        ${upcoming.length ? `<ul class="mess-list">${upcoming.map(d => dayRow(d, false)).join('')}</ul>` : `<p class="text-xs text-slate-500">${edit ? 'Nothing planned. Plan next 7 days picks the cadets.' : 'Nothing planned yet.'}</p>`}
+        <details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Times on mess duty (${ranked.length} cadets)</summary>
+          <ul class="mt-2 space-y-1 max-h-72 overflow-y-auto pr-1">${ranked.map(r => `<li class="mess-count"><span class="truncate">${esc(r.c.rank || 'CDT')} ${esc(r.c.name)}</span><span class="mess-bar"><i class="bar-fill" style="width:${Math.round(r.n / max * 100)}%"></i></span><b class="font-mono-num">${r.n}</b></li>`).join('')}</ul>
+        </details>
+        ${past.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Past days (${past.length})</summary><ul class="mess-list mt-2">${past.slice(0, 14).map(d => dayRow(d, true)).join('')}</ul></details>` : ''}`;
+    }
+    function cadetMessHtml(c) {
+      const list = messList().filter(d => (d.cadetIds || []).includes(c.id));
+      const today = ymd(new Date()), next = list.find(d => d.date >= today), done = list.filter(d => d.date < today).length;
+      return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+        <div class="flex items-center justify-between gap-3"><h4 class="font-extrabold text-white">Mess duty</h4><span class="text-sm font-black text-amber-300 font-mono-num">${done}×</span></div>
+        <p class="text-xs text-slate-400 mt-1">${next ? `Next: <b class="text-slate-200">${escapeHtml(next.date === today ? 'today' : dayLabel(next.date))}</b>` : 'No mess duty planned.'}</p>
+      </section>`;
+    }
+
+    // ---- Uniform payments at a glance (CQMS)
+    function uniformMoney(list) {
+      const out = { billed: 0, collected: 0, waiting: 0, unpaid: 0, unpriced: 0, owing: new Map() };
+      list.forEach(r => {
+        const c = uniformCost(r);
+        if (c == null) { if (!uniformPaidOk(r)) out.unpriced++; return; }
+        out.billed += c;
+        if (uniformPaidOk(r)) out.collected += c;
+        else if (r.pay?.status === 'submitted') out.waiting += c;
+        else if (c > 0) { out.unpaid += c; out.owing.set(r.cadetId, (out.owing.get(r.cadetId) || 0) + c); }
+      });
+      return out;
+    }
+    function renderUniPaySummary() {
+      const host = document.getElementById('uniPaySummary'); if (!host || !cfState()) return;
+      if (!app.can('uniform')) { host.innerHTML = ''; return; }
+      const esc = escapeHtml;
+      const orders = uniformOrders();
+      const all = uniformMoney(orders.flatMap(o => o.requests));
+      const pct = v => all.billed ? (v / all.billed * 100).toFixed(1) : 0;
+      const owing = [...all.owing].sort((a, b) => b[1] - a[1]);
+      host.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 id="uniPaySumHeading" class="font-extrabold text-white">Payments</h3><p class="text-xs text-slate-400 mt-0.5">Money for placed orders: approved, waiting for you to check, and not paid yet.</p></div>
+          ${owing.length ? '<button type="button" onclick="copyUniformOwing()" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy who still owes</button>' : ''}
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          ${[['Billed', all.billed, 'text-white'], ['Collected', all.collected, 'text-emerald-300'], ['To check', all.waiting, 'text-amber-300'], ['Not paid', all.unpaid, 'text-rose-300']].map(([l, v, tone]) => `<div class="pay-tile"><p class="text-[11px] text-slate-400">${l}</p><b class="${tone} font-mono-num" data-money="${v}">${esc(rupees(v))}</b></div>`).join('')}
+        </div>
+        ${all.billed ? `<div class="pay-bar" role="img" aria-label="${pct(all.collected)}% collected"><i class="bar-fill" style="width:${pct(all.collected)}%;background:#35996E"></i><i class="bar-fill" style="width:${pct(all.waiting)}%;background:#C99A35"></i><i class="bar-fill" style="width:${pct(all.unpaid)}%;background:#C8102E"></i></div>` : ''}
+        ${all.unpriced ? `<p class="text-[11px] text-amber-300">${all.unpriced} item${all.unpriced === 1 ? ' has' : 's have'} no price yet and ${all.unpriced === 1 ? 'is' : 'are'} not counted.</p>` : ''}
+        ${orders.length ? `<div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-slate-500"><th class="py-1.5 pr-2 font-semibold">Order</th><th class="py-1.5 px-2 font-semibold text-right">Billed</th><th class="py-1.5 px-2 font-semibold text-right">Collected</th><th class="py-1.5 px-2 font-semibold text-right">To check</th><th class="py-1.5 pl-2 font-semibold text-right">Not paid</th></tr></thead>
+          <tbody class="divide-y divide-slate-800">${orders.map(o => { const m = uniformMoney(o.requests); return `<tr><td class="py-1.5 pr-2 text-slate-200">Order ${o.number} <span class="text-slate-500">· ${esc(app.formatDate(o.placedAt))}</span></td><td class="py-1.5 px-2 text-right font-mono-num text-slate-200">${esc(rupees(m.billed))}</td><td class="py-1.5 px-2 text-right font-mono-num text-emerald-300">${esc(rupees(m.collected))}</td><td class="py-1.5 px-2 text-right font-mono-num text-amber-300">${esc(rupees(m.waiting))}</td><td class="py-1.5 pl-2 text-right font-mono-num text-rose-300">${esc(rupees(m.unpaid))}</td></tr>`; }).join('')}</tbody></table></div>` : '<p class="text-xs text-slate-500">No orders placed yet.</p>'}
+        ${owing.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Who still owes (${owing.length})</summary><ul class="mt-2 space-y-1">${owing.map(([id, v]) => `<li class="flex justify-between gap-2"><span class="text-slate-200">${esc(uniformCadetName(id))}</span><b class="font-mono-num text-rose-300">${esc(rupees(v))}</b></li>`).join('')}</ul></details>` : ''}`;
+      host.querySelectorAll('[data-money]').forEach(el => countMoney(el, Number(el.dataset.money)));
+    }
+    function countMoney(el, to) {
+      const key = el.parentElement?.querySelector('p')?.textContent || '';
+      MONEY_SHOWN[key] = MONEY_SHOWN[key] ?? 0;
+      const from = MONEY_SHOWN[key]; MONEY_SHOWN[key] = to;
+      if (from === to || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const start = performance.now(), dur = 650;
+      const step = now => {
+        if (!el.isConnected) return;
+        const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 3);
+        el.textContent = rupees(Math.round(from + (to - from) * e));
+        if (t < 1) requestAnimationFrame(step); else el.textContent = rupees(to);
+      };
+      requestAnimationFrame(step);
+    }
+    const MONEY_SHOWN = {};
+    function copyUniformOwing() {
+      const owing = [...uniformMoney(uniformOrders().flatMap(o => o.requests)).owing].sort((a, b) => b[1] - a[1]);
+      if (!owing.length) return;
+      const msg = '*Uniform payment pending*\nPlease pay with the QR code on the Uniform page and upload the screenshot.\n\n' + owing.map(([id, v], i) => `${i + 1}. ${uniformCadetName(id)} – ${rupees(v)}`).join('\n');
+      app.copyToClipboard(msg, 'Copied the list of who still owes');
+    }
+
+    // ---- Activity log page: the change history, searchable
+    const ACT = { limit: 80, kind: 'all' };
+    const ACT_KINDS = [
+      { key: 'all', label: 'Everything' },
+      { key: 'task', label: 'Tasks' },
+      { key: 'parade', label: 'Parades' },
+      { key: 'roster', label: 'Roster' },
+      { key: 'uniform', label: 'Uniform' },
+      { key: 'duty', label: 'Call-outs and mess' },
+      { key: 'notice', label: 'Notices' },
+      { key: 'camp', label: 'Camps' },
+    ];
+    function actKind(action) {
+      const a = String(action || '');
+      if (a.startsWith('parade')) return 'parade';
+      if (a.startsWith('uniform')) return 'uniform';
+      if (a.startsWith('notice')) return 'notice';
+      if (a.startsWith('camp')) return 'camp';
+      if (/work-call-out|^mess/.test(a)) return 'duty';
+      if (/cadet|roster|timetable|year-|regno|account/.test(a)) return 'roster';
+      return 'task';
+    }
+    function renderActivityPage() {
+      const host = document.getElementById('actList'); if (!host || !cfState()) return;
+      const esc = escapeHtml;
+      document.getElementById('actKinds').innerHTML = ACT_KINDS.map(k => `<button type="button" class="af-chip text-xs" aria-pressed="${ACT.kind === k.key}" onclick="ACT.kind = '${k.key}'; ACT.limit = 80; renderActivityPage()">${esc(k.label)}</button>`).join('');
+      const q = document.getElementById('actSearch').value.trim().toLowerCase();
+      const from = document.getElementById('actFrom').value, to = document.getElementById('actTo').value;
+      const fromMs = from ? fromYmd(from).getTime() : -Infinity, toMs = to ? fromYmd(to).getTime() + 86400000 : Infinity;
+      const tasks = new Map((app.state.events || []).map(ev => [ev.id, ev.title]));
+      const rows = (app.state.history || []).filter(h => h && h.at >= fromMs && h.at < toMs && (ACT.kind === 'all' || actKind(h.action) === ACT.kind))
+        .filter(h => !q || [h.details, h.by, h.action, h.cadetId ? cadetLabel(h.cadetId) : '', tasks.get(h.eventId) || ''].join(' ').toLowerCase().includes(q))
+        .sort((a, b) => (b.at || 0) - (a.at || 0));
+      const shown = rows.slice(0, ACT.limit);
+      const today = ymd(new Date()), yest = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return ymd(d); })();
+      const groups = [];
+      shown.forEach(h => { const k = ymd(new Date(h.at)); const g = groups[groups.length - 1]; if (g && g.k === k) g.rows.push(h); else groups.push({ k, rows: [h] }); });
+      let i = 0;
+      host.innerHTML = rows.length ? groups.map(g => `<div>
+          <h3 class="act-day">${g.k === today ? 'Today' : g.k === yest ? 'Yesterday' : esc(fromYmd(g.k).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }))} <span>${g.rows.length}</span></h3>
+          <ol class="act-list">${g.rows.map(h => `<li class="act-row act-${actKind(h.action)}" style="--i:${Math.min(i++, 20)}">
+            <time>${esc(new Date(h.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}</time>
+            <div class="min-w-0"><p class="text-sm text-slate-100 break-words">${esc(h.details || h.action)}</p>
+            <p class="text-[11px] text-slate-500">${esc(ACT_KINDS.find(k => k.key === actKind(h.action))?.label || '')}${h.by ? ' · ' + esc(h.by) : ''}${h.eventId && tasks.has(h.eventId) && actKind(h.action) === 'task' ? ' · ' + esc(tasks.get(h.eventId)) : ''}</p></div>
+          </li>`).join('')}</ol></div>`).join('') +
+        `<p class="text-xs text-slate-500">Showing ${shown.length} of ${rows.length}.</p>` +
+        (rows.length > shown.length ? '<button type="button" onclick="ACT.limit += 120; renderActivityPage()" class="px-4 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Show more</button>' : '')
+        : '<p class="text-sm text-slate-500">Nothing matches.</p>';
+    }
+
+    // ---- Reminders: the server sends parade reminders (2 hours before) and mess duty reminders
+    // (the evening before). A scheduled job calls it every 10 minutes; opening the site also nudges it.
+    function nudgeReminders() {
+      try {
+        const last = Number(localStorage.getItem('cf-remind-at') || 0);
+        if (Date.now() - last < 10 * 60000) return;
+        localStorage.setItem('cf-remind-at', String(Date.now()));
+      } catch (_) {}
+      api('remind').catch(() => {});
+    }
+
+    // ---- Small motion helpers used across the pages
+    /** Cards of a page that just opened come in one after another. */
+    function staggerIn(root) {
+      if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const h = window.innerHeight;
+      const els = [...root.querySelectorAll('.rounded-2xl, .nb-item, #paradeUpcoming > *, #paradePast > *, .tool-row, .act-row, .mess-day')]
+        .filter(el => !el.closest('.hidden') && el.offsetParent !== null && el.getBoundingClientRect().top < h).slice(0, 14);
+      els.forEach((el, i) => {
+        el.style.setProperty('--d', i);
+        el.classList.remove('fx-item'); void el.offsetWidth; el.classList.add('fx-item');
+        el.addEventListener('animationend', () => el.classList.remove('fx-item'), { once: true });
+      });
+    }
+    /** Someone else's change just arrived: a light runs once along the header. */
+    function pulseRemote() {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const b = document.body.classList;
+      b.remove('remote-pulse'); void document.body.offsetWidth; b.add('remote-pulse');
+      clearTimeout(pulseRemote.t); pulseRemote.t = setTimeout(() => b.remove('remote-pulse'), 1300);
+    }
+
+
     // ==================== SMALL CONVENIENCES ====================
     // Phone tab bar: the brass bar slides under the current tab.
     function movePhoneNavIndicator() {
       const nav = document.getElementById('phoneNav');
       const ind = nav?.querySelector('.pn-ind');
       const cur = nav?.querySelector('button[aria-current="page"]');
-      if (!ind || !cur || !cur.offsetWidth) return;
+      if (!ind) return;
+      if (!cur || !cur.offsetWidth) { ind.style.width = '0'; return; } // a page without a tab (Activity log)
       const w = Math.min(28, cur.offsetWidth - 16);
       ind.style.width = w + 'px';
       ind.style.transform = `translateX(${cur.offsetLeft + (cur.offsetWidth - w) / 2}px)`;

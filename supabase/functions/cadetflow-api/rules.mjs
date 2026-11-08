@@ -156,3 +156,28 @@ export function payProofsToDelete(requests, now = Date.now()) {
   }
   return out;
 }
+
+// ---- Reminders -------------------------------------------------------------------------------------
+export const REMIND_BEFORE_MS = 2 * 3600000;  // parade reminders go out 2 hours before reporting time
+export const REMIND_LATEST_MS = 15 * 60000;    // ...but not when it is less than 15 minutes away
+export const MESS_REMIND_HOUR = 18;           // mess duty: from 6 pm (India time) the evening before
+const IST_OFFSET_MS = 5.5 * 3600000;
+/** 'YYYY-MM-DD' and the hour, in India time. */
+export function istDay(ms) {
+  const d = new Date(ms + IST_OFFSET_MS);
+  return { date: d.toISOString().slice(0, 10), hour: d.getUTCHours() };
+}
+/** Parades that need their reminder now (each is sent once; the caller records that). */
+export function paradesToRemind(parades, now = Date.now()) {
+  return (parades || []).filter(p => p && p.id && Number.isFinite(Number(p.reportAt)))
+    .filter(p => { const left = Number(p.reportAt) - now; return left <= REMIND_BEFORE_MS && left > REMIND_LATEST_MS; });
+}
+/** Mess duty days whose cadets should be told now: tomorrow's from 6 pm, or today's if it was missed. */
+export function messToRemind(days, now = Date.now()) {
+  const { date: today, hour } = istDay(now);
+  const tomorrow = istDay(now + 86400000).date;
+  return (days || []).filter(d => d && d.id && Array.isArray(d.cadetIds) && d.cadetIds.length)
+    .filter(d => d.date === today ? hour < 20 : d.date === tomorrow && hour >= MESS_REMIND_HOUR);
+}
+/** Item ids for "seen by": 'notice:<id>' or 'parade:<id>'. */
+export const SEEN_ITEM = /^(notice|parade):[A-Za-z0-9_.:-]{1,128}$/;

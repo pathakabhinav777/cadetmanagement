@@ -2900,3 +2900,262 @@ test('Back closes the open dialog, "/" finds the search box, offline is shown, a
   assert.equal(await run(page, () => document.body.classList.contains('is-syncing')), false);
   noErrors(page);
 }));
+
+/** Give the first cadets years: ids 1-10 → 1st, 11-20 → 2nd, 21-30 → 3rd (as the administrator). */
+const setYears = page => run(page, () => {
+  for (let i = 1; i <= 30; i++) app.updateCadetField('cadet-' + i, 'year', i <= 10 ? '1st' : i <= 20 ? '2nd' : '3rd');
+});
+const device = (db, userId) => db.tables.cadetflow_push_subscriptions.push({ endpoint: 'https://push.example/' + userId, p256dh: 'p', auth: 'a', user_id: userId, created_at: new Date().toISOString() });
+const ymdIn = days => { const d = new Date(Date.now() + days * 86400000); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+test('notice board: seniors post, everyone is notified and sees it on Home, seniors see who has seen it', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await flush(admin);
+  db.account('user-l', { cadetId: 'cadet-1' }).account('user-c', { cadetId: 'cadet-3' }); // LCPL, CDT
+  device(db, 'user-c'); device(db, 'user-v'); device(db, 'user-l');
+  const lcpl = await openAs(browser, db, 'user-l');
+  const cdt = await openAs(browser, db, 'user-c');
+
+  // A cadet cannot post; the button is hidden and the server refuses
+  assert.equal(await cdt.isVisible('#noticeNewBtn'), false);
+  assert.equal(await cdt.isVisible('#noticeBoard'), false, 'no notices and nothing to post: no board');
+  // The LCPL posts with a notification
+  await lcpl.click('#noticeNewBtn');
+  await lcpl.fill('#noticeText', 'Drill moves to the main ground <b>tomorrow</b>.');
+  await lcpl.click('#noticePostBtn');
+  await waitToast(lcpl, 'Notice posted. Sent to');
+  const n = db.row.state.notices[0];
+  assert.equal(n.text, 'Drill moves to the main ground <b>tomorrow</b>.');
+  assert.equal(n.by, 'LCPL Harsh Rajesh Koti');
+  assert.ok(n.until > Date.now() + 2.9 * 86400000, 'kept 3 days by default');
+  assert.deepEqual(db.pushes.map(p => p.userId).sort(), ['user-a', 'user-b', 'user-c', 'user-v'].filter(u => db.tables.cadetflow_push_subscriptions.some(s => s.user_id === u)).sort(), 'everyone but the poster');
+  assert.equal(db.pushes[0].payload.title, 'Notice from LCPL Harsh Rajesh Koti');
+  await assert.rejects(db.api('user-c', 'announce', { id: n.id }), /lance corporals/);
+  assert.deepEqual(await db.api('user-l', 'announce', { id: n.id }), { alreadySent: true, sent: 0, devices: 0, people: 0 }, 'only once');
+
+  // The cadet sees it on Home (as text, not HTML) and that counts as seen
+  await refresh(cdt);
+  await cdt.waitForSelector('#noticeList [data-notice]');
+  assert.match(await cdt.textContent('#noticeList .nb-text'), /<b>tomorrow<\/b>/);
+  await cdt.waitForFunction(() => true);
+  for (let i = 0; i < 50 && !db.tables.cadetflow_seen.some(r => r.user_id === 'user-c'); i++) await cdt.waitForTimeout(50);
+  assert.ok(db.tables.cadetflow_seen.some(r => r.user_id === 'user-c' && r.item === 'notice:' + n.id));
+  assert.equal(await cdt.isVisible('#noticeList button:has-text("Who has seen it")'), false, 'cadets do not see the list');
+  await assert.rejects(db.api('user-c', 'seenBy', { item: 'notice:' + n.id }), /lance corporals/);
+
+  // The LCPL opens "Who has seen it"
+  await lcpl.click('#noticeList button:has-text("Who has seen it")');
+  await lcpl.waitForSelector('#noticeList .seen-panel');
+  const panel = await lcpl.textContent('#noticeList .seen-panel');
+  assert.match(panel, /Seen \(\d+\)[\s\S]*CDT Samahith M Rao/);
+  assert.match(panel, /Not seen yet/);
+  assert.match(await lcpl.textContent('#noticeList .nb-actions'), /Seen by \d+ of 5/);
+
+  // Only its poster (or the administrator) removes it
+  assert.equal(await cdt.isVisible('#noticeList button:has-text("Remove")'), false);
+  await lcpl.click('#noticeList button:has-text("Remove")');
+  await flush(lcpl);
+  assert.equal(db.row.state.notices.length, 0);
+  assert.ok(db.row.state.history.some(h => h.action === 'notice-removed' && h.by === 'LCPL Harsh Rajesh Koti'));
+  noErrors(admin, lcpl, cdt);
+}));
+
+test('repeating parades, the parade calendar, and deleting the rest of a series', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a', { viewport: { width: 1280, height: 900 } });
+  await run(admin, d => {
+    switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('drill');
+    document.getElementById('paradeDate').value = d;
+    document.getElementById('paradeTime').value = '06:30';
+    document.getElementById('paradeRepeat').value = '7';
+    document.getElementById('paradeRepeatCount').value = '5';
+    updateParadeRepeatHint();
+  }, ymdIn(3));
+  assert.match(await admin.textContent('#paradeRepeatHint'), /^5 parades, from/);
+  await run(admin, () => saveParade());
+  await waitToast(admin, 'Created 5 Drill parades');
+  await flush(admin);
+  const list = db.row.state.parades;
+  assert.equal(list.length, 5);
+  assert.equal(new Set(list.map(p => p.seriesId)).size, 1);
+  const gaps = list.slice(1).map((p, i) => Math.round((p.reportAt - list[i].reportAt) / 86400000));
+  assert.deepEqual(gaps, [7, 7, 7, 7]);
+  assert.ok(list.every(p => new Date(p.reportAt).getHours() === 6 && new Date(p.reportAt).getMinutes() === 30));
+  // Editing a parade doesn't offer to repeat it
+  await run(admin, id => openParadeModal(id), list[0].id);
+  assert.equal(await admin.isVisible('#paradeRepeatBox'), false);
+  await run(admin, () => app.closeModal('paradeModal'));
+
+  // Calendar view shows them; picking a day lists it
+  await run(admin, () => { closeParadeDetail(); setParadeView('calendar'); });
+  assert.equal(await admin.isVisible('#paradeCalendar'), true);
+  assert.equal(await admin.isVisible('#paradeUpcoming'), false);
+  const first = new Date(list[0].reportAt);
+  await run(admin, ({ y, m }) => { PAR.calY = y; PAR.calM = m; renderParadeCalendar(); }, { y: first.getFullYear(), m: first.getMonth() });
+  await admin.click(`#paradeCalGrid button.pc-has >> nth=0`);
+  assert.match(await admin.textContent('#paradeCalendar'), /Drill[\s\S]*06:30/);
+  assert.equal(await run(admin, () => localStorage.getItem('cf-parade-view')), 'calendar', 'remembered');
+  await run(admin, () => setParadeView('list'));
+
+  // Deleting the 2nd asks about the later ones (the test accepts): 1 is left
+  await run(admin, id => deleteParade(id), list[1].id);
+  await flush(admin);
+  assert.deepEqual(db.row.state.parades.map(p => p.id), [list[0].id]);
+  noErrors(admin);
+}));
+
+test('reminders: parades 2 hours before and mess duty the evening before, each sent once', () => withBrowser(async browser => {
+  const rules = await import('../supabase/functions/cadetflow-api/rules.mjs');
+  const now = Date.UTC(2026, 10, 10, 14, 0); // 19:30 in India
+  const at = h => now + h * 3600000;
+  assert.deepEqual(rules.paradesToRemind([{ id: 'a', reportAt: at(1.5) }, { id: 'b', reportAt: at(3) }, { id: 'c', reportAt: at(0.1) }, { id: 'd', reportAt: at(-1) }], now).map(p => p.id), ['a']);
+  const day = s => ({ id: 'mess-' + s, date: s, cadetIds: ['x'] });
+  assert.deepEqual(rules.messToRemind([day('2026-11-10'), day('2026-11-11'), day('2026-11-12')], now).map(d => d.date), ['2026-11-10', '2026-11-11'], "today's (still before 8 pm) and tomorrow's");
+  assert.deepEqual(rules.messToRemind([day('2026-11-11')], Date.UTC(2026, 10, 10, 6, 0)).length, 0, 'not in the morning before');
+
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await flush(admin);
+  db.account('user-1', { cadetId: 'cadet-1' }).account('user-12', { cadetId: 'cadet-12' });
+  device(db, 'user-1'); device(db, 'user-12');
+  db.row.state.parades = [
+    { id: 'parade-soon', kind: 'drill', title: 'Drill', reportAt: Date.now() + 90 * 60000, scope: 'All', years: ['1st'], reports: [], marks: {} },
+    { id: 'parade-later', kind: 'drill', title: 'Drill', reportAt: Date.now() + 5 * 3600000, scope: 'All', reports: [], marks: {} },
+  ];
+  assert.deepEqual(await db.api(null, 'remind'), { parades: 1, mess: 0 }, 'needs no sign-in');
+  assert.deepEqual(db.pushes.map(p => p.userId), ['user-1'], 'only the 1st year expected');
+  assert.match(db.pushes[0].payload.title, /^In 1 h \d\d min: Drill$/);
+  assert.deepEqual(await db.api(null, 'remind'), { parades: 0, mess: 0 }, 'once');
+  noErrors(admin);
+}));
+
+test('mess duty: fewest duties go first, excused cadets and 3rd years are left out, swaps keep it fair', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await flush(admin);
+  db.account('user-l', { cadetId: 'cadet-1' }).account('user-c', { cadetId: 'cadet-3' });
+  const lcpl = await openAs(browser, db, 'user-l');
+  await run(lcpl, () => {
+    switchCadetFlowPage('availability');
+    app.state.messConfig = { perDay: 3, days: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], years: ['1st', '2nd'], exempt: ['cadet-5'] };
+    planMessWeek();
+  });
+  await flush(lcpl);
+  let days = db.row.state.messDuty;
+  assert.equal(days.length, 7);
+  assert.ok(days.every(d => d.cadetIds.length === 3 && new Set(d.cadetIds).size === 3));
+  const all = days.flatMap(d => d.cadetIds);
+  const n = id => Number(id.slice(6));
+  assert.ok(all.every(id => n(id) <= 20), 'no 3rd years');
+  assert.ok(!all.includes('cadet-5'), 'excused');
+  // 21 slots over 19 cadets: nobody twice before everyone once
+  const count = new Map(); all.forEach(id => count.set(id, (count.get(id) || 0) + 1));
+  assert.equal(count.size, 19);
+  assert.ok(Math.max(...count.values()) <= 2);
+  // Planning again does nothing; a swap gives the duty to someone with fewer
+  await run(lcpl, () => planMessWeek());
+  await waitToast(lcpl, 'already planned');
+  const d0 = days[0], out = d0.cadetIds[0];
+  await run(lcpl, ({ date, id }) => swapMess(date, id), { date: d0.date, id: out });
+  await flush(lcpl);
+  const after = db.row.state.messDuty.find(d => d.date === d0.date).cadetIds;
+  assert.ok(!after.includes(out) && after.length === 3);
+  // The cadet sees their own next duty; cadets cannot plan
+  const mine = db.row.state.messDuty.find(d => d.cadetIds.includes('cadet-3'));
+  const cdt = await openAs(browser, db, 'user-c');
+  await run(cdt, () => switchCadetFlowPage('availability'));
+  assert.equal(await cdt.isVisible('#messCard button:has-text("Plan next 7 days")'), false);
+  if (mine) assert.match(await cdt.textContent('#messCard'), /Your next mess duty/);
+  assert.match(await cdt.textContent('#messCard'), /3 cadets a day/);
+  noErrors(admin, lcpl, cdt);
+}));
+
+test('camps are recorded by JUOs and shown on profiles; a new academic year moves everyone up and keeps the 3rd years as past cadets', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => app.updateCadetField('cadet-25', 'rank', 'JUO'));
+  await flush(admin);
+  db.account('user-j', { cadetId: 'cadet-25' }).account('user-c', { cadetId: 'cadet-3' });
+  const juo = await openAs(browser, db, 'user-j');
+  const cdt = await openAs(browser, db, 'user-c');
+
+  await run(juo, () => switchCadetFlowPage('directory'));
+  await juo.click('#campsCard button:has-text("Add camp")');
+  await juo.selectOption('#campKind', 'CATC');
+  await juo.fill('#campName', 'CATC-III');
+  await juo.fill('#campPlace', 'Kohima');
+  await juo.fill('#campStart', '2026-06-12');
+  await juo.fill('#campEnd', '2026-06-21');
+  await juo.fill('#campSearch', 'Samahith');
+  await juo.check('#campPickList input');
+  await juo.click('#campModal button:has-text("Save camp")');
+  await flush(juo);
+  const camp = db.row.state.camps[0];
+  assert.deepEqual([camp.kind, camp.name, camp.place, camp.start, camp.end, camp.cadetIds], ['CATC', 'CATC-III', 'Kohima', '2026-06-12', '2026-06-21', ['cadet-3']]);
+  await refresh(cdt);
+  await run(cdt, () => { switchCadetFlowPage('directory'); openCadetProfile('cadet-3'); });
+  assert.match(await cdt.textContent('#profileBody'), /Camps and courses[\s\S]*CATC[\s\S]*Kohima/);
+  assert.equal(await cdt.isVisible('#campsCard button:has-text("Add camp")'), false, 'cadets only read');
+  await run(cdt, () => app.closeModal('profileModal'));
+
+  // New academic year (administrator only)
+  assert.equal(await juo.isVisible('button:has-text("New academic year")'), false);
+  await run(admin, () => { switchCadetFlowPage('directory'); startNewAcademicYear(); });
+  await flush(admin);
+  const s = db.row.state;
+  const yearOf = id => s.cadets.find(c => c.id === id)?.year;
+  assert.deepEqual([yearOf('cadet-1'), yearOf('cadet-11'), yearOf('cadet-21'), yearOf('cadet-35')], ['2nd', '3rd', undefined, undefined]);
+  assert.equal(s.alumni.length, 10);
+  assert.ok(s.alumni.every(a => a.year === '3rd' && a.leftAt));
+  assert.ok(!s.cadets.some(c => c.id === 'cadet-25'));
+  assert.ok(s.history.some(h => h.action === 'year-promoted'));
+  // The JUO left with the 3rd years: no more JUO powers; the database keeps past cadets for the administrator
+  await refresh(juo);
+  assert.equal(await run(juo, () => app.can('parade')), false);
+  const guard = db.guardRefuses('user-l', 'writer', db.row, { state: { ...s, alumni: [] } });
+  assert.equal(guard, 'Only the administrator can change the roster.');
+  // Bring one back
+  await run(admin, () => bringBackCadet('cadet-21'));
+  await flush(admin);
+  assert.equal(db.row.state.cadets.find(c => c.id === 'cadet-21').year, '3rd');
+  assert.equal(db.row.state.alumni.length, 9);
+  noErrors(admin, juo, cdt);
+}));
+
+test('uniform payment summary for the CQMS, and the activity log page with search and kinds', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => {
+    const base = { item: 'beret', qty: 1, status: 'ordered', orderId: 'order-1', orderedAt: Date.now() - 86400000, unitPrice: 300, requestedAt: Date.now() - 2 * 86400000 };
+    app.state.uniform = normalizeUniform([
+      { ...base, id: 'u1', cadetId: 'cadet-1', pay: { status: 'approved', proofId: 'p1', at: Date.now() } },
+      { ...base, id: 'u2', cadetId: 'cadet-2', pay: { status: 'submitted', proofId: 'p2', at: Date.now() } },
+      { ...base, id: 'u3', cadetId: 'cadet-3' },
+      { ...base, id: 'u4', cadetId: 'cadet-4', unitPrice: 0 },
+    ]);
+    app.logHistory('parade-created', null, 'Created parade: Drill (test)');
+    app.saveStorage();
+    switchCadetFlowPage('uniform');
+  });
+  await admin.waitForTimeout(800); // money counts up
+  const tiles = await admin.$$eval('#uniPaySummary .pay-tile', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  assert.deepEqual(tiles, ['Billed₹900', 'Collected₹300', 'To check₹300', 'Not paid₹300']);
+  assert.match(await admin.textContent('#uniPaySummary'), /Who still owes \(1\)/);
+
+  // Activity log
+  await run(admin, () => switchCadetFlowPage('activity'));
+  assert.match(await admin.textContent('#actList'), /Today[\s\S]*Created parade: Drill \(test\)/);
+  assert.equal(db.row.state.history.find(h => h.details === 'Created parade: Drill (test)')?.by ?? (await run(admin, () => app.state.history[0].by)), await run(admin, () => app.authorName()));
+  await admin.click('#actKinds button:has-text("Uniform")');
+  assert.doesNotMatch(await admin.textContent('#actList'), /Created parade/);
+  await admin.click('#actKinds button:has-text("Everything")');
+  await admin.fill('#actSearch', 'drill (test');
+  assert.equal(await admin.$$eval('#actList .act-row', els => els.length), 1);
+  await admin.fill('#actSearch', 'nothing like this');
+  assert.match(await admin.textContent('#actList'), /Nothing matches/);
+  noErrors(admin);
+}));

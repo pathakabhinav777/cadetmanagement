@@ -10,6 +10,9 @@
 //   register  { cadetId, email, regNo, password } -> { ok }   account that waits for approval
 //   forgot    { email }                    -> { ok }             asks the administrator for a reset link
 //   unsubscribe { endpoint } / test { endpoint }
+//   remind                                 -> { parades, mess }   sends the reminders that are due (each once):
+//                                             parades 2 hours before, mess duty the evening before. Called by a
+//                                             scheduled job every 10 minutes (supabase/launch/reminders_cron.sql).
 // Approved accounts:
 //   subscribe { subscription }             -> { ok }             this device, for this person
 //   report    { paradeId, kind, reason, image?, removeImage? } -> { request }   own late/absence request
@@ -17,6 +20,10 @@
 //   requests                               -> { requests }       SGT and above: everyone's; others: own
 //   payInfo                                -> { upi, payee, note, qrUrl }      where to pay CQMS
 //   myRegNo   { regNo }                    -> { ok }             own regimental number, once, if the roster has none
+//   seen      { items: ['notice:<id>' | 'parade:<id>'] } -> { ok }   this person has seen these
+// Lance corporals and above (and POCs):
+//   seenBy    { item }                     -> { seen: [{ name, at }], notSeen: [{ name }], total }
+//   announce  { id }                       -> { sent, devices, people }   notification for a new notice (once)
 //   uniformRequest  { items: [{ item, custom?, size? }], qty?, note? } -> { added, skipped }   own items
 //   uniformCancel   { id }  /  uniformReceived { id }  /  uniformPay { ids, image } -> { ok }
 // SGT and above:   decide { id, approve, note? }, reportImage { id }
@@ -35,8 +42,8 @@ import webpush from "npm:web-push@3.6.7";
 // @ts-ignore plain JavaScript module shared with the tests
 import * as rules from "./rules.mjs";
 
-const { approvedReport, audienceText, can, CUTOFF_MIN, inParade, paradeRecipients, payProofsToDelete, requestCleanup,
-  requestsOpen, uniformKeyOf, uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS } = rules;
+const { approvedReport, audienceText, can, CUTOFF_MIN, inParade, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, requestCleanup,
+  requestsOpen, SEEN_ITEM, uniformKeyOf, uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
 const BUCKET = "cadetflow-report-files";
@@ -405,6 +412,37 @@ async function handle(req: Request, body: Obj): Promise<Response> {
   // Signed in -----------------------------------------------------------------------------------------
   const me = await caller(req);
 
+  if (action === "remind") {
+    const { state } = await readState();
+    const now = Date.now();
+    let parades = 0, mess = 0;
+    const claim = async (key: string) => {
+      const { error } = await db.from("cadetflow_push_sent").insert({ parade_id: key, sent_by: null });
+      if (error?.code === "23505") return false;
+      if (error) throw new Error("could not record the reminder: " + error.message);
+      return true;
+    };
+    const due = paradesToRemind(Array.isArray(state.parades) ? state.parades : [], now);
+    const days = messToRemind(Array.isArray(state.messDuty) ? state.messDuty : [], now);
+    const profiles = (due.length || days.length) ? await approvedProfiles() : [];
+    for (const pd of due) {
+      if (!(await claim("remind:" + pd.id))) continue;
+      const people = paradeRecipients(profiles, cadetsOf(state), pd);
+      const mins = Math.round((Number(pd.reportAt) - now) / 60000);
+      const left = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min` : `${mins} min`;
+      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
+      parades++;
+    }
+    for (const d of days) {
+      if (!(await claim("mess:" + d.id))) continue;
+      const ids = new Set((d.cadetIds as unknown[]).map(String));
+      const people = profiles.filter((p) => p.cadet_id && ids.has(String(p.cadet_id))).map((p) => p.user_id);
+      const day = new Intl.DateTimeFormat("en-IN", { timeZone: IST, weekday: "long", day: "numeric", month: "short" }).format(new Date(`${d.date}T12:00:00+05:30`));
+      await tell(people, { title: "Mess duty", body: `You are on mess duty on ${day}.`, tag: `mess-${d.id}`, url: "./?page=availability" });
+      mess++;
+    }
+    return json({ parades, mess });
+  }
   if (action === "subscribe") {
     const a = await access(me, null);
     const s = body.subscription;
@@ -539,6 +577,54 @@ async function handle(req: Request, body: Obj): Promise<Response> {
   }
 
   // ---- parades
+  if (action === "seen") {
+    const a = await access(me, null);
+    const items = [...new Set((Array.isArray(body.items) ? body.items : []).map(String).filter((i) => SEEN_ITEM.test(i)))].slice(0, 50);
+    if (!items.length) return json({ ok: true });
+    const { error } = await db.from("cadetflow_seen").upsert(items.map((item) => ({ item, user_id: a.me.id })), { onConflict: "item,user_id", ignoreDuplicates: true });
+    if (error) throw new Error("could not record it: " + error.message);
+    return json({ ok: true });
+  }
+
+  if (action === "seenBy") {
+    const a = await access(me, "write");
+    const item = String(body.item || "");
+    if (!SEEN_ITEM.test(item)) fail(400, "Unknown item.");
+    const [kind, id] = [item.slice(0, item.indexOf(":")), item.slice(item.indexOf(":") + 1)];
+    const { data: profs, error: pe } = await db.from("cadetflow_profiles").select("user_id, cadet_id, status, role, display_name, email").eq("status", "approved");
+    if (pe) throw new Error("could not read accounts: " + pe.message);
+    let people = profs || [];
+    if (kind === "parade") {
+      const pd = findParade(a.state, id);
+      if (!pd) fail(404, "That parade is not saved yet.");
+      const ids = new Set(paradeRecipients(people, cadetsOf(a.state), pd));
+      people = people.filter((p) => ids.has(p.user_id));
+    } else if (!(Array.isArray(a.state.notices) ? a.state.notices : []).some((n: Obj) => n && n.id === id)) fail(404, "That notice is not saved yet.");
+    const { data: rows, error } = await db.from("cadetflow_seen").select("user_id, seen_at").eq("item", item);
+    if (error) throw new Error("could not read who has seen it: " + error.message);
+    const at = new Map((rows || []).map((r) => [r.user_id, r.seen_at]));
+    const label = (p: Obj) => rankName(findCadet(a.state, p.cadet_id)) || p.display_name || String(p.email || "").split("@")[0] || "Someone";
+    const sortByName = (x: Obj, y: Obj) => String(x.name).localeCompare(String(y.name));
+    const seen = people.filter((p) => at.has(p.user_id)).map((p) => ({ name: label(p), at: at.get(p.user_id) })).sort((x, y) => Date.parse(y.at) - Date.parse(x.at));
+    const notSeen = people.filter((p) => !at.has(p.user_id)).map((p) => ({ name: label(p) })).sort(sortByName);
+    return json({ seen, notSeen, total: people.length });
+  }
+
+  if (action === "announce") {
+    const a = await access(me, "write");
+    const id = String(body.id || "");
+    const n = (Array.isArray(a.state.notices) ? a.state.notices : []).find((x: Obj) => x && x.id === id);
+    if (!n) fail(404, "That notice is not saved yet. Try again in a moment.");
+    const { error: claim } = await db.from("cadetflow_push_sent").insert({ parade_id: "notice:" + id, sent_by: a.me.id });
+    if (claim?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
+    if (claim) throw new Error("could not record the send: " + claim.message);
+    const people = (await approvedProfiles()).map((p) => p.user_id).filter((u) => u !== a.me.id);
+    const subs = await devicesOf(people);
+    const text = String(n.text || "");
+    const r = await sendTo(subs, { title: `Notice from ${String(n.by || nameOf(a))}`, body: text.length > 180 ? text.slice(0, 177) + "…" : text, tag: `notice-${id}`, url: "./?page=home" });
+    return json({ ...r, devices: subs.length, people: people.length });
+  }
+
   if (action === "notify") {
     const a = await access(me, "parade");
     const paradeId = String(body.paradeId || "");
