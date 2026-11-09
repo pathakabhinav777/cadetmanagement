@@ -1,11 +1,12 @@
 # CadetFlow
 
-NCC cadet management website for Jessami, Kohima and Naushera companies. Everything lives in one file, `index.html`, served from GitHub. Data, sign-in and files are in Supabase. Everyone signs in to see anything.
+NCC cadet management website for Jessami, Kohima and Naushera companies. Everything lives in one file, `index.html` (plus its built stylesheet `cadetflow.css`), served from GitHub. Data, sign-in and files are in Supabase. Everyone signs in to see anything.
 
 ## How the site is built
-- Single `index.html`: Tailwind (play CDN, palettes remapped in `tailwind.config`), Instrument Sans, plain JS. No build step.
+- Single `index.html`: Tailwind classes, Instrument Sans, plain JS.
+- Tailwind is prebuilt into `cadetflow.css` (no Play CDN). Run `npm run build:css` (`tools/build_css.mjs`) after adding or changing classes in index.html: it scans index.html with `tools/tailwind.config.cjs` (the remapped palettes) and stamps `?v=<hash>` on the `<link>`. A test fails when the file is stale. Class names must appear whole in the source (no `'bg-' + colour`). The link sits after the page's own `<style>`, where the CDN used to put its styles.
 - Main class `CadetTrackerApp`; the instance is a top-level `let app` (not `window.app`).
-- Pages: Home, Task Master (`#rosterPage`), Parades (`#paradePage`), Cadet Availability, Uniform, Cadet Roster (directory; the administrator edits it), Accounts (`#accountsPage`, administrator only). Phone uses a bottom tab bar (`#phoneNav`) at ≤640px.
+- Pages: Home, Task Master (`#rosterPage`), Parades (`#paradePage`), Attendance register (`#registerPage`, page `register`, `attendance` power), Cadet Availability, Uniform, Cadet Roster (directory; the administrator edits it), Activity log, Accounts (`#accountsPage`, administrator only). Phone uses a bottom tab bar (`#phoneNav`) at ≤640px.
 - Cadet profiles open in `#profileModal` (`openCadetProfile(id)`): rank title and regimental number, attendance %, calendar, call-outs.
 - Server actions go through `api(action, body)` to the Edge Function `cadetflow-api`.
 
@@ -35,7 +36,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 
 ## App (install + notifications)
 - Live at https://pathakabhinav777.github.io/cadetmanagement/ (GitHub Pages from `main`).
-- Installable web app: `manifest.webmanifest`, `sw.js` (network-first for the page, cache for CDN libs, never caches Supabase), `icons/`. The service worker only registers over https/localhost, not in tests (`file://`). Bump `VERSION` in `sw.js` if you change what it precaches. Page requests use `cache: 'no-cache'` so a new push shows on the next open (GitHub Pages says max-age=600). `checkForNewVersion()` shows `#updateBanner` when the app returns to the screen and index.html changed.
+- Installable web app: `manifest.webmanifest`, `sw.js` (network-first for the page and its own files, cache for CDN libs, never caches Supabase), `icons/`, `cadetflow.css`. The service worker only registers over https/localhost, not in tests (`file://`). Bump `VERSION` in `sw.js` if you change what it precaches. Page requests use `cache: 'no-cache'` so a new push shows on the next open (GitHub Pages says max-age=600). `checkForNewVersion()` shows `#updateBanner` when the app returns to the screen and index.html changed.
 - Home page "Get the app" block (`#getApp`, `updateGetApp()`): install instructions, hidden when running installed. There is no Android APK; Android users install from Chrome.
 - Notifications (web push) go to people, not devices: boxes with `data-notify` on Home and Parades (`renderNotifyBoxes()`) save the device for the signed-in account.
   - A parade notifies only the accounts whose cadet is expected at it: company, years or picked cadets (`paradeRecipients` in rules.mjs). Accounts not linked to a cadet get every parade.
@@ -48,12 +49,27 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Notice board on Home (`renderNotices`): `write` power posts (`postNotice`), with an optional notification (server `announce`, once per notice). The poster or the administrator removes it.
 - "Seen by": `markSeen()` sends `seen` for notices shown on Home and for upcoming parades on the Parades page the cadet is expected at; `write` power opens the list (`seenBy`). Stored in table `cadetflow_seen` (migration `20261108_seen_and_alumni.sql`).
 - Parades: List/Calendar toggle (`PAR.view`, remembered per device), repeating parades (Repeat + How many in the parade dialog; separate parades sharing a `seriesId`; only the first is announced; deleting offers to remove the later ones of the series).
-- Reminders: server action `remind` (no sign-in, idempotent; rules `paradesToRemind`, `messToRemind` in rules.mjs) sends parade reminders 2 hours before and mess duty reminders from 6 pm the evening before, each once (`cadetflow_push_sent` keys `remind:<id>`, `mess:<id>`). Scheduled by `supabase/launch/reminders_cron.sql` (pg_cron every 10 min); the site also nudges it on open.
+- Reminders: server action `remind` (no sign-in, idempotent; rules `paradesToRemind`, `messToRemind` in rules.mjs) sends parade reminders 2 hours before and mess duty reminders from 6 pm the evening before, each once (`cadetflow_push_sent` keys `remind:<id>@<reportAt>`, so a moved parade is reminded again; an older `remind:<id>` row counts when its `sent_at` was for that time; `mess:<id>`). Scheduled by `supabase/launch/reminders_cron.sql` (pg_cron every 10 min); the site also nudges it on open.
 - Camps (Cadet Roster page, `renderCamps`, `#campModal`): `parade` power (JUO, SUO, administrator) records them; shown on profiles.
 - New academic year (administrator, Cadet Roster page): 1st → 2nd, 2nd → 3rd, 3rd years move to `alumni` ("Past cadets", with Bring back). `alumni` is locked like `cadets` (`lockedKeys`, the guard trigger, `guardRefuses`).
 - Mess duty (Availability page, `renderMessCard`): `write` power plans the next 7 days (fewest duties first, then longest since the last), swaps a cadet, sets cadets a day, days, years and excused cadets.
 - Uniform payment summary for the CQMS (`renderUniPaySummary`): billed, collected, to check, not paid, per order, who still owes.
 - Activity log page (`#activityPage`, from the account menu or Data menu): the history with search, kinds and dates. History entries now carry `by`.
+
+## Leave, quick find, Your day, calendar, register, certificates, questions, backups (2026-11-09)
+- Sync: `pullAndMerge` first asks only for `updated_at`, and downloads the whole state only when it changed. The NCC emblem is `icons/emblem.png` (in the `sw.js` shell).
+- Parade changed or cancelled: editing an upcoming parade's time or venue offers to tell its cadets (`offerParadeChangeNotice`, server `paradeChange`, once per time and venue: key `change:<id>@<reportAt>:<venue hash>`); deleting an upcoming one offers `paradeCancel` (key `cancel:<id>`) before it is deleted. The caller is left out.
+- Leave for several days: cadets ask from the Parades page (`#leaveModal`, server `leave`): a `cadetflow_requests` row with `kind 'leave'`, `parade_id 'leave:<from>'`, `from_date`, `to_date` (at most 3 waiting, 120 days, optional screenshot under `leave/`). SGT and above decide it in `#leaveArea` with `decideRequest`; approving adds `{ id: 'leave-<request id>', cadetId, from, to, requestId, at, by }` to `state.leaves` (an `EXTRA_LISTS` key). A parade on a leave day counts as excused (`paradeStatus`, `attendanceOf` in rules.mjs), mess duty skips them (`messPick`), and parade notifications and reminders leave them out (`paradeRecipients(..., leaves)`). "End leave" shortens it to yesterday (or removes leave that has not started), with Undo. Shown on the profile.
+- Quick find (`#quickFindModal`, `openQuickFind`): header button, Ctrl/Cmd+K, or "/" when no search box is on screen. Cadets (name matches first), parades, tasks, camps, pages.
+- Your day on Home (`#myDay`, `renderMyDay`): your next parade (only parades you are expected at, also in `renderHomeNow`), with I'll be late / I can't come; attendance %; leave; uniform to pay or collect; mess duty; questions to answer; requests waiting (SGT and above); This week (administrator, `weekFigures`).
+- Calendar files: `downloadParadeCalendar(id)` (parade detail, upcoming only) and `downloadMyParades()` (Parades header) save `.ics` (`icsText`: UTC times, 2 hours long, alarm 1 hour before, folded lines).
+- Attendance register (`renderRegisterPage`, `REG`): company, year and dates; P/L/A/E per parade, attended/counted and %. Download Excel (`XLSX` from cdnjs, CSV when it cannot load) and Print (`body.printing-register` print styles).
+- Certificates: `state.certConfig` (`{ B: { year, pct, camps }, C: {…}, since }`, defaults B: 2nd years 75% and 1 camp, C: 3rd years 75% and 2 camps; administrator edits it in `#certCard`). `certReadiness` counts attendance since `since` and camps already over (not kind Other). `#certCard` on the Cadet Roster page is for SGT and above; the profile shows it to everyone. Results are on the cadet (`cadet.certs = { B: { grade, year, at, by } }`, administrator only, like the rest of the roster).
+- Questions on notices: tick "Ask a question" and list answers (2 to 6). `notice.options`; answers in table `cadetflow_answers` (one per person, can change) through `answer`, `answers` (counts and your own), `answersBy` (`write` power: names per answer, who has not answered, Copy for WhatsApp).
+- Weekly summary: `remind` on Sunday from 18:00 India time tells the administrators the week (`weekSummary` in rules.mjs: parades, attendance by company, cadets under 75% with 3+ counted parades, uniform money owed, requests and accounts waiting). Once a week (key `weekly:<date>`).
+- Backups: table `cadetflow_backups`, a copy every night at 02:00 India time (`cadetflow_daily_backup()`, scheduled by `supabase/launch/daily_backup_cron.sql`), kept 30 days. Data menu > Daily backups (administrator): list, make one now, restore (server `restoreBackup` keeps a `before-restore` copy first and logs `backup-restored`).
+- Accounts page "Not on the app yet" (`notOnAppHtml`): cadets with no account (Invite fills the invite form) and approved accounts with no device for notifications (`accounts` now returns `devices`).
+- Migration `supabase/migrations/20261109_leave_answers_backups.sql` (additive): leave columns and kind, `cadetflow_answers`, `cadetflow_backups`, `cadetflow_daily_backup()`, grants to `service_role`.
 
 ## Server: Edge Function `cadetflow-api`
 - Source in `supabase/functions/cadetflow-api/index.ts` plus `rules.mjs` (plain rules shared with the tests). The list of actions is at the top of `index.ts`.
@@ -70,12 +86,13 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
   - `status` is `pending`, `approved` or `rejected`.
   - One live account per cadet.
   - Users can read only their own row; every change goes through `cadetflow-api`.
-- Table `cadetflow_requests`: cadets' late/absence requests. Only the server uses it.
+- Table `cadetflow_requests`: cadets' late/absence requests and leave (`kind 'leave'`, `from_date`, `to_date`). Only the server uses it.
+- Tables `cadetflow_answers` (answers to notice questions) and `cadetflow_backups` (copies of the shared data): service role only.
 - Table `cadetflow_settings`: `payment` = `{ upi, payee, note, qr }`.
 - Private bucket `cadetflow-report-files`: request screenshots under `<parade id>/`, payment screenshots under `pay/`, the payment QR under `settings/`. Shown through signed links only.
 - Push tables `cadetflow_push_subscriptions` (with `user_id`), `cadetflow_push_keys`, `cadetflow_push_sent` are service-role only.
 - Schema: `supabase/migrations/20261107_cadet_accounts.sql` (additive). The read lock-down is `supabase/launch/cadet_accounts_launch.sql`.
-- This Supabase project does not grant table access to `service_role` automatically. Any table an Edge Function reads or writes needs an explicit `grant ... to service_role`; a missing grant shows up as "permission denied for table". Current grants: SELECT and UPDATE on `cadetflow_state`, full access on `cadetflow_profiles`, `cadetflow_requests`, `cadetflow_settings` and the `cadetflow_push_*` tables.
+- This Supabase project does not grant table access to `service_role` automatically. Any table an Edge Function reads or writes needs an explicit `grant ... to service_role`; a missing grant shows up as "permission denied for table". Current grants: SELECT and UPDATE on `cadetflow_state`, full access on `cadetflow_profiles`, `cadetflow_requests`, `cadetflow_settings`, `cadetflow_answers` and the `cadetflow_push_*` tables, SELECT, INSERT and DELETE on `cadetflow_backups`.
 
 ## Conventions
 - Cadet fields: `id, name, rank, wing, company, year ('1st'|'2nd'|'3rd'|''), cycle, regNo?, free?` (timetable halves like `MON1`). Ranks: CDT, LCPL, CPL, SGT, CQMS, CSM, JUO, SUO. Companies: Jessami, Kohima, Naushera, or `No company` (CSM/CQMS).
@@ -100,10 +117,12 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - After updating a cadet found with a search box (Task Master, parade attendance, cadet pickers), call `clearSearchForNext(inputId, redraw)`: it empties the box and puts the cursor back, only if something was typed.
 - Motion and small conveniences (end of the script, `SMALL CONVENIENCES`): the header's tricolour rule shows a moving light while a save is on its way (`body.is-syncing`, set in `queueRemoteSave`, cleared after `flushRemoteSave`) and goes grey with an "Offline" label when the connection drops (`body.is-offline`); Back closes the open dialog (each dialog pushes a history entry; the sign-in gate is left out); "/" focuses the visible search box; Home numbers count up (`countTo`); the phone tab bar has a sliding indicator; a marked attendance button gets `fx-stamp` and a short vibration; toasts stay longer for longer text. Everything respects prefers-reduced-motion.
 - Keep text plain and minimal: no emojis in the UI, escape all user text with `escapeHtml`/`this.escape` before putting it in HTML.
+- Questions use the site's own box, never `confirm`/`prompt`/`alert`: `await askConfirm(text, { ok, cancel, danger, title })`, `await askText(text, value, opts)` (null on Cancel), `tellUser(text)`. Escape and Back answer Cancel. Await only when a question is actually shown, so code without one stays synchronous (`const ok = maybe(); if (ok !== true && !(await ok)) return;`). Tests set `window.__cfNativeDialogs = true` so these fall back to the native dialogs that Playwright accepts.
+- Small removals (updates, call-outs, reports, uniform requests, prices, notices, camps, mess days, leave, certificate results) ask nothing: `app.showToast(text, { undo })` shows Undo for 8 s, and `putBack(list, item, index)` restores the item where it was.
 - Must work on phone and laptop; check both.
 
 ## Tests
-- Needs Node 22.6 or newer, because the tests run the real `cadetflow-api` code with `--experimental-strip-types`. Run `npm install` once, then `npm test` (Playwright, `tests/cadetflow.test.cjs`).
+- Needs Node 22.6 or newer, because the tests run the real `cadetflow-api` code with `--experimental-strip-types`. Run `npm install` once (Playwright and Tailwind), then `npm test` (Playwright, `tests/cadetflow.test.cjs`). The pages load the real `cadetflow.css`.
 - `tests/fake-supabase.cjs` is an in-memory Supabase (tables with the row rules and the `cadetflow_state_guard` trigger, auth, storage, push) that runs the real `index.ts`.
 - `tests/supabase-stub.js` replaces supabase-js in the page and forwards to it through `window.__db`, `__auth` and `__fn`.
 - `makeDb()` and `openAs(browser, db, userId)` open the site as a given account. Push is faked with `FAKE_PUSH`.
@@ -114,7 +133,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - https://pathakabhinav777.github.io/cadetflow-test/ (repo `pathakabhinav777/cadetflow-test`, GitHub Pages), on its own Supabase project "CadetFlow Test" (`pgkwlxothkmlwoyibqof`, free plan). The real site and data are not touched by anything done there.
 - That project has the base tables, the migration, the launch lock-down, `cadetflow-api`, and a one-time copy of the live data (2026-11-07).
 - Test-only trigger `cadetflow_test_owner_admin`: the owner's email becomes administrator on registering, only while there is no administrator.
-- Rebuild after changes: `python3 tools/build_test_copy.py <folder>`, then push that folder to the `cadetflow-test` repo. Redeploy `cadetflow-api` to the test project when the server changed.
+- Rebuild after changes: `python3 tools/build_test_copy.py <folder>` (copies `cadetflow.css` and the icons too), then push that folder to the `cadetflow-test` repo. Redeploy `cadetflow-api` to the test project when the server changed, and apply new migrations there first.
 - Invite/reset links there need the test project's Site URL set in Supabase; "Set password" on the Accounts page works without it.
 
 ## Launched (2026-11-07) and the restore point

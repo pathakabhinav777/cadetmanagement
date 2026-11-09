@@ -21,7 +21,7 @@ const now = () => new Date().toISOString();
 const KEYS = {
   cadetflow_state: ['id'], cadetflow_profiles: ['user_id'], cadetflow_requests: ['id'], cadetflow_settings: ['key'],
   cadetflow_push_subscriptions: ['endpoint'], cadetflow_push_keys: ['id'], cadetflow_push_sent: ['parade_id'],
-  cadetflow_seen: ['item', 'user_id'],
+  cadetflow_seen: ['item', 'user_id'], cadetflow_answers: ['notice_id', 'user_id'], cadetflow_backups: ['id'],
 };
 const UNIQUE = {
   cadetflow_profiles: [{ cols: ['cadet_id'], where: r => r.cadet_id != null && r.status !== 'rejected' }],
@@ -31,11 +31,13 @@ const DEFAULTS = {
   cadetflow_profiles: () => ({ role: 'viewer', status: 'pending', display_name: null, cadet_id: null, regimental_no: null, email: null,
     requested_at: null, decided_at: null, decided_by: null, invited_at: null, reset_requested_at: null }),
   cadetflow_requests: () => ({ status: 'pending', had_image: false, image_path: null, note: null, created_at: now(), updated_at: now(),
-    decided_at: null, decided_by: null, decided_by_name: null }),
+    decided_at: null, decided_by: null, decided_by_name: null, from_date: null, to_date: null }),
   cadetflow_settings: () => ({ updated_at: now(), updated_by: null }),
   cadetflow_push_subscriptions: () => ({ created_at: now(), user_id: null }),
   cadetflow_push_sent: () => ({ sent_at: now(), sent_by: null, delivered: null, failed: null }),
   cadetflow_seen: () => ({ seen_at: now() }),
+  cadetflow_answers: () => ({ answered_at: now() }),
+  cadetflow_backups: () => ({ id: crypto.randomUUID(), taken_at: now(), kind: 'daily', taken_by: null }),
 };
 
 const isTime = v => typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v);
@@ -196,6 +198,15 @@ class Backend {
     return '';
   }
 
+  /** What public.cadetflow_daily_backup() does each night (supabase/migrations/20261109_…). */
+  dailyBackup(at = now()) {
+    const s = this.row.state; if (!s) return null;
+    const len = k => (Array.isArray(s[k]) ? s[k].length : 0);
+    const b = { ...DEFAULTS.cadetflow_backups(), taken_at: at, kind: 'daily', state: clone(s), size: JSON.stringify(s).length, cadets: len('cadets'), parades: len('parades'), tasks: len('events') };
+    this.tables.cadetflow_backups.push(b);
+    return b;
+  }
+
   /** Add a sign-in account with its CadetFlow profile. */
   account(id, { role = 'viewer', status = 'approved', cadetId = null, email = `${id}@example.com`, password = `pass-${id}`, name = null, regNo = null } = {}) {
     if (!this.users.has(id)) this.addUser({ id, email, password });
@@ -284,7 +295,10 @@ class Backend {
     }
     if (q.table === 'cadetflow_state') {
       const level = this.accessOf(userId);
-      if (q.op === 'select') return level ? this.exec(q) : this.finish(q, []);
+      if (q.op === 'select') {
+        if (level && (q.cols === '*' || /\bstate\b/.test(q.cols))) this.stateReads = (this.stateReads || 0) + 1; // full downloads
+        return level ? this.exec(q) : this.finish(q, []);
+      }
       if (q.op === 'update') {
         if (level !== 'admin' && level !== 'writer') return q.returning ? this.finish(q, []) : { data: null, error: null };
         // The guard trigger looks at each row the update matches (none when someone else saved first).
@@ -323,6 +337,8 @@ class Backend {
     this.tables.cadetflow_profiles = this.tables.cadetflow_profiles.filter(p => p.user_id !== id);            // on delete cascade
     this.tables.cadetflow_push_subscriptions = this.tables.cadetflow_push_subscriptions.filter(s => s.user_id !== id);
     this.tables.cadetflow_seen = this.tables.cadetflow_seen.filter(s => s.user_id !== id);
+    this.tables.cadetflow_answers = this.tables.cadetflow_answers.filter(s => s.user_id !== id);
+    this.tables.cadetflow_backups.forEach(b => { if (b.taken_by === id) b.taken_by = null; });
     this.tables.cadetflow_requests.forEach(r => { if (r.user_id === id) r.user_id = null; });                   // on delete set null
     if (this.row.updated_by === id) this.row.updated_by = null;
   }

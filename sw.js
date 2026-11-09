@@ -5,9 +5,9 @@
 // - Supabase (data and sign-in) is never cached.
 // - Shows notifications pushed by the Supabase function cadetflow-api; tapping one opens the
 //   parade (?parade=id) or page (?page=uniform) it is about.
-const VERSION = 'cadetflow-v4';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-48.png', './icons/badge-96.png'];
-const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const VERSION = 'cadetflow-v6';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-48.png', './icons/badge-96.png', './icons/emblem.png', './cadetflow.css'];
+const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

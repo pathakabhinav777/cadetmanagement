@@ -55,14 +55,41 @@ export function audienceText(pd) {
 /**
  * Accounts to notify about a parade: approved accounts whose cadet is expected at it.
  * Accounts not linked to any cadet (staff) get every parade.
- * profiles: [{ user_id, cadet_id, status }]
+ * profiles: [{ user_id, cadet_id, status }]; leaves (optional): cadets on approved leave that day are left out.
  */
-export function paradeRecipients(profiles, cadets, pd) {
+export function paradeRecipients(profiles, cadets, pd, leaves = null) {
   const byId = new Map((cadets || []).filter(c => c && c.id != null).map(c => [String(c.id), c]));
   return (profiles || [])
     .filter(p => p && p.status === 'approved')
     .filter(p => !p.cadet_id || inParade(byId.get(String(p.cadet_id)), pd))
+    .filter(p => !leaves || !p.cadet_id || !onLeave(leaves, p.cadet_id, Number(pd.reportAt)))
     .map(p => p.user_id);
+}
+
+// ---- Leave for several days ---------------------------------------------------------------------
+// Approved leave is kept in the shared data as state.leaves: [{ id, cadetId, from, to }] with dates
+// 'YYYY-MM-DD' (India time), first and last day included. The reason stays with the request.
+const DAY = /^\d{4}-\d\d-\d\d$/;
+/** The approved leave covering this cadet at this moment, or null. */
+export function onLeave(leaves, cadetId, ms) {
+  const day = istDay(ms).date;
+  return (Array.isArray(leaves) ? leaves : []).find(l => l && String(l.cadetId) === String(cadetId) && DAY.test(l.from) && DAY.test(l.to) && l.from <= day && day <= l.to) || null;
+}
+/** Request rows for leave use parade_id 'leave:<first day>' (they are not about one parade). */
+export const isLeaveRequest = r => String(r?.parade_id || '').startsWith('leave:');
+
+/**
+ * How a parade counts for a cadet, the same as the site's profile: attended (present or late),
+ * missed (absent without a report), excused (absence report or leave), or unmarked.
+ */
+export function attendanceOf(pd, cadetId, leaves) {
+  const m = pd?.marks?.[cadetId];
+  const rep = (Array.isArray(pd?.reports) ? pd.reports : []).find(r => r && r.cadetId === cadetId);
+  if (m === 'present' || m === 'late') return 'attended';
+  if (rep && rep.kind === 'absent') return 'excused';
+  if (onLeave(leaves, cadetId, Number(pd.reportAt))) return 'excused';
+  if (m === 'absent') return rep ? 'excused' : 'missed';
+  return 'unmarked';
 }
 
 /** Can a cadet still send (or change) a request for this parade? */
@@ -80,6 +107,11 @@ export function requestCleanup(requests, parades, now = Date.now()) {
   const byId = new Map((parades || []).filter(p => p && p.id).map(p => [p.id, p]));
   const deleteRows = [], clearImages = [];
   for (const r of requests || []) {
+    if (isLeaveRequest(r)) {
+      // Leave: the screenshot goes once it is decided and the leave is over.
+      if (r.image_path && r.status !== 'pending' && r.to_date && Date.parse(String(r.to_date).slice(0, 10) + 'T23:59:59+05:30') < now) clearImages.push(r);
+      continue;
+    }
     const pd = byId.get(r.parade_id);
     if (!pd) deleteRows.push(r);
     else if (r.image_path && r.status !== 'pending' && Number(pd.reportAt) + PAST_AFTER_MS < now) clearImages.push(r);
@@ -181,3 +213,47 @@ export function messToRemind(days, now = Date.now()) {
 }
 /** Item ids for "seen by": 'notice:<id>' or 'parade:<id>'. */
 export const SEEN_ITEM = /^(notice|parade):[A-Za-z0-9_.:-]{1,128}$/;
+
+// ---- Weekly summary for the administrator (Sunday evening) --------------------------------------
+export const WEEKLY_HOUR = 18; // from 6 pm India time on Sundays
+/** Day of the week in India time: 0 = Sunday. */
+export function istWeekday(ms) { return new Date(ms + IST_OFFSET_MS).getUTCDay(); }
+const COMPANIES = ['Jessami', 'Kohima', 'Naushera'];
+const pctOf = (a, n) => (n ? Math.round(a / n * 100) : null);
+/**
+ * The week's numbers: parades held in the last 7 days, attendance overall and by company, cadets
+ * under 75% over all parades so far (with at least 3 counted), and uniform money not yet paid.
+ */
+export function weekSummary(state, now = Date.now()) {
+  const cadets = (Array.isArray(state?.cadets) ? state.cadets : []).filter(c => c && c.id != null);
+  const parades = (Array.isArray(state?.parades) ? state.parades : []).filter(p => p && Number.isFinite(Number(p.reportAt)) && Number(p.reportAt) <= now);
+  const leaves = state?.leaves || [];
+  const week = parades.filter(p => Number(p.reportAt) > now - 7 * 86400000);
+  const tally = {}; let att = 0, cnt = 0;
+  for (const pd of week) for (const c of cadets) {
+    if (!inParade(c, pd)) continue;
+    const st = attendanceOf(pd, String(c.id), leaves);
+    if (st !== 'attended' && st !== 'missed') continue;
+    const t = tally[c.company] || (tally[c.company] = { a: 0, n: 0 });
+    t.n++; cnt++; if (st === 'attended') { t.a++; att++; }
+  }
+  const byCompany = COMPANIES.filter(k => tally[k]).map(k => ({ company: k, pct: pctOf(tally[k].a, tally[k].n) }));
+  const under = [];
+  for (const c of cadets) {
+    let a = 0, n = 0;
+    for (const pd of parades) {
+      if (!inParade(c, pd)) continue;
+      const st = attendanceOf(pd, String(c.id), leaves);
+      if (st === 'attended') { a++; n++; } else if (st === 'missed') n++;
+    }
+    if (n >= 3 && a / n < 0.75) under.push({ id: String(c.id), name: `${c.rank || 'CDT'} ${c.name}`, pct: pctOf(a, n) });
+  }
+  under.sort((x, y) => x.pct - y.pct);
+  let owed = 0;
+  for (const r of Array.isArray(state?.uniform) ? state.uniform : []) {
+    if (!r || r.status === 'received' || uniformPaid(r)) continue;
+    const unit = uniformUnitOf(r, state.uniformPrices || []);
+    if (unit) owed += unit * (Number(r.qty) || 1);
+  }
+  return { parades: week.length, pct: pctOf(att, cnt), byCompany, under, owed };
+}

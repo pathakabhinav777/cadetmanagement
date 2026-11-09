@@ -70,6 +70,7 @@ def build(out):
     (out / 'manifest.webmanifest').write_text(manifest, encoding='utf-8')
 
     shutil.copytree(ROOT / 'icons', out / 'icons')
+    shutil.copy(ROOT / 'cadetflow.css', out / 'cadetflow.css')
     (out / '.nojekyll').write_text('', encoding='utf-8')
     (out / 'README.md').write_text(
         '# CadetFlow test copy\n\n'

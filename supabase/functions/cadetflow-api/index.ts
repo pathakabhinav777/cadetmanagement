@@ -11,7 +11,8 @@
 //   forgot    { email }                    -> { ok }             asks the administrator for a reset link
 //   unsubscribe { endpoint } / test { endpoint }
 //   remind                                 -> { parades, mess }   sends the reminders that are due (each once):
-//                                             parades 2 hours before, mess duty the evening before. Called by a
+//                                             parades 2 hours before (again if the parade's time changed),
+//                                             mess duty the evening before. Called by a
 //                                             scheduled job every 10 minutes (supabase/launch/reminders_cron.sql).
 // Approved accounts:
 //   subscribe { subscription }             -> { ok }             this device, for this person
@@ -21,29 +22,40 @@
 //   payInfo                                -> { upi, payee, note, qrUrl }      where to pay CQMS
 //   myRegNo   { regNo }                    -> { ok }             own regimental number, once, if the roster has none
 //   seen      { items: ['notice:<id>' | 'parade:<id>'] } -> { ok }   this person has seen these
+//   leave     { from, to, reason, image? } -> { request }        own leave for several days (SGT and above decide it)
+//   answer    { noticeId, choice }         -> { mine, counts, total }   own answer to a notice's question
+//   answers   { ids: [noticeId] }          -> { answers: { id: { mine, counts, total } } }
 // Lance corporals and above (and POCs):
 //   seenBy    { item }                     -> { seen: [{ name, at }], notSeen: [{ name }], total }
+//   answersBy { noticeId }                 -> { options: [{ label, people: [{ name, company }] }], notAnswered: [...] }
 //   announce  { id }                       -> { sent, devices, people }   notification for a new notice (once)
 //   uniformRequest  { items: [{ item, custom?, size? }], qty?, note? } -> { added, skipped }   own items
 //   uniformCancel   { id }  /  uniformReceived { id }  /  uniformPay { ids, image } -> { ok }
 // SGT and above:   decide { id, approve, note? }, reportImage { id }
 // JUO / SUO:       notify { paradeId, again? (administrator) }
+//                  paradeChange { paradeId, was: { reportAt, venue } }  "parade changed" to its cadets (once per change)
+//                  paradeCancel { paradeId }   "parade cancelled" to its cadets, sent just before the site deletes it
 // CQMS:            payImage { proofId }, payDecide { proofId, ok, note? }, setPayInfo { upi, payee, note, image?, removeQr? }
-// Administrator:   accounts, invite { people: [{ cadetId, email, regNo }], send, site },
+// Administrator:   backups -> { backups: [{ id, at, kind, size, cadets, parades, tasks }] }, backupNow, restoreBackup { id }
+//                  accounts (with each person's number of devices for notifications),
+//                  invite { people: [{ cadetId, email, regNo }], send, site },
 //                  resetLink { userId, send, site }, setPassword { userId, password },
 //                  approve { userId, role? }, reject, setRole { role }, remove, link { cadetId|null }
 //
 // Files (private bucket cadetflow-report-files): request screenshots under <parade>/, payment
 // screenshots under pay/, the payment QR under settings/. Request screenshots go once the request
 // is decided and the parade is over; payment screenshots once every item they paid for is approved
-// and collected.
+// and collected. Leave screenshots go once the leave is decided and over.
+//
+// The scheduled "remind" also sends the administrator a weekly summary on Sunday evenings (once a week).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 // @ts-ignore plain JavaScript module shared with the tests
 import * as rules from "./rules.mjs";
 
-const { approvedReport, audienceText, can, CUTOFF_MIN, inParade, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, requestCleanup,
-  requestsOpen, SEEN_ITEM, uniformKeyOf, uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS } = rules;
+const { approvedReport, audienceText, can, CUTOFF_MIN, inParade, isLeaveRequest, istDay, istWeekday, messToRemind, paradeRecipients, paradesToRemind,
+  payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, uniformKeyOf, uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS,
+  weekSummary, WEEKLY_HOUR } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
 const BUCKET = "cadetflow-report-files";
@@ -243,7 +255,7 @@ async function cleanup(state: Obj, by: string, force = false) {
   lastCleanup = Date.now();
   try {
     // Late/absence request screenshots, and requests for deleted parades.
-    const { data, error } = await db.from("cadetflow_requests").select("id, parade_id, status, image_path").limit(5000);
+    const { data, error } = await db.from("cadetflow_requests").select("id, parade_id, status, image_path, to_date").limit(5000);
     if (error) throw error;
     const { deleteRows, clearImages } = requestCleanup(data || [], Array.isArray(state.parades) ? state.parades : []);
     await removeFiles([...deleteRows, ...clearImages].map((r: Obj) => r.image_path));
@@ -273,9 +285,10 @@ function requestOut(r: Obj) {
     id: r.id, paradeId: r.parade_id, cadetId: r.cadet_id, kind: r.kind, reason: r.reason, status: r.status, note: r.note || "",
     at: Date.parse(r.created_at), updatedAt: Date.parse(r.updated_at), decidedAt: r.decided_at ? Date.parse(r.decided_at) : null,
     decidedBy: r.decided_by_name || "", hasImage: !!r.image_path, hadImage: !!r.had_image, mine: false,
+    ...(isLeaveRequest(r) ? { fromDate: String(r.from_date || "").slice(0, 10), toDate: String(r.to_date || "").slice(0, 10) } : {}),
   };
 }
-const REQ_COLS = "id, parade_id, cadet_id, user_id, kind, reason, status, note, image_path, had_image, created_at, updated_at, decided_at, decided_by, decided_by_name";
+const REQ_COLS = "id, parade_id, cadet_id, user_id, kind, reason, status, note, image_path, had_image, created_at, updated_at, decided_at, decided_by, decided_by_name, from_date, to_date";
 
 // ---- accounts ------------------------------------------------------------------------------------
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -426,8 +439,12 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const days = messToRemind(Array.isArray(state.messDuty) ? state.messDuty : [], now);
     const profiles = (due.length || days.length) ? await approvedProfiles() : [];
     for (const pd of due) {
-      if (!(await claim("remind:" + pd.id))) continue;
-      const people = paradeRecipients(profiles, cadetsOf(state), pd);
+      // One reminder per parade time, so a parade moved after its reminder went out gets a new one.
+      // Reminders sent before keys carried the time ("remind:<id>") still count for the time they were for.
+      const { data: legacy } = await db.from("cadetflow_push_sent").select("sent_at").eq("parade_id", "remind:" + pd.id).maybeSingle();
+      if (legacy && Date.parse(legacy.sent_at) >= Number(pd.reportAt) - REMIND_BEFORE_MS - 20 * 60000 && Date.parse(legacy.sent_at) <= Number(pd.reportAt)) continue;
+      if (!(await claim(`remind:${pd.id}@${pd.reportAt}`))) continue;
+      const people = paradeRecipients(profiles, cadetsOf(state), pd, state.leaves || []); // not those on leave
       const mins = Math.round((Number(pd.reportAt) - now) / 60000);
       const left = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min` : `${mins} min`;
       await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
@@ -441,7 +458,25 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       await tell(people, { title: "Mess duty", body: `You are on mess duty on ${day}.`, tag: `mess-${d.id}`, url: "./?page=availability" });
       mess++;
     }
-    return json({ parades, mess });
+    // Sunday evening: the week in numbers for the administrator.
+    let weekly = 0;
+    if (istWeekday(now) === 0 && istDay(now).hour >= WEEKLY_HOUR && await claim("weekly:" + istDay(now).date)) {
+      const w = weekSummary(state, now);
+      const [{ count: waitingRequests }, { count: waitingAccounts }] = await Promise.all([
+        db.from("cadetflow_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        db.from("cadetflow_profiles").select("user_id", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
+      const parts = [
+        `${w.parades} parade${w.parades === 1 ? "" : "s"}${w.pct != null ? `, attendance ${w.pct}%` : ""}${w.byCompany.length > 1 ? ` (${w.byCompany.map((x: Obj) => `${x.company} ${x.pct}%`).join(", ")})` : ""}`,
+        w.under.length ? `${w.under.length} under 75%` : "",
+        waitingRequests ? `${waitingRequests} request${waitingRequests === 1 ? "" : "s"} waiting` : "",
+        w.owed ? `${rupees(w.owed)} uniform money owed` : "",
+        waitingAccounts ? `${waitingAccounts} account${waitingAccounts === 1 ? "" : "s"} to approve` : "",
+      ].filter(Boolean);
+      await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" });
+      weekly = 1;
+    }
+    return json({ parades, mess, weekly });
   }
   if (action === "subscribe") {
     const a = await access(me, null);
@@ -519,12 +554,41 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     return json({ ok: true });
   }
 
+  if (action === "leave") {
+    const a = await access(me, null);
+    if (!a.who.cadet) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    const cadetId = String(a.who.cadet.id);
+    const from = String(body.from || ""), to = String(body.to || "");
+    if (!/^\d{4}-\d\d-\d\d$/.test(from) || !/^\d{4}-\d\d-\d\d$/.test(to) || !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to))) fail(400, "Pick the first and the last day of your leave.");
+    if (to < from) fail(400, "The last day is before the first day.");
+    if (to < istDay(Date.now()).date) fail(400, "Those days are already over.");
+    if ((Date.parse(to) - Date.parse(from)) / 86400000 > 120) fail(400, "Leave can be 120 days at most. Ask the administrator.");
+    const reason = String(body.reason || "").trim().replace(/\s+/g, " ").slice(0, 500);
+    if (reason.length < 3) fail(400, "Write the reason.");
+    const { count } = await db.from("cadetflow_requests").select("id", { count: "exact", head: true }).eq("cadet_id", cadetId).eq("kind", "leave").eq("status", "pending");
+    if ((count || 0) >= 3) fail(429, "You already have 3 leave requests waiting. Wait for a decision, or withdraw one.");
+    const id = crypto.randomUUID();
+    const image = body.image ? await saveImage(`leave/${id}-${Date.now().toString(36)}`, body.image) : null;
+    const now = new Date().toISOString();
+    const { data: saved, error } = await db.from("cadetflow_requests").insert({
+      id, parade_id: `leave:${from}`, cadet_id: cadetId, user_id: a.me.id, kind: "leave", reason, image_path: image, had_image: !!image,
+      from_date: from, to_date: to, created_at: now, updated_at: now,
+    }).select(REQ_COLS).single();
+    if (error) {
+      if (image) await removeFiles([image]);
+      if (error.code === "23505") fail(409, "You already asked for leave from that day. Withdraw that request to change it.");
+      throw new Error("could not save your request: " + error.message);
+    }
+    return json({ request: { ...requestOut(saved), mine: true } });
+  }
+
   if (action === "requests") {
     const a = await access(me, null);
     const everyone = can(a.who, "requests");
     if (everyone) await cleanup(a.state, a.me.id);
     const since = new Date(Date.now() - 45 * 86400_000).toISOString();
     let q = db.from("cadetflow_requests").select(REQ_COLS).gte("created_at", since).order("created_at", { ascending: true }).limit(2000);
+    // (Leave asked for more than 45 days ago has long been decided; approved leave lives on in the shared data.)
     if (!everyone) q = q.eq("user_id", a.me.id);
     const { data, error } = await q;
     if (error) throw new Error("could not read requests: " + error.message);
@@ -549,6 +613,26 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const note = String(body.note || "").trim().slice(0, 300);
     const decider = nameOf(a);
     let state = a.state;
+    if (isLeaveRequest(r)) {
+      const from = String(r.from_date || "").slice(0, 10), to = String(r.to_date || "").slice(0, 10);
+      if (approve) {
+        state = await changeState(a.me.id, (s) => {
+          const c = findCadet(s, r.cadet_id);
+          s.leaves = (Array.isArray(s.leaves) ? s.leaves : []).filter((l: Obj) => l && l.requestId !== r.id);
+          s.leaves.push({ id: `leave-${r.id}`, cadetId: r.cadet_id, from, to, requestId: r.id, at: Date.now(), by: decider });
+          addHistory(s, "leave-approved", r.cadet_id, `${c?.name || r.cadet_id}: leave ${from} to ${to} approved by ${decider}`);
+          return true;
+        });
+      }
+      const { data: done, error: upErr } = await db.from("cadetflow_requests").update({
+        status: approve ? "approved" : "rejected", note: note || null, decided_at: new Date().toISOString(), decided_by: a.me.id, decided_by_name: decider, updated_at: new Date().toISOString(),
+      }).eq("id", r.id).select(REQ_COLS).single();
+      if (upErr) throw new Error("could not save the decision: " + upErr.message);
+      const day = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: IST, day: "numeric", month: "short" }).format(new Date(`${d}T12:00:00+05:30`));
+      if (r.user_id) await tell([r.user_id], { title: approve ? "Leave approved" : "Leave not approved", body: [from === to ? day(from) : `${day(from)} to ${day(to)}`, note].filter(Boolean).join(" · "), tag: `request-${r.id}`, url: "./?page=parades" });
+      await cleanup(state, a.me.id, true);
+      return json({ request: requestOut(done) });
+    }
     if (approve) {
       state = await changeState(a.me.id, (s) => {
         const pd = findParade(s, r.parade_id);
@@ -610,6 +694,51 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     return json({ seen, notSeen, total: people.length });
   }
 
+  // ---- questions on notices: notice.options = ['Yes', 'No', …]; answers in cadetflow_answers
+  if (action === "answer" || action === "answers" || action === "answersBy") {
+    const a = await access(me, action === "answersBy" ? "write" : null);
+    const notices = (Array.isArray(a.state.notices) ? a.state.notices : []).filter((n: Obj) => n && Array.isArray(n.options) && n.options.length >= 2);
+    const tallies = async (ids: string[]) => {
+      const out: Obj = {};
+      ids.forEach((id) => { const n = notices.find((x: Obj) => x.id === id); out[id] = { mine: null, counts: n.options.map(() => 0), total: 0 }; });
+      if (!ids.length) return out;
+      const { data, error } = await db.from("cadetflow_answers").select("notice_id, user_id, choice").in("notice_id", ids);
+      if (error) throw new Error("could not read the answers: " + error.message);
+      for (const row of data || []) {
+        const o = out[row.notice_id]; if (!o || !(row.choice >= 0 && row.choice < o.counts.length)) continue;
+        o.counts[row.choice]++; o.total++;
+        if (row.user_id === a.me.id) o.mine = row.choice;
+      }
+      return out;
+    };
+    if (action === "answers") {
+      const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(String))].filter((id) => notices.some((n: Obj) => n.id === id)).slice(0, 30);
+      return json({ answers: await tallies(ids) });
+    }
+    const id = String(body.noticeId || "");
+    const n = notices.find((x: Obj) => x.id === id);
+    if (!n) fail(404, "That question is not saved yet, or was removed.");
+    if (action === "answer") {
+      const choice = Number(body.choice);
+      if (!Number.isInteger(choice) || choice < 0 || choice >= n.options.length) fail(400, "Pick one of the answers.");
+      if (n.until && Number(n.until) < Date.now()) fail(400, "This notice has ended.");
+      const { error } = await db.from("cadetflow_answers").upsert({ notice_id: id, user_id: a.me.id, choice, answered_at: new Date().toISOString() }, { onConflict: "notice_id,user_id" });
+      if (error) throw new Error("could not save your answer: " + error.message);
+      return json((await tallies([id]))[id]);
+    }
+    // answersBy: names under each answer, and who has not answered
+    const { data: profs, error: pe } = await db.from("cadetflow_profiles").select("user_id, cadet_id, status, display_name, email").eq("status", "approved");
+    if (pe) throw new Error("could not read accounts: " + pe.message);
+    const { data: rows, error } = await db.from("cadetflow_answers").select("user_id, choice").eq("notice_id", id);
+    if (error) throw new Error("could not read the answers: " + error.message);
+    const picked = new Map((rows || []).map((r) => [r.user_id, r.choice]));
+    const person = (p: Obj) => { const c = findCadet(a.state, p.cadet_id); return { name: rankName(c) || p.display_name || String(p.email || "").split("@")[0] || "Someone", company: c?.company || "" }; };
+    const byName = (x: Obj, y: Obj) => String(x.name).localeCompare(String(y.name));
+    const options = n.options.map((label: string, i: number) => ({ label: String(label), people: (profs || []).filter((p) => picked.get(p.user_id) === i).map(person).sort(byName) }));
+    const notAnswered = (profs || []).filter((p) => !picked.has(p.user_id)).map(person).sort(byName);
+    return json({ options, notAnswered });
+  }
+
   if (action === "announce") {
     const a = await access(me, "write");
     const id = String(body.id || "");
@@ -644,7 +773,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     }
     let people: string[] = [], subs: Sub[] = [], r: { sent: number; failed: number; removed: number };
     try {
-      people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd);
+      people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd, a.state.leaves || []); // not those on leave
       subs = await devicesOf(people);
       const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", `For: ${audienceText(pd)}`].filter(Boolean);
       r = await sendTo(subs, { title: `New parade: ${String(pd.title || "Parade")}`, body: lines.join(" · "), tag: `parade-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` });
@@ -653,6 +782,42 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       throw e;
     }
     await db.from("cadetflow_push_sent").update({ delivered: r.sent, failed: r.failed }).eq("parade_id", paradeId);
+    return json({ ...r, devices: subs.length, people: people.length });
+  }
+
+  if (action === "paradeChange" || action === "paradeCancel") {
+    const a = await access(me, "parade");
+    const paradeId = String(body.paradeId || "");
+    const pd = findParade(a.state, paradeId);
+    if (!pd) fail(404, "That parade is not saved yet. Try again in a moment.");
+    const at = Number(pd.reportAt);
+    if (!(at > Date.now())) return json({ sent: 0, skipped: "past" });
+    const venue = String(pd.venue || "");
+    let h = 0; for (const ch of venue) h = (h * 31 + ch.charCodeAt(0)) | 0; // one send per time and place
+    const key = action === "paradeCancel" ? `cancel:${paradeId}` : `change:${paradeId}@${at}:${(h >>> 0).toString(36)}`;
+    const { error: claimErr } = await db.from("cadetflow_push_sent").insert({ parade_id: key, sent_by: a.me.id });
+    if (claimErr?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
+    if (claimErr) throw new Error("could not record the send: " + claimErr.message);
+    const title = String(pd.title || "Parade");
+    let payload: Obj;
+    if (action === "paradeCancel") {
+      payload = { title: `Cancelled: ${title}`, body: [when(at), venue, `Cancelled by ${nameOf(a)}`].filter(Boolean).join(" · "), tag: `parade-${paradeId}`, url: "./?page=parades" };
+    } else {
+      const was = body.was && typeof body.was === "object" ? body.was : {};
+      const wasAt = Number(was.reportAt);
+      const lines = [`Now ${when(at)}`, venue ? `at ${venue}` : "", Number.isFinite(wasAt) && wasAt > 0 && wasAt !== at ? `was ${when(wasAt)}` : "",
+        typeof was.venue === "string" && was.venue.trim() && was.venue.trim() !== venue ? `was at ${was.venue.trim().slice(0, 80)}` : ""];
+      payload = { title: `Parade changed: ${title}`, body: lines.filter(Boolean).join(" · "), tag: `parade-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` };
+    }
+    let people: string[] = [], subs: Sub[] = [], r: { sent: number; failed: number; removed: number };
+    try {
+      people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd, a.state.leaves || []).filter((u) => u !== a.me.id);
+      subs = await devicesOf(people);
+      r = await sendTo(subs, payload);
+    } catch (e) {
+      await db.from("cadetflow_push_sent").delete().eq("parade_id", key);
+      throw e;
+    }
     return json({ ...r, devices: subs.length, people: people.length });
   }
 
@@ -810,8 +975,10 @@ async function handle(req: Request, body: Obj): Promise<Response> {
   // Administrator ---------------------------------------------------------------------------------------
   if (action === "accounts") {
     const a = await access(me, "admin");
-    const [{ data: profiles, error }, users] = await Promise.all([db.from("cadetflow_profiles").select("*"), allUsers()]);
+    const [{ data: profiles, error }, users, { data: subs }] = await Promise.all([db.from("cadetflow_profiles").select("*"), allUsers(), db.from("cadetflow_push_subscriptions").select("user_id")]);
     if (error) throw new Error("could not read accounts: " + error.message);
+    const devices = new Map<string, number>();
+    (subs || []).forEach((s: Obj) => { if (s.user_id) devices.set(s.user_id, (devices.get(s.user_id) || 0) + 1); });
     const byId = new Map((profiles || []).map((p) => [p.user_id, p]));
     // Keep emails on the profiles so "Forgot password" can find people quickly.
     const missing = users.filter((u) => u.email && byId.has(u.id) && !byId.get(u.id).email);
@@ -822,10 +989,43 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         userId: u.id, email: u.email || "", name: p?.display_name || "", role: p?.role === "admin" ? "admin" : "viewer", status: p ? p.status : "none",
         cadetId: p?.cadet_id || null, regNo: p?.regimental_no || "", requestedAt: p?.requested_at || null, decidedAt: p?.decided_at || null,
         invitedAt: p?.invited_at || null, resetAsked: p?.reset_requested_at || null, passwordSet: !!u.last_sign_in_at || !!u.email_confirmed_at && !p?.invited_at,
-        lastSignIn: u.last_sign_in_at || null, createdAt: u.created_at, you: u.id === a.me.id,
+        lastSignIn: u.last_sign_in_at || null, createdAt: u.created_at, you: u.id === a.me.id, devices: devices.get(u.id) || 0,
       };
     });
     return json({ accounts });
+  }
+
+  // ---- daily backups of the shared data (table cadetflow_backups; the nightly copy is made by
+  // supabase/launch/daily_backup_cron.sql). Kept 30 days.
+  if (action === "backups" || action === "backupNow" || action === "restoreBackup") {
+    const a = await access(me, "admin");
+    const summary = (s: Obj) => ({
+      size: JSON.stringify(s).length, cadets: Array.isArray(s.cadets) ? s.cadets.length : 0,
+      parades: Array.isArray(s.parades) ? s.parades.length : 0, tasks: Array.isArray(s.events) ? s.events.length : 0,
+    });
+    const keep = async (kind: string, s: Obj) => {
+      const { error } = await db.from("cadetflow_backups").insert({ kind, state: s, taken_at: new Date().toISOString(), taken_by: a.me.id, ...summary(s) });
+      if (error) throw new Error("could not save the backup: " + error.message);
+      await db.from("cadetflow_backups").delete().lt("taken_at", new Date(Date.now() - 30 * 86400_000).toISOString());
+    };
+    if (action === "backupNow") { await keep("manual", (await readState()).state); return json({ ok: true }); }
+    if (action === "restoreBackup") {
+      const { data: b, error } = await db.from("cadetflow_backups").select("id, taken_at, state").eq("id", String(body.id || "")).maybeSingle();
+      if (error) throw new Error("could not read the backup: " + error.message);
+      if (!b?.state || !Array.isArray(b.state.cadets) || !Array.isArray(b.state.events)) fail(404, "That backup no longer exists.");
+      await keep("before-restore", (await readState()).state); // so the restore itself can be undone
+      const day = when(Date.parse(b.taken_at));
+      await changeState(a.me.id, (s) => {
+        Object.keys(s).forEach((k) => delete s[k]);
+        Object.assign(s, JSON.parse(JSON.stringify(b.state)));
+        addHistory(s, "backup-restored", null, `Restored the backup from ${day} (${nameOf(a)})`);
+        return true;
+      });
+      return json({ ok: true });
+    }
+    const { data, error } = await db.from("cadetflow_backups").select("id, taken_at, kind, size, cadets, parades, tasks").order("taken_at", { ascending: false }).limit(100);
+    if (error) throw new Error("could not list the backups: " + error.message);
+    return json({ backups: (data || []).map((b) => ({ id: b.id, at: Date.parse(b.taken_at), kind: b.kind, size: b.size, cadets: b.cadets, parades: b.parades, tasks: b.tasks })) });
   }
 
   if (action === "invite") {
