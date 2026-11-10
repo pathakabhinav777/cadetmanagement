@@ -22,6 +22,7 @@ const KEYS = {
   cadetflow_state: ['id'], cadetflow_profiles: ['user_id'], cadetflow_requests: ['id'], cadetflow_settings: ['key'],
   cadetflow_push_subscriptions: ['endpoint'], cadetflow_push_keys: ['id'], cadetflow_push_sent: ['parade_id'],
   cadetflow_seen: ['item', 'user_id'], cadetflow_answers: ['notice_id', 'user_id'], cadetflow_backups: ['id'],
+  cadetflow_quiz: ['id'], cadetflow_quiz_scores: ['id'], cadetflow_suggestions: ['id'],
 };
 const UNIQUE = {
   cadetflow_profiles: [{ cols: ['cadet_id'], where: r => r.cadet_id != null && r.status !== 'rejected' }],
@@ -38,6 +39,9 @@ const DEFAULTS = {
   cadetflow_seen: () => ({ seen_at: now() }),
   cadetflow_answers: () => ({ answered_at: now() }),
   cadetflow_backups: () => ({ id: crypto.randomUUID(), taken_at: now(), kind: 'daily', taken_by: null }),
+  cadetflow_quiz: () => ({ id: crypto.randomUUID(), explain: '', created_at: now(), updated_at: now(), created_by: null }),
+  cadetflow_quiz_scores: () => ({ id: crypto.randomUUID(), cadet_id: null, subject: '', taken_at: now() }),
+  cadetflow_suggestions: () => ({ id: crypto.randomUUID(), created_at: now(), user_id: null, name: null, cadet_id: null, status: 'new', reply: null, replied_at: null, replied_by_name: null }),
 };
 
 const isTime = v => typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v);
@@ -190,10 +194,10 @@ class Backend {
     const ids = s => new Set((Array.isArray(s?.events) ? s.events : []).filter(e => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && SAFE_ID.test(e.id)).map(e => e.id));
     const kept = new Set((Array.isArray(after?.events) ? after.events : []).filter(e => e && typeof e === 'object').map(e => String(e.id)));
     if ([...ids(before)].some(id => !kept.has(id))) return 'Only the administrator can remove tasks.';
-    if (part(after, 'uniform') !== part(before, 'uniform') || part(after, 'uniformPrices') !== part(before, 'uniformPrices')) {
+    if (['uniform', 'uniformPrices', 'equipment'].some(k => part(after, k) !== part(before, k))) {
       const p = this.profile(userId);
       const c = p && p.status === 'approved' ? cadetOf(before, p.cadet_id) : null;
-      if (!c || String(c.rank ?? '').toUpperCase() !== 'CQMS') return 'Only the CQMS and the administrator can change uniform orders, payments and prices.';
+      if (!c || String(c.rank ?? '').toUpperCase() !== 'CQMS') return 'Only the CQMS and the administrator can change uniform orders, payments, prices and equipment.';
     }
     return '';
   }
@@ -330,6 +334,9 @@ class Backend {
     this.tables.cadetflow_seen = this.tables.cadetflow_seen.filter(s => s.user_id !== id);
     this.tables.cadetflow_answers = this.tables.cadetflow_answers.filter(s => s.user_id !== id);
     this.tables.cadetflow_backups.forEach(b => { if (b.taken_by === id) b.taken_by = null; });
+    this.tables.cadetflow_quiz_scores = this.tables.cadetflow_quiz_scores.filter(s => s.user_id !== id);
+    this.tables.cadetflow_quiz.forEach(q => { if (q.created_by === id) q.created_by = null; });
+    this.tables.cadetflow_suggestions.forEach(x => { if (x.user_id === id) x.user_id = null; });
     this.tables.cadetflow_requests.forEach(r => { if (r.user_id === id) r.user_id = null; });                   // on delete set null
     if (this.row.updated_by === id) this.row.updated_by = null;
   }

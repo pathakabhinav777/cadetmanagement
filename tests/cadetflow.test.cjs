@@ -2557,6 +2557,7 @@ const handSave = (page, kind) => run(page, async kind => {
   if (kind === 'wipe') values = { state: { events: s.events } };
   if (kind === 'pay') s.uniform.find(r => r.id === 'uni-old').pay = { status: 'approved', at: 1, proofId: 'pay-x' };
   if (kind === 'price') s.uniformPrices = [{ id: 'belt', price: 1 }];
+  if (kind === 'equipment') s.equipment = [{ id: 'equip-x', cadetId: 'cadet-3', item: 'Rifle', qty: 1, issuedAt: 1 }];
   if (kind === 'delete task') s.events = s.events.slice(1);
   if (kind === 'task') s.events[0].title = 'Renamed by hand';
   if (kind === 'move') values = { id: 2 };
@@ -2595,7 +2596,7 @@ test('the database keeps the roster and deleting tasks to the administrator, and
   const writes = db.writes;
   for (const kind of ['rank', 'add cadet', 'wipe']) assert.equal(await handSave(lcpl, kind), '42501: Only the administrator can change the roster.', kind);
   assert.equal(await handSave(lcpl, 'delete task'), '42501: Only the administrator can remove tasks.');
-  for (const kind of ['pay', 'price']) assert.equal(await handSave(lcpl, kind), '42501: Only the CQMS and the administrator can change uniform orders, payments and prices.', kind);
+  for (const kind of ['pay', 'price', 'equipment']) assert.equal(await handSave(lcpl, kind), '42501: Only the CQMS and the administrator can change uniform orders, payments, prices and equipment.', kind);
   assert.equal(await handSave(lcpl, 'move'), '42501: The shared data cannot be moved.');
   assert.equal(db.writes, writes, 'nothing was written');
   assert.equal(locked(), before);
@@ -3031,45 +3032,55 @@ test('reminders: parades 2 hours before and mess duty the evening before, each s
   noErrors(admin);
 }));
 
-test('mess duty: fewest duties go first, excused cadets and 3rd years are left out, swaps keep it fair', () => withBrowser(async browser => {
+test('mess duty: per parade, 4 cadets, no rank holders or locals, fewest duties first, only the administrator changes locals', () => withBrowser(async browser => {
   const db = makeDb();
   const admin = await openAs(browser, db, 'user-a');
   await setYears(admin);
+  const pids = [];
+  for (const h of [24, 48, 72, 96]) pids.push(await makeParade(admin, h, 'Drill ' + h));
+  await run(admin, () => { app.state.messConfig = { perDay: 4, years: ['1st', '2nd'], exempt: ['cadet-5'] }; app.saveStorage(); });
   await flush(admin);
   db.account('user-l', { cadetId: 'cadet-1' }).account('user-c', { cadetId: 'cadet-3' });
   const lcpl = await openAs(browser, db, 'user-l');
-  await run(lcpl, () => {
-    switchCadetFlowPage('availability');
-    app.state.messConfig = { perDay: 3, days: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], years: ['1st', '2nd'], exempt: ['cadet-5'] };
-    planMessWeek();
-  });
+  await run(lcpl, () => { switchCadetFlowPage('parades'); planMessParades(); });
   await flush(lcpl);
   let days = db.row.state.messDuty;
-  assert.equal(days.length, 7);
-  assert.ok(days.every(d => d.cadetIds.length === 3 && new Set(d.cadetIds).size === 3));
-  const all = days.flatMap(d => d.cadetIds);
-  const n = id => Number(id.slice(6));
+  assert.equal(days.length, 4);
+  assert.deepEqual(days.map(d => d.paradeId).sort(), pids.slice().sort());
+  assert.ok(days.every(d => d.cadetIds.length === 4 && new Set(d.cadetIds).size === 4));
+  const all = days.flatMap(d => d.cadetIds), n = id => Number(id.slice(6));
   assert.ok(all.every(id => n(id) <= 20), 'no 3rd years');
-  assert.ok(!all.includes('cadet-5'), 'excused');
-  // 21 slots over 19 cadets: nobody twice before everyone once
-  const count = new Map(); all.forEach(id => count.set(id, (count.get(id) || 0) + 1));
-  assert.equal(count.size, 19);
-  assert.ok(Math.max(...count.values()) <= 2);
-  // Planning again does nothing; a swap gives the duty to someone with fewer
-  await run(lcpl, () => planMessWeek());
-  await waitToast(lcpl, 'already planned');
+  assert.ok(!all.some(id => ['cadet-1', 'cadet-2', 'cadet-12'].includes(id)), 'no rank holders');
+  assert.ok(!all.includes('cadet-5'), 'locals left out');
+  assert.equal(new Set(all).size, 16, '16 slots over 16 cadets: everyone once');
+  // Planning again does nothing; a swap gives the duty to someone else
+  await run(lcpl, () => planMessParades());
+  await waitToast(lcpl, 'already has mess duty');
   const d0 = days[0], out = d0.cadetIds[0];
-  await run(lcpl, ({ date, id }) => swapMess(date, id), { date: d0.date, id: out });
+  await run(lcpl, ({ id, c }) => swapMess(id, c), { id: d0.id, c: out });
   await flush(lcpl);
-  const after = db.row.state.messDuty.find(d => d.date === d0.date).cadetIds;
-  assert.ok(!after.includes(out) && after.length === 3);
-  // The cadet sees their own next duty; cadets cannot plan
+  const after = db.row.state.messDuty.find(d => d.id === d0.id).cadetIds;
+  assert.ok(!after.includes(out) && after.length === 4);
+  // Only the administrator changes who is a local
+  await run(lcpl, () => toggleMessList('exempt', 'cadet-6'));
+  await waitToast(lcpl, 'Only the administrator');
+  await flush(lcpl);
+  assert.deepEqual(db.row.state.messConfig.exempt, ['cadet-5']);
+  await refresh(admin);
+  await run(admin, () => toggleMessList('exempt', 'cadet-6'));
+  await flush(admin);
+  assert.deepEqual(db.row.state.messConfig.exempt, ['cadet-5', 'cadet-6']);
+  // The cadet sees it on the Parades page and on the parade; cadets cannot plan
   const mine = db.row.state.messDuty.find(d => d.cadetIds.includes('cadet-3'));
   const cdt = await openAs(browser, db, 'user-c');
-  await run(cdt, () => switchCadetFlowPage('availability'));
-  assert.equal(await cdt.isVisible('#messCard button:has-text("Plan next 7 days")'), false);
-  if (mine) assert.match(await cdt.textContent('#messCard'), /Your next mess duty/);
-  assert.match(await cdt.textContent('#messCard'), /3 cadets a day/);
+  await run(cdt, () => switchCadetFlowPage('parades'));
+  assert.equal(await cdt.isVisible('#messCard button:has-text("Plan upcoming parades")'), false);
+  assert.match(await cdt.textContent('#messCard'), /4 cadets at each parade/);
+  if (mine) {
+    assert.match(await cdt.textContent('#messCard'), /Your next mess duty/);
+    await run(cdt, id => openParadeDetail(id), mine.paradeId);
+    assert.match(await cdt.textContent('#paradeMess'), /refreshments/);
+  }
   noErrors(admin, lcpl, cdt);
 }));
 
@@ -3362,16 +3373,16 @@ test('leave: a cadet asks for several days, a sergeant approves, those days are 
   const row = db.tables.cadetflow_requests[0];
   assert.deepEqual([row.kind, row.cadet_id, row.parade_id, String(row.from_date).slice(0, 10), String(row.to_date).slice(0, 10), row.status], ['leave', 'cadet-3', 'leave:' + ymdIn(1), ymdIn(1), ymdIn(3), 'pending']);
   assert.ok(row.image_path && row.image_path.startsWith('leave/'));
-  assert.match(await c.textContent('#leaveArea'), /Your leave[\s\S]*waiting for approval/);
+  assert.match(await c.textContent('#leaveArea'), /Your leave[\s\S]*Waiting for a decision/);
   await assert.rejects(db.api('user-c', 'leave', { from: ymdIn(-5), to: ymdIn(-3), reason: 'Old trip' }), /already over/);
   await assert.rejects(db.api('user-c', 'leave', { from: ymdIn(3), to: ymdIn(1), reason: 'Backwards' }), /before the first day/);
 
   // A sergeant sees it waiting on the Parades page and approves it
   const g = await openAs(browser, db, 'user-g');
   await run(g, () => switchCadetFlowPage('parades'));
-  await g.waitForFunction(() => /Leave waiting for a decision \(1\)/.test(document.getElementById('leaveArea').textContent));
+  await g.waitForFunction(() => /Leave waiting for a decision\s*1/.test(document.getElementById('leaveArea').textContent));
   assert.match(await g.textContent('#leaveArea'), /Samahith M Rao[\s\S]*3 days[\s\S]*Sister's wedding/);
-  await g.click('#leaveArea button:has-text("Approve")');
+  await g.click('#leaveArea button:has-text("Approve the whole leave")');
   await waitToast(g, 'Leave approved');
   const leave = db.row.state.leaves[0];
   assert.deepEqual([leave.id, leave.cadetId, leave.from, leave.to, leave.by], ['leave-' + row.id, 'cadet-3', ymdIn(1), ymdIn(3), 'SGT Manusree T']);
@@ -3390,8 +3401,8 @@ test('leave: a cadet asks for several days, a sergeant approves, those days are 
   await run(admin, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
   assert.match(await admin.textContent('#paradeDetailView'), /On leave \(approved\)/);
   // Mess duty leaves them out on those days only
-  assert.equal(await run(admin, d => messPick(d, 40, new Map(), new Set()).includes('cadet-3'), ymdIn(2)), false);
-  assert.equal(await run(admin, d => messPick(d, 40, new Map(), new Set()).includes('cadet-3'), ymdIn(6)), true);
+  assert.equal(await run(admin, d => messPick({ date: d }, 40, new Map(), new Set()).includes('cadet-3'), ymdIn(2)), false);
+  assert.equal(await run(admin, d => messPick({ date: d }, 40, new Map(), new Set()).includes('cadet-3'), ymdIn(6)), true);
   // Shown on the profile
   await refresh(c);
   await run(c, () => openCadetProfile('cadet-3'));
@@ -3400,7 +3411,6 @@ test('leave: a cadet asks for several days, a sergeant approves, those days are 
   // The sergeant cancels it before it starts, then undoes that
   await refresh(g);
   await run(g, () => { switchCadetFlowPage('parades'); });
-  await g.click('#leaveArea summary');
   await g.click('#leaveArea button:has-text("Cancel leave")');
   assert.equal(await run(g, () => app.state.leaves.length), 0);
   await g.click('#toastUndo');
@@ -3659,3 +3669,361 @@ test('the Tailwind stylesheet is built from the current page, and its link carri
   assert.ok(!html.includes('cdn.tailwindcss.com'), 'no Tailwind CDN');
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8'), /'\.\/cadetflow\.css'/);
 });
+
+// ==================== 2026-11-11 ====================
+const setParadeAt = (page, id, reportAt) => run(page, ({ id, reportAt }) => { findParade(id).reportAt = reportAt; app.saveStorage(); }, { id, reportAt });
+
+test('leave asked for a parade day: a sergeant excuses one parade (leave still waiting), then approves it; cadets on leave get no late/absent buttons', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => app.updateCadetField('cadet-10', 'rank', 'SGT'));
+  const pid = await makeParade(admin, 48, 'Drill in leave');
+  const far = await makeParade(admin, 24 * 8, 'Drill later');
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-g', { cadetId: 'cadet-10' });
+  device(db, 'user-c');
+  const { request } = await db.api('user-c', 'leave', { from: ymdIn(1), to: ymdIn(3), reason: 'Family function' });
+  await assert.rejects(db.api('user-g', 'excuse', { id: request.id, paradeId: far }), /not in the days/);
+  await assert.rejects(db.api('user-c', 'excuse', { id: request.id, paradeId: pid }), /sergeants/);
+
+  // The sergeant sees the leave on the parade and excuses the cadet for this parade only
+  const g = await openAs(browser, db, 'user-g');
+  await run(g, () => switchCadetFlowPage('parades'));
+  await g.waitForFunction(() => /1 leave request/.test(document.getElementById('paradeUpcoming').textContent));
+  await run(g, id => openParadeDetail(id), pid);
+  await g.waitForSelector('#paradeLeaveCard');
+  assert.match(await g.textContent('#paradeLeaveCard'), /Samahith M Rao[\s\S]*Family function/);
+  assert.match(await g.textContent('#paradeAttendanceList'), /Leave requested for this day/);
+  await g.click('#paradeLeaveCard button:has-text("Excuse for this parade")');
+  await waitToast(g, 'Their leave request is still waiting');
+  const rep = db.row.state.parades.find(p => p.id === pid).reports.find(r => r.cadetId === 'cadet-3');
+  assert.equal(rep.fromLeave, true); assert.equal(rep.kind, 'absent');
+  assert.equal(db.tables.cadetflow_requests[0].status, 'pending', 'the leave itself still waits');
+  assert.equal(await g.isVisible('#paradeLeaveCard'), false, 'nothing left to decide on this parade');
+  assert.match(db.pushes.at(-1).payload.title, /^Excused: Drill in leave/);
+  assert.match(db.pushes.at(-1).payload.body, /still waiting/);
+
+  // The cadet sees it, without late/absent buttons
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => switchCadetFlowPage('parades'));
+  await c.waitForFunction(() => /Excused so far from: Drill in leave/.test(document.getElementById('leaveArea').textContent));
+  await run(c, id => openParadeDetail(id), pid);
+  assert.match(await c.textContent('#paradeDetailView'), /Excused from this parade[\s\S]*still waiting/);
+  assert.equal(await c.isVisible('#paradeDetailView button:has-text("I\'ll be late")'), false);
+  // The whole leave is approved: "You are on approved leave", no buttons in Your day either
+  await db.api('user-g', 'decide', { id: request.id, approve: true });
+  await refresh(c);
+  await run(c, () => switchCadetFlowPage('home'));
+  await c.waitForSelector('#myDay:not(.hidden)');
+  assert.match(await c.textContent('#myDay'), /Next parade[\s\S]*approved leave/);
+  assert.equal(await c.isVisible('#myDay button:has-text("I\'ll be late")'), false);
+  await run(c, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.match(await c.textContent('#paradeDetailView'), /You are on approved leave/);
+  noErrors(admin, g, c);
+}));
+
+test('kit list on parades (prefilled from the last of its type, in the reminder) and minutes that every cadet can read', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => app.updateCadetField('cadet-10', 'rank', 'SGT'));
+  const pid = await run(admin, () => {
+    switchCadetFlowPage('parades'); openParadeModal(); setParadeKind('drill');
+    const at = new Date(Date.now() + 26 * 3600000), pad = n => String(n).padStart(2, '0');
+    document.getElementById('paradeDate').value = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    document.getElementById('paradeTime').value = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    document.getElementById('paradeDress').value = 'PT dress';
+    document.getElementById('paradeKit').value = 'Water bottle';
+    saveParade();
+    return PAR.openId;
+  });
+  assert.match(await admin.textContent('#paradeKitBox'), /PT dress[\s\S]*Water bottle/);
+  const pre = await run(admin, () => { openParadeModal(); setParadeKind('drill'); const v = [document.getElementById('paradeDress').value, document.getElementById('paradeKit').value]; app.closeModal('paradeModal'); return v; });
+  assert.deepEqual(pre, ['PT dress', 'Water bottle'], 'a new drill starts with the last drill\'s kit');
+  // The reminder carries the dress and kit
+  await setParadeAt(admin, pid, Date.now() + 90 * 60000);
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-g', { cadetId: 'cadet-10' });
+  device(db, 'user-c');
+  await db.api(null, 'remind');
+  const rem = db.pushes.find(p => p.userId === 'user-c');
+  assert.match(rem.payload.body, /Dress: PT dress · Bring: Water bottle/);
+  const c = await openAs(browser, db, 'user-c');
+  await c.waitForSelector('#myDay:not(.hidden)');
+  assert.match(await c.textContent('#myDay'), /Dress: PT dress · Bring: Water bottle/);
+
+  // Minutes: after the parade a sergeant writes them; the cadet reads them
+  await setParadeAt(admin, pid, Date.now() - 4 * 3600000);
+  await flush(admin);
+  const g = await openAs(browser, db, 'user-g');
+  await run(g, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  await g.click('#minutesCard button:has-text("Write minutes")');
+  await g.fill('#minutesText', 'Covered squad drill.\nNext time: rifle drill.');
+  await g.click('#minutesCard button:has-text("Save minutes")');
+  await flush(g);
+  assert.equal(db.row.state.parades.find(p => p.id === pid).minutes.text, 'Covered squad drill.\nNext time: rifle drill.');
+  await refresh(c);
+  await run(c, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.match(await c.textContent('#minutesShown'), /Covered squad drill/);
+  assert.equal(await c.isVisible('#minutesCard button:has-text("Edit")'), false, 'cadets only read them');
+  await run(c, () => closeParadeDetail());
+  assert.match(await c.textContent('#paradePast'), /Minutes/);
+  noErrors(admin, c, g);
+}));
+
+test('sign-ups: a JUO opens one, eligible cadets apply, the first come are selected, the rest wait, the selected are told', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => app.updateCadetField('cadet-20', 'rank', 'JUO'));
+  await flush(admin);
+  db.account('user-j', { cadetId: 'cadet-20' }).account('user-c', { cadetId: 'cadet-3' }).account('user-4', { cadetId: 'cadet-4' }).account('user-x', { cadetId: 'cadet-21' });
+  ['user-c', 'user-4', 'user-x'].forEach(u => device(db, u));
+  const j = await openAs(browser, db, 'user-j');
+  await j.click('#signupsCard button:has-text("New sign-up")');
+  await j.fill('#suTitle', 'RDC selection');
+  await j.fill('#suSeats', '1');
+  await j.click('#suYears button:has-text("1st")');
+  await j.click('#signupBody button:has-text("Open sign-up")');
+  await waitToast(j, 'Notification sent to');
+  const id = db.row.state.signups[0].id;
+  assert.deepEqual(db.pushes.map(p => p.userId).sort(), ['user-4', 'user-c'], 'only the 1st years');
+  await assert.rejects(db.api('user-x', 'signup', { id }), /not open to you/);
+  assert.deepEqual(await db.api('user-j', 'signupAnnounce', { id }), { alreadySent: true, sent: 0, devices: 0, people: 0 });
+
+  const c = await openAs(browser, db, 'user-c');
+  await c.click('#signupsCard button:has-text("Apply")');
+  await waitToast(c, 'Applied');
+  await db.api('user-4', 'signup', { id });
+  assert.deepEqual(db.row.state.signups[0].applicants.map(a => a.cadetId), ['cadet-3', 'cadet-4']);
+  await refresh(j);
+  await j.click('#signupsCard button:has-text("Applicants (2)")');
+  await j.click('#signupsCard button:has-text("Select the first 1")');
+  await flush(j);
+  assert.deepEqual(db.row.state.signups[0].applicants.map(a => a.status), ['selected', 'applied']);
+  db.pushes.length = 0;
+  await j.click('#signupsCard button:has-text("Notify the selected")');
+  await waitToast(j, 'Sent to 1 cadet');
+  assert.deepEqual(db.pushes.map(p => [p.userId, p.payload.title]), [['user-c', 'Selected: RDC selection']]);
+  await refresh(c);
+  assert.match(await c.textContent('#signupsCard'), /You were selected/);
+  assert.match(await c.textContent('#myDay'), /Selected[\s\S]*RDC selection/);
+  await assert.rejects(db.api('user-c', 'signup', { id, join: false }), /already selected/);
+  const four = await openAs(browser, db, 'user-4');
+  assert.match(await four.textContent('#signupsCard'), /waiting list, number 1/);
+  // Closed: nobody can apply or withdraw any more
+  await run(j, id => closeSignup(id, true), id);
+  await flush(j);
+  await assert.rejects(db.api('user-4', 'signup', { id, join: false }), /closed/);
+  noErrors(admin, j, c, four);
+}));
+
+test('mess duty swap: a cadet asks another cadet, they agree, a lance corporal approves; rank holders and locals cannot be asked', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  const pid = await makeParade(admin, 48, 'Drill');
+  await run(admin, ({ pid, date }) => {
+    app.state.messConfig = { perDay: 2, years: ['1st', '2nd'], exempt: ['cadet-7'] };
+    app.state.messDuty = [{ id: 'mess-p', paradeId: pid, date, cadetIds: ['cadet-3', 'cadet-4'], at: Date.now(), by: 'x' }];
+    app.saveStorage();
+  }, { pid, date: ymdIn(2) });
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-6', { cadetId: 'cadet-6' }).account('user-l', { cadetId: 'cadet-1' });
+  device(db, 'user-c'); device(db, 'user-6');
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => switchCadetFlowPage('parades'));
+  await c.click('#messCard button:has-text("Ask someone to swap")');
+  const pool = await c.textContent('#swapBody');
+  assert.ok(!pool.includes('Harsh Rajesh Koti') && pool.includes('CDT'), 'no rank holders offered');
+  await run(c, () => app.closeModal('swapModal'));
+  await assert.rejects(db.api('user-c', 'swapAsk', { dayId: 'mess-p', to: 'cadet-1' }), /only for cadets/);
+  await assert.rejects(db.api('user-c', 'swapAsk', { dayId: 'mess-p', to: 'cadet-7' }), /only for cadets/);
+  await assert.rejects(db.api('user-c', 'swapAsk', { dayId: 'mess-p', to: 'cadet-4' }), /already on mess duty/);
+  await db.api('user-c', 'swapAsk', { dayId: 'mess-p', to: 'cadet-6' });
+  assert.deepEqual([db.pushes.at(-1).userId, db.pushes.at(-1).payload.title], ['user-6', 'Mess duty swap']);
+  await assert.rejects(db.api('user-l', 'swapDecide', { id: db.row.state.messSwaps[0].id, approve: true }), /not agreed yet/);
+  const six = await openAs(browser, db, 'user-6');
+  await run(six, () => switchCadetFlowPage('parades'));
+  await six.click('#messSwaps button:has-text("Agree")');
+  await waitToast(six, 'Agreed');
+  assert.equal(db.pushes.at(-1).userId, 'user-c');
+  const l = await openAs(browser, db, 'user-l');
+  await run(l, () => switchCadetFlowPage('home'));
+  assert.match(await l.textContent('#myDay'), /Swaps[\s\S]*1 to approve/);
+  await run(l, () => switchCadetFlowPage('parades'));
+  await l.click('#messSwaps button:has-text("Approve")');
+  await waitToast(l, 'Swap approved');
+  assert.deepEqual(db.row.state.messDuty[0].cadetIds, ['cadet-6', 'cadet-4']);
+  assert.equal(db.row.state.messSwaps[0].status, 'approved');
+  noErrors(admin, c, six, l);
+}));
+
+test('below 75%: Your day and the profile say how many parades to attend, the cadet is told once; equipment register and overdue notice', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => {
+    const day = 86400000, now = Date.now();
+    app.updateCadetField('cadet-5', 'rank', 'CQMS');
+    app.state.parades = [...app.state.parades,
+      { id: 'p1', kind: 'drill', title: 'Drill', reportAt: now - 10 * day, scope: 'All', reports: [], marks: { 'cadet-3': 'present' } },
+      { id: 'p2', kind: 'drill', title: 'Drill', reportAt: now - 5 * day, scope: 'All', reports: [], marks: { 'cadet-3': 'present' } },
+      { id: 'p3', kind: 'drill', title: 'Drill', reportAt: now - day, scope: 'All', reports: [], marks: { 'cadet-3': 'absent' } }];
+    app.saveStorage();
+  });
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-q', { cadetId: 'cadet-5' });
+  device(db, 'user-c');
+  let r = await db.api(null, 'remind');
+  assert.equal(r.drops, 1);
+  const low = db.pushes.find(p => p.userId === 'user-c' && p.payload.tag === 'attendance');
+  assert.equal(low.payload.title, 'Attendance 67%');
+  assert.match(low.payload.body, /Attend the next 1 parade to get back to 75%/);
+  assert.equal((await db.api(null, 'remind')).drops, 0, 'once');
+  const c = await openAs(browser, db, 'user-c');
+  await c.waitForSelector('#myDay:not(.hidden)');
+  assert.match(await c.textContent('#myDay'), /67%[\s\S]*attend the next 1 parade to reach 75%/);
+  await run(c, () => openCadetProfile('cadet-3'));
+  assert.match(await c.textContent('#profile75'), /attend the next 1 parade/);
+  await run(c, () => app.closeModal('profileModal'));
+
+  // The CQMS issues a rifle due yesterday; the cadet is told once and sees it
+  const q = await openAs(browser, db, 'user-q');
+  await run(q, () => switchCadetFlowPage('uniform'));
+  await q.click('#equipCard button:has-text("Issue equipment")');
+  await q.fill('#eqSearch', 'Samahith');
+  await q.click('#eqPick button');
+  await q.fill('#eqItem', 'Rifle (drill purpose)');
+  await q.fill('#eqDue', ymdIn(-1));
+  await q.click('#equipBody button:has-text("Issue")');
+  await flush(q);
+  assert.equal(db.row.state.equipment[0].cadetId, 'cadet-3');
+  r = await db.api(null, 'remind');
+  assert.equal(r.overdue, 1);
+  assert.equal(db.pushes.at(-1).payload.title, 'Return equipment');
+  assert.equal((await db.api(null, 'remind')).overdue, 0, 'once');
+  await refresh(c);
+  assert.match(await c.textContent('#myDay'), /Equipment[\s\S]*1 to return/);
+  await run(c, () => switchCadetFlowPage('uniform'));
+  assert.match(await c.textContent('#equipCard'), /Equipment with you[\s\S]*Rifle/);
+  await q.click('#equipCard button:has-text("Returned")');
+  await flush(q);
+  assert.ok(db.row.state.equipment[0].returnedAt);
+  noErrors(admin, c, q);
+}));
+
+test('Learn: sergeants keep the question bank, cadets practise and their scores are kept; the study library holds links that seniors approve', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-10', 'rank', 'SGT'));
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-g', { cadetId: 'cadet-10' }).account('user-l', { cadetId: 'cadet-1' });
+  await assert.rejects(db.api('user-c', 'quizSave', { question: { cert: 'B', subject: 'Drill', question: 'Hello?', options: ['a', 'b'], answer: 0 } }), /sergeants/);
+  const res = await db.api('user-g', 'quizImport', { rows: [
+    { cert: 'B', subject: 'Map reading', question: 'How many degrees in a circle?', options: ['180', '360', '400'], answer: 'B' },
+    { cert: 'both', subject: 'Drill', question: 'Word of command for halt?', options: ['Ruk', 'Thum'], answer: 'B', explain: 'Thum means halt.' },
+    { cert: 'B', subject: 'Drill', question: 'Broken', options: ['only one'], answer: 'A' },
+  ] });
+  assert.deepEqual([res.added, res.skippedCount], [2, 1]);
+  await db.api('user-g', 'quizSave', { question: { cert: 'C', subject: 'Weapons', question: 'Calibre of the INSAS?', options: ['5.56 mm', '7.62 mm'], answer: 0 } });
+  assert.equal(db.tables.cadetflow_quiz.length, 3);
+
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => { switchCadetFlowPage('learn'); setLearnView('quiz'); });
+  await c.waitForSelector('#learnQuiz button:has-text("Start")');
+  assert.match(await c.textContent('#learnQuiz'), /2 questions to pick from/, "two for 'B' (one is for both)");
+  assert.equal(await c.isVisible('#quizManage'), false);
+  await c.click('#learnQuiz button:has-text("Start")');
+  for (let i = 0; i < 2; i++) {
+    await run(c, () => pickQuizAnswer(LEARN.round.qs[LEARN.round.i].answer));
+    await run(c, () => nextQuizQuestion());
+  }
+  await c.waitForSelector('#quizDone');
+  assert.match(await c.textContent('#quizDone'), /2\/2/);
+  for (let i = 0; i < 50 && !db.tables.cadetflow_quiz_scores.length; i++) await c.waitForTimeout(50);
+  assert.deepEqual([db.tables.cadetflow_quiz_scores[0].score, db.tables.cadetflow_quiz_scores[0].total, db.tables.cadetflow_quiz_scores[0].cadet_id], [2, 2, 'cadet-3']);
+  const s = await db.api('user-g', 'quizScores');
+  assert.equal(s.everyone[0].cadetId, 'cadet-3');
+  assert.equal((await db.api('user-c', 'quizScores')).everyone, undefined, 'cadets see only their own');
+
+  // Library: a cadet suggests a link, a lance corporal adds it
+  await assert.rejects(db.api('user-c', 'suggestLink', { title: 'Notes', url: 'http://example.com/x' }), /https/);
+  await db.api('user-c', 'suggestLink', { title: 'Map reading notes', url: 'https://drive.google.com/file/d/abc/view', subject: 'Map reading', cert: 'B' });
+  assert.equal(db.row.state.library[0].status, 'suggested');
+  const l = await openAs(browser, db, 'user-l');
+  await run(l, () => { switchCadetFlowPage('learn'); setLearnView('library'); });
+  await l.click('#libSuggested button:has-text("Add")');
+  await flush(l);
+  assert.equal(db.row.state.library[0].status, 'approved');
+  await refresh(c);
+  await run(c, () => setLearnView('library'));
+  assert.equal(await c.getAttribute('#learnLibrary a[href^="https://drive.google.com"]', 'rel'), 'noopener noreferrer');
+  noErrors(admin, c, l);
+}));
+
+test('suggestion box: anonymous ones keep no name or account, the administrator replies to named ones', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  db.account('user-c', { cadetId: 'cadet-3' });
+  device(db, 'user-c');
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => openSuggestBox());
+  await c.fill('#sgText', 'Please start parades on time.');
+  await c.check('#sgAnon');
+  await c.click('#sgSend');
+  await waitToast(c, 'without your name');
+  const anon = db.tables.cadetflow_suggestions[0];
+  assert.deepEqual([anon.user_id, anon.name, anon.cadet_id], [null, null, null]);
+  await db.api('user-c', 'suggest', { text: 'Add a water cooler at the ground.' });
+  await assert.rejects(db.api('user-c', 'suggestions'), /administrator/);
+  await run(admin, () => openSuggestions());
+  await admin.waitForFunction(() => /Sent without a name/.test(document.getElementById('suggestionsBody').textContent));
+  assert.match(await admin.textContent('#suggestionsBody'), /CDT Samahith M Rao/);
+  const named = db.tables.cadetflow_suggestions.find(x => x.user_id === 'user-c');
+  await assert.rejects(db.api('user-a', 'suggestionUpdate', { id: anon.id, reply: 'Thanks' }), /without a name/);
+  await db.api('user-a', 'suggestionUpdate', { id: named.id, reply: 'Ordered one.', status: 'done' });
+  assert.deepEqual([db.pushes.at(-1).userId, db.pushes.at(-1).payload.title], ['user-c', 'Reply to your suggestion']);
+  const mine = await db.api('user-c', 'mySuggestions');
+  assert.deepEqual(mine.suggestions.map(x => [x.text, x.reply]), [['Add a water cooler at the ground.', 'Ordered one.']], 'the anonymous one is not theirs any more');
+  noErrors(admin, c);
+}));
+
+test('trends chart and slipping cadets, rank history with order number, and the printable record', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => {
+    const day = 86400000, now = Date.now(), marks = ok => Object.fromEntries(['cadet-3', 'cadet-4', 'cadet-13', 'cadet-26'].map(id => [id, id === 'cadet-4' ? 'absent' : ok]));
+    app.state.parades = [...app.state.parades, ...[20, 13, 6, 2].map((d, i) => ({ id: 'tp' + i, kind: 'drill', title: 'Drill', reportAt: now - d * day, scope: 'All', reports: [], marks: marks(i === 3 ? 'late' : 'present') }))];
+    app.updateCadetField('cadet-3', 'rank', 'LCPL');
+    app.saveStorage();
+  });
+  await flush(admin);
+  assert.deepEqual(db.row.state.cadets.find(c => c.id === 'cadet-3').rankHistory.map(x => [x.from, x.to]), [['CDT', 'LCPL']]);
+  await run(admin, () => { switchCadetFlowPage('register'); setRegisterView('trends'); });
+  await admin.waitForSelector('#trendCard svg');
+  assert.ok(await admin.$('#trendCard path[stroke="#3987e5"]'), 'Jessami line in its colour');
+  assert.match(await admin.textContent('#trendCard'), /Jessami[\s\S]*Kohima[\s\S]*Naushera/);
+  await admin.click('#trendCard button:has-text("Show table")');
+  assert.ok(await admin.$('#trendCard table'));
+  assert.match(await admin.textContent('#slipCard'), /Kaif|missed the last 3/);
+  assert.match(await admin.textContent('#slipCard'), /missed the last 3/);
+
+  await run(admin, () => openCadetProfile('cadet-3'));
+  assert.match(await admin.textContent('#rankHistory'), /Promoted CDT → LCPL/);
+  admin.on('dialog', () => {}); // native dialogs answer the two questions
+  await admin.evaluate(() => { let n = 0; window.prompt = () => (n++ === 0 ? 'NCC/12/2026' : '2026-11-01'); });
+  await admin.click('#rankHistory button:has-text("Add order no.")');
+  await admin.waitForFunction(() => /order NCC\/12\/2026/.test(document.getElementById('rankHistory').textContent));
+  await run(admin, () => { window.print = () => {}; printRecord('cadet-3'); });
+  await admin.waitForFunction(() => /NCC record: LCPL Samahith M Rao/.test(document.getElementById('recordPrint').textContent));
+  assert.match(await admin.textContent('#recordPrint'), /Attendance[\s\S]*100%[\s\S]*Rank history[\s\S]*NCC\/12\/2026/);
+
+  // A cadet can print their own record only
+  db.account('user-4', { cadetId: 'cadet-4' });
+  const four = await openAs(browser, db, 'user-4');
+  assert.deepEqual(await run(four, () => [canPrintRecord(cadetById('cadet-4')), canPrintRecord(cadetById('cadet-3'))]), [true, false]);
+  noErrors(admin, four);
+}));

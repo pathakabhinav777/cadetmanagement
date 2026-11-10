@@ -25,6 +25,14 @@
 //   leave     { from, to, reason, image? } -> { request }        own leave for several days (SGT and above decide it)
 //   answer    { noticeId, choice }         -> { mine, counts, total }   own answer to a notice's question
 //   answers   { ids: [noticeId] }          -> { answers: { id: { mine, counts, total } } }
+//   signup    { id, join }                 -> { ok }             apply for (or withdraw from) a sign-up
+//   swapAsk   { dayId, to, takeDayId? }    -> { ok }             ask another cadet to take your mess duty (or swap days)
+//   swapAnswer { id, accept } / swapWithdraw { id } -> { ok }
+//   suggestLink { title, url, subject, cert } -> { ok }          suggest a link for the study library
+//   suggest   { text, anonymous }          -> { ok }             suggestion box (anonymous ones keep no account)
+//   mySuggestions                          -> { suggestions }    own named suggestions and the replies
+//   quizBank                               -> { questions }      practice questions; quizScore { cert, subject, score, total }
+//   quizScores                             -> { mine, everyone? } own scores; SGT and above: everyone's summary
 // Lance corporals and above (and POCs):
 //   seenBy    { item }                     -> { seen: [{ name, at }], notSeen: [{ name }], total }
 //   answersBy { noticeId }                 -> { options: [{ label, people: [{ name, company }] }], notAnswered: [...] }
@@ -32,11 +40,17 @@
 //   uniformRequest  { items: [{ item, custom?, size? }], qty?, note? } -> { added, skipped }   own items
 //   uniformCancel   { id }  /  uniformReceived { id }  /  uniformPay { ids, image } -> { ok }
 // SGT and above:   decide { id, approve, note? }, reportImage { id }
+//                  excuse { id, paradeId }   excuse a cadet from one parade on the strength of a leave request
+//                  that is still waiting (the leave stays waiting)
+//                  quizSave { question }, quizDelete { id }, quizImport { rows }
+// Lance corporals and above: swapDecide { id, approve } (a mess duty swap both cadets agreed to)
+// JUO / SUO:       signupAnnounce { id } (once), signupTell { id } (tells the selected cadets)
 // JUO / SUO:       notify { paradeId, again? (administrator) }
 //                  paradeChange { paradeId, was: { reportAt, venue } }  "parade changed" to its cadets (once per change)
 //                  paradeCancel { paradeId }   "parade cancelled" to its cadets, sent just before the site deletes it
 // CQMS:            payImage { proofId }, payDecide { proofId, ok, note? }, setPayInfo { upi, payee, note, image?, removeQr? }
 // Administrator:   backups -> { backups: [{ id, at, kind, size, cadets, parades, tasks }] }, backupNow, restoreBackup { id }
+//                  suggestions -> { suggestions }, suggestionUpdate { id, status?, reply? }
 //                  accounts (with each person's number of devices for notifications),
 //                  invite { people: [{ cadetId, email, regNo }], send, site },
 //                  resetLink { userId, send, site }, setPassword { userId, password },
@@ -47,15 +61,17 @@
 // is decided and the parade is over; payment screenshots once every item they paid for is approved
 // and collected. Leave screenshots go once the leave is decided and over.
 //
-// The scheduled "remind" also sends the administrator a weekly summary on Sunday evenings (once a week).
+// The scheduled "remind" also sends the administrator a weekly summary on Sunday evenings (once a week),
+// tells a cadet once when a parade takes them below 75% attendance, and tells a cadet once when equipment
+// they were issued is past its return date.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 // @ts-ignore plain JavaScript module shared with the tests
 import * as rules from "./rules.mjs";
 
-const { approvedReport, audienceText, can, CUTOFF_MIN, inParade, isLeaveRequest, istDay, istWeekday, messToRemind, paradeRecipients, paradesToRemind,
-  payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, uniformKeyOf, uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS,
-  weekSummary, WEEKLY_HOUR } = rules;
+const { approvedReport, attendanceDrops, audienceText, can, cleanLink, cleanQuestion, CUTOFF_MIN, equipmentOverdue, inParade, isLeaveRequest, istDay, istWeekday,
+  messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
+  uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS, weekSummary, WEEKLY_HOUR } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
 const BUCKET = "cadetflow-report-files";
@@ -447,7 +463,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const people = paradeRecipients(profiles, cadetsOf(state), pd, state.leaves || []); // not those on leave
       const mins = Math.round((Number(pd.reportAt) - now) / 60000);
       const left = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min` : `${mins} min`;
-      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
+      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Dress: ${String(pd.dress)}` : "", pd.kit ? `Bring: ${String(pd.kit)}` : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
       parades++;
     }
     for (const d of days) {
@@ -455,8 +471,27 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const ids = new Set((d.cadetIds as unknown[]).map(String));
       const people = profiles.filter((p) => p.cadet_id && ids.has(String(p.cadet_id))).map((p) => p.user_id);
       const day = new Intl.DateTimeFormat("en-IN", { timeZone: IST, weekday: "long", day: "numeric", month: "short" }).format(new Date(`${d.date}T12:00:00+05:30`));
-      await tell(people, { title: "Mess duty", body: `You are on mess duty on ${day}.`, tag: `mess-${d.id}`, url: "./?page=availability" });
+      const pd = d.paradeId ? findParade(state, d.paradeId) : null;
+      await tell(people, { title: "Mess duty", body: pd ? `You are on mess duty at ${String(pd.title || "the parade")} on ${day}: return the refreshments to the mess.` : `You are on mess duty on ${day}.`, tag: `mess-${d.id}`, url: "./?page=parades" });
       mess++;
+    }
+    // A parade marked in the last 3 days took a cadet below 75%: tell them once.
+    let drops = 0, overdue = 0;
+    const drop = attendanceDrops(state, now);
+    const equip = equipmentOverdue(state.equipment, now);
+    if (drop.length || equip.length) {
+      const everyone = profiles.length ? profiles : await approvedProfiles();
+      const accountsOf = (cadetId: string) => everyone.filter((p) => String(p.cadet_id || "") === cadetId).map((p) => p.user_id);
+      for (const d of drop) {
+        if (!(await claim(`below75:${d.cadetId}@${d.paradeId}`))) continue;
+        await tell(accountsOf(d.cadetId), { title: `Attendance ${d.pct}%`, body: `You are below 75%. Attend the next ${d.need} parade${d.need === 1 ? "" : "s"} to get back to 75%.`, tag: "attendance", url: "./?page=home" });
+        drops++;
+      }
+      for (const e of equip) {
+        if (!(await claim(`equip:${e.id}@${e.dueDate}`))) continue;
+        await tell(accountsOf(String(e.cadetId)), { title: "Return equipment", body: `${String(e.item || "Equipment")}${Number(e.qty) > 1 ? ` x${e.qty}` : ""} was due back on ${e.dueDate}. Return it to the CQMS.`, tag: `equip-${e.id}`, url: "./?page=uniform" });
+        overdue++;
+      }
     }
     // Sunday evening: the week in numbers for the administrator.
     let weekly = 0;
@@ -476,7 +511,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" });
       weekly = 1;
     }
-    return json({ parades, mess, weekly });
+    return json({ parades, mess, weekly, drops, overdue });
   }
   if (action === "subscribe") {
     const a = await access(me, null);
@@ -775,7 +810,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     try {
       people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd, a.state.leaves || []); // not those on leave
       subs = await devicesOf(people);
-      const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", `For: ${audienceText(pd)}`].filter(Boolean);
+      const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Dress: ${String(pd.dress)}` : "", `For: ${audienceText(pd)}`].filter(Boolean);
       r = await sendTo(subs, { title: `New parade: ${String(pd.title || "Parade")}`, body: lines.join(" · "), tag: `parade-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` });
     } catch (e) {
       if (body.again !== true) await db.from("cadetflow_push_sent").delete().eq("parade_id", paradeId);
@@ -819,6 +854,291 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       throw e;
     }
     return json({ ...r, devices: subs.length, people: people.length });
+  }
+
+
+  // ---- leave: excuse a cadet from one parade while their leave request still waits
+  if (action === "excuse") {
+    const a = await access(me, "requests");
+    const { data: r, error } = await db.from("cadetflow_requests").select(REQ_COLS).eq("id", String(body.id || "")).maybeSingle();
+    if (error) throw new Error("could not read the request: " + error.message);
+    if (!r || !isLeaveRequest(r)) fail(404, "That leave request was withdrawn.");
+    if (r.status !== "pending") fail(409, "That leave request was already decided.");
+    if (r.user_id === a.me.id && !a.who.admin) fail(403, "Another senior has to decide on your own request.");
+    const from = String(r.from_date || "").slice(0, 10), to = String(r.to_date || "").slice(0, 10);
+    const decider = nameOf(a);
+    let title = "", at = 0;
+    const paradeId = String(body.paradeId || "");
+    await changeState(a.me.id, (s) => {
+      const pd = findParade(s, paradeId);
+      if (!pd) fail(404, "That parade was deleted.");
+      const day = istDay(Number(pd.reportAt)).date;
+      if (day < from || day > to) fail(400, "That parade is not in the days of this leave.");
+      const c = findCadet(s, r.cadet_id);
+      if (!inParade(c, pd)) fail(400, "This parade is not for that cadet.");
+      title = String(pd.title || "Parade"); at = Number(pd.reportAt);
+      pd.reports = (Array.isArray(pd.reports) ? pd.reports : []).filter((x: Obj) => x && x.cadetId !== r.cadet_id);
+      pd.reports.push({
+        id: `rep-leave-${r.id}`, cadetId: r.cadet_id, kind: "absent", reason: `On leave ${from} to ${to}${r.reason ? `: ${r.reason}` : ""}`, informedTo: a.who.cadet ? String(a.who.cadet.id) : "",
+        at: Date.parse(r.created_at), by: decider, fromCadet: true, fromLeave: true, requestId: r.id, approvedAt: Date.now(),
+      });
+      addHistory(s, "parade-report", r.cadet_id, `${c?.name || r.cadet_id}: excused from ${title} by ${decider} (leave ${from} to ${to} still waiting)`);
+      return true;
+    });
+    if (r.user_id) await tell([r.user_id], { title: `Excused: ${title}`, body: `${when(at)} · your leave request is still waiting for a decision`, tag: `request-${r.id}-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` });
+    return json({ ok: true });
+  }
+
+  // ---- sign-ups: cadets apply; JUOs, SUOs and the administrator run them on the site
+  if (action === "signup") {
+    const a = await access(me, null);
+    if (!a.who.cadet) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    const cadetId = String(a.who.cadet.id), id = String(body.id || ""), join = body.join !== false;
+    await changeState(a.me.id, (s) => {
+      const item = (Array.isArray(s.signups) ? s.signups : []).find((x: Obj) => x && x.id === id);
+      if (!item) fail(404, "That sign-up was removed.");
+      if (!signupOpen(item)) fail(400, "Sign-ups for this have closed.");
+      if (!inParade(findCadet(s, cadetId), item)) fail(403, "This sign-up is not open to you.");
+      const list: Obj[] = Array.isArray(item.applicants) ? item.applicants : [];
+      const mine = list.find((x) => x && x.cadetId === cadetId);
+      if (join) {
+        if (mine) return false;
+        if (list.length >= 500) fail(400, "This sign-up is full.");
+        item.applicants = [...list, { id: `ap-${cadetId}`, cadetId, at: Date.now(), status: "applied" }];
+      } else {
+        if (!mine) return false;
+        if (mine.status === "selected") fail(400, "You were already selected. Ask the organiser to take you off.");
+        item.applicants = list.filter((x) => x !== mine);
+      }
+      return true;
+    });
+    return json({ ok: true });
+  }
+  if (action === "signupAnnounce" || action === "signupTell") {
+    const a = await access(me, "parade");
+    const id = String(body.id || "");
+    const item = (Array.isArray(a.state.signups) ? a.state.signups : []).find((x: Obj) => x && x.id === id);
+    if (!item) fail(404, "That sign-up is not saved yet. Try again in a moment.");
+    const profiles = await approvedProfiles();
+    let people: string[], key: string, payload: Obj;
+    if (action === "signupAnnounce") {
+      people = paradeRecipients(profiles, cadetsOf(a.state), item).filter((u) => u !== a.me.id);
+      key = `signup:${id}`;
+      payload = { title: `Sign up: ${String(item.title || "")}`, body: `Apply on CadetFlow by ${when(Number(item.closesAt))}${item.seats ? ` · ${item.seats} places` : ""}`, tag: `signup-${id}`, url: "./?page=home" };
+    } else {
+      const chosen = (Array.isArray(item.applicants) ? item.applicants : []).filter((x: Obj) => x && x.status === "selected").map((x: Obj) => String(x.cadetId)).sort();
+      if (!chosen.length) fail(400, "Nobody is selected yet.");
+      people = profiles.filter((p) => p.cadet_id && chosen.includes(String(p.cadet_id))).map((p) => p.user_id);
+      let h = 0; for (const ch of chosen.join(",")) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      key = `signup-sel:${id}:${(h >>> 0).toString(36)}`;
+      payload = { title: `Selected: ${String(item.title || "")}`, body: "You were selected. Watch the notice board for what comes next.", tag: `signup-${id}`, url: "./?page=home" };
+    }
+    const { error: claimErr } = await db.from("cadetflow_push_sent").insert({ parade_id: key, sent_by: a.me.id });
+    if (claimErr?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
+    if (claimErr) throw new Error("could not record the send: " + claimErr.message);
+    const subs = await devicesOf(people);
+    const r = await sendTo(subs, payload);
+    return json({ ...r, devices: subs.length, people: people.length });
+  }
+
+  // ---- mess duty swaps: one cadet asks, the other agrees, a lance corporal or above approves
+  if (action === "swapAsk" || action === "swapAnswer" || action === "swapWithdraw" || action === "swapDecide") {
+    const a = await access(me, action === "swapDecide" ? "write" : null);
+    const myId = a.who.cadet ? String(a.who.cadet.id) : "";
+    if (action !== "swapDecide" && !myId) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    const today = istDay(Date.now()).date;
+    const dayLabel = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: IST, weekday: "short", day: "numeric", month: "short" }).format(new Date(`${d}T12:00:00+05:30`));
+    let notify: { cadetIds: string[]; title: string; body: string }[] = [];
+    await changeState(a.me.id, (s) => {
+      notify = [];
+      const days: Obj[] = Array.isArray(s.messDuty) ? s.messDuty : [];
+      const swaps: Obj[] = Array.isArray(s.messSwaps) ? s.messSwaps : (s.messSwaps = []);
+      const name = (id: string) => rankName(findCadet(s, id)) || "A cadet";
+      if (action === "swapAsk") {
+        const d = days.find((x) => x && x.id === String(body.dayId || ""));
+        const to = String(body.to || "");
+        if (!d || d.date < today) fail(404, "That mess duty day is over or was removed.");
+        if (!(d.cadetIds || []).map(String).includes(myId)) fail(400, "You are not on mess duty that day.");
+        const other = findCadet(s, to);
+        if (!other || to === myId) fail(400, "Pick another cadet.");
+        const locals = Array.isArray(s.messConfig?.exempt) ? s.messConfig.exempt.map(String) : [];
+        if ((other.rank && other.rank !== "CDT") || locals.includes(to)) fail(400, "Mess duty is only for cadets who are not locals. Pick someone else.");
+        const pdOf = d.paradeId ? findParade(s, d.paradeId) : null;
+        if (pdOf && !inParade(other, pdOf)) fail(400, "They are not expected at that parade.");
+        if ((d.cadetIds || []).map(String).includes(to)) fail(400, "They are already on mess duty that day.");
+        let t: Obj | null = null;
+        if (body.takeDayId) {
+          t = days.find((x) => x && x.id === String(body.takeDayId)) || null;
+          if (!t || t.date < today || !(t.cadetIds || []).map(String).includes(to)) fail(400, "They are not on mess duty that other day.");
+          if ((t.cadetIds || []).map(String).includes(myId)) fail(400, "You are already on mess duty that other day.");
+        }
+        if (swaps.some((x) => x && x.dayId === d.id && x.from === myId && (x.status === "asked" || x.status === "accepted"))) fail(409, "You already asked someone about that day. Withdraw it first.");
+        swaps.push({ id: rid("swap"), dayId: d.id, date: d.date, from: myId, to, ...(t ? { takeDayId: t.id, takeDate: t.date } : {}), status: "asked", at: Date.now() });
+        notify.push({ cadetIds: [to], title: "Mess duty swap", body: `${name(myId)} asks you to take their mess duty on ${dayLabel(d.date)}${t ? `, and they take yours on ${dayLabel(t.date)}` : ""}. Answer on the Parades page.` });
+        return true;
+      }
+      const sw = swaps.find((x) => x && x.id === String(body.id || ""));
+      if (!sw) fail(404, "That swap request was removed.");
+      if (action === "swapAnswer") {
+        if (sw.to !== myId) fail(403, "That request is for someone else.");
+        if (sw.status !== "asked") fail(409, "That request was already answered.");
+        sw.status = body.accept === true ? "accepted" : "declined"; sw.answeredAt = Date.now();
+        notify.push({ cadetIds: [sw.from], title: "Mess duty swap", body: `${name(myId)} ${body.accept === true ? "agreed. A senior approves it next." : "said no."}` });
+        return true;
+      }
+      if (action === "swapWithdraw") {
+        if (sw.from !== myId) fail(403, "That request is someone else's.");
+        if (sw.status !== "asked" && sw.status !== "accepted") fail(409, "That request was already decided.");
+        sw.status = "withdrawn"; sw.answeredAt = Date.now();
+        return true;
+      }
+      // swapDecide
+      if (sw.status !== "accepted") fail(409, sw.status === "asked" ? "The other cadet has not agreed yet." : "That swap was already decided.");
+      if ((sw.from === myId || sw.to === myId) && !a.who.admin) fail(403, "Another senior has to approve your own swap.");
+      const decider = nameOf(a);
+      if (body.approve === true) {
+        const d = days.find((x) => x && x.id === sw.dayId);
+        if (!d || !(d.cadetIds || []).map(String).includes(sw.from) || (d.cadetIds || []).map(String).includes(sw.to)) fail(409, "Mess duty that day changed meanwhile. The swap no longer fits.");
+        let t: Obj | null = null;
+        if (sw.takeDayId) {
+          t = days.find((x) => x && x.id === sw.takeDayId) || null;
+          if (!t || !(t.cadetIds || []).map(String).includes(sw.to) || (t.cadetIds || []).map(String).includes(sw.from)) fail(409, "Mess duty on the other day changed meanwhile. The swap no longer fits.");
+        }
+        d.cadetIds = d.cadetIds.map((x: unknown) => String(x) === sw.from ? sw.to : x);
+        if (t) t.cadetIds = t.cadetIds.map((x: unknown) => String(x) === sw.to ? sw.from : x);
+        sw.status = "approved";
+        addHistory(s, "mess-swapped", null, `Mess duty ${sw.date}: ${name(sw.from)} swapped with ${name(sw.to)}${t ? ` (who gave ${t.date})` : ""}, approved by ${decider}`);
+        notify.push({ cadetIds: [sw.from, sw.to], title: "Mess duty swap approved", body: `${name(sw.to)} does ${dayLabel(sw.date)}${t ? `, ${name(sw.from)} does ${dayLabel(t.date)}` : ""}.` });
+      } else {
+        sw.status = "refused";
+        notify.push({ cadetIds: [sw.from, sw.to], title: "Mess duty swap not approved", body: `${dayLabel(sw.date)} stays as planned.` });
+      }
+      sw.decidedAt = Date.now(); sw.decidedBy = decider;
+      s.messSwaps = swaps.filter((x) => x && (x.status === "asked" || x.status === "accepted" || Number(x.decidedAt || x.answeredAt || x.at) > Date.now() - 30 * 86400000));
+      return true;
+    });
+    if (notify.length) {
+      const profiles = await approvedProfiles();
+      for (const n of notify) await tell(profiles.filter((p) => p.cadet_id && n.cadetIds.includes(String(p.cadet_id))).map((p) => p.user_id), { title: n.title, body: n.body, tag: "mess-swap", url: "./?page=parades" });
+    }
+    return json({ ok: true });
+  }
+
+  // ---- study library: links only (files stay on Google Drive, YouTube or a website)
+  if (action === "suggestLink") {
+    const a = await access(me, null);
+    const url = cleanLink(body.url);
+    if (!url) fail(400, "Paste a full link starting with https://");
+    const title = String(body.title || "").trim().replace(/\s+/g, " ").slice(0, 120);
+    if (title.length < 3) fail(400, "Write what the link is.");
+    const subject = String(body.subject || "").trim().replace(/\s+/g, " ").slice(0, 60) || "General";
+    const cert = ["B", "C", "both"].includes(body.cert) ? body.cert : "";
+    const by = nameOf(a);
+    await changeState(a.me.id, (s) => {
+      const lib: Obj[] = Array.isArray(s.library) ? s.library : (s.library = []);
+      if (lib.filter((x) => x && x.status === "suggested" && x.by === by).length >= 5) fail(429, "You already have 5 links waiting. Wait until a senior looks at them.");
+      if (lib.some((x) => x && x.url === url)) fail(409, "That link is already in the library or waiting.");
+      lib.push({ id: rid("lib"), title, url, subject, ...(cert ? { cert } : {}), status: "suggested", by, ...(a.who.cadet ? { byCadet: String(a.who.cadet.id) } : {}), at: Date.now() });
+      return true;
+    });
+    return json({ ok: true });
+  }
+
+  // ---- suggestion box (the administrator reads them). Anonymous ones keep no account or name.
+  if (action === "suggest") {
+    const a = await access(me, null);
+    const text = String(body.text || "").trim().slice(0, 1500);
+    if (text.length < 5) fail(400, "Write your suggestion.");
+    const anonymous = body.anonymous === true;
+    const since = new Date(Date.now() - 86400000).toISOString();
+    if (anonymous) {
+      const { count } = await db.from("cadetflow_suggestions").select("id", { count: "exact", head: true }).is("user_id", null).gte("created_at", since);
+      if ((count || 0) >= 30) fail(429, "Too many suggestions today. Try again tomorrow.");
+    } else {
+      const { count } = await db.from("cadetflow_suggestions").select("id", { count: "exact", head: true }).eq("user_id", a.me.id).gte("created_at", since);
+      if ((count || 0) >= 5) fail(429, "You sent 5 suggestions today. Try again tomorrow.");
+    }
+    const { error } = await db.from("cadetflow_suggestions").insert({
+      id: crypto.randomUUID(), text, created_at: new Date().toISOString(), status: "new",
+      ...(anonymous ? { user_id: null, name: null, cadet_id: null } : { user_id: a.me.id, name: nameOf(a), cadet_id: a.who.cadet ? String(a.who.cadet.id) : null }),
+    });
+    if (error) throw new Error("could not save it: " + error.message);
+    await tell(await adminPeople(), { title: "New suggestion", body: text.length > 120 ? text.slice(0, 117) + "…" : text, tag: "suggestions", url: "./?page=home" });
+    return json({ ok: true });
+  }
+  if (action === "mySuggestions") {
+    const a = await access(me, null);
+    const { data, error } = await db.from("cadetflow_suggestions").select("id, text, created_at, status, reply, replied_at, replied_by_name").eq("user_id", a.me.id).order("created_at", { ascending: false }).limit(20);
+    if (error) throw new Error("could not read them: " + error.message);
+    return json({ suggestions: (data || []).map((x) => ({ id: x.id, text: x.text, at: Date.parse(x.created_at), status: x.status, reply: x.reply || "", repliedAt: x.replied_at ? Date.parse(x.replied_at) : null, repliedBy: x.replied_by_name || "" })) });
+  }
+
+  // ---- practice questions (B and C certificates)
+  if (action === "quizBank") {
+    await access(me, null);
+    const { data, error } = await db.from("cadetflow_quiz").select("id, cert, subject, question, options, answer, explain").order("created_at", { ascending: true }).limit(5000);
+    if (error) throw new Error("could not read the questions: " + error.message);
+    return json({ questions: data || [] });
+  }
+  if (action === "quizSave" || action === "quizImport" || action === "quizDelete") {
+    const a = await access(me, "requests");
+    if (action === "quizDelete") {
+      const { error } = await db.from("cadetflow_quiz").delete().eq("id", String(body.id || ""));
+      if (error) throw new Error("could not remove it: " + error.message);
+      return json({ ok: true });
+    }
+    const rows = action === "quizSave" ? [body.question] : (Array.isArray(body.rows) ? body.rows : []).slice(0, 1000);
+    const good: Obj[] = [], bad: { row: number; error: string }[] = [];
+    rows.forEach((x: Obj, i: number) => { const r = cleanQuestion(x); if (r.error) bad.push({ row: i + 1, error: r.error }); else good.push(r.q); });
+    if (action === "quizSave") {
+      if (bad.length) fail(400, bad[0].error);
+      const id = String(body.question?.id || "");
+      const row = { ...good[0], updated_at: new Date().toISOString() };
+      const { error } = id
+        ? await db.from("cadetflow_quiz").update(row).eq("id", id)
+        : await db.from("cadetflow_quiz").insert({ id: crypto.randomUUID(), ...row, created_at: new Date().toISOString(), created_by: a.me.id });
+      if (error) throw new Error("could not save it: " + error.message);
+      return json({ ok: true });
+    }
+    if (good.length) {
+      const at = Date.now();
+      const { error } = await db.from("cadetflow_quiz").insert(good.map((q, i) => ({ id: crypto.randomUUID(), ...q, created_at: new Date(at + i).toISOString(), updated_at: new Date(at).toISOString(), created_by: a.me.id })));
+      if (error) throw new Error("could not save them: " + error.message);
+    }
+    return json({ added: good.length, skipped: bad.slice(0, 20), skippedCount: bad.length });
+  }
+  if (action === "quizScore") {
+    const a = await access(me, null);
+    const total = Math.round(Number(body.total)), score = Math.round(Number(body.score));
+    if (!(total >= 1 && total <= 100) || !(score >= 0 && score <= total)) fail(400, "That score does not add up.");
+    const since = new Date(Date.now() - 86400000).toISOString();
+    const { count } = await db.from("cadetflow_quiz_scores").select("id", { count: "exact", head: true }).eq("user_id", a.me.id).gte("taken_at", since);
+    if ((count || 0) >= 100) return json({ ok: true, kept: false });
+    const { error } = await db.from("cadetflow_quiz_scores").insert({
+      id: crypto.randomUUID(), user_id: a.me.id, cadet_id: a.who.cadet ? String(a.who.cadet.id) : null, cert: ["B", "C"].includes(body.cert) ? body.cert : "B",
+      subject: String(body.subject || "All subjects").slice(0, 60), score, total, taken_at: new Date().toISOString(),
+    });
+    if (error) throw new Error("could not save the score: " + error.message);
+    return json({ ok: true, kept: true });
+  }
+  if (action === "quizScores") {
+    const a = await access(me, null);
+    const { data: mine, error } = await db.from("cadetflow_quiz_scores").select("cert, subject, score, total, taken_at").eq("user_id", a.me.id).order("taken_at", { ascending: false }).limit(30);
+    if (error) throw new Error("could not read the scores: " + error.message);
+    const out: Obj = { mine: (mine || []).map((x) => ({ cert: x.cert, subject: x.subject, score: x.score, total: x.total, at: Date.parse(x.taken_at) })) };
+    if (can(a.who, "requests")) {
+      const since = new Date(Date.now() - 120 * 86400000).toISOString();
+      const { data: all } = await db.from("cadetflow_quiz_scores").select("cadet_id, score, total, taken_at").gte("taken_at", since).limit(20000);
+      const by = new Map<string, Obj>();
+      for (const x of all || []) {
+        if (!x.cadet_id) continue;
+        const t = by.get(x.cadet_id) || { cadetId: x.cadet_id, tries: 0, right: 0, asked: 0, last: 0 };
+        t.tries++; t.right += x.score; t.asked += x.total; t.last = Math.max(t.last, Date.parse(x.taken_at));
+        by.set(x.cadet_id, t);
+      }
+      out.everyone = [...by.values()].map((t) => ({ cadetId: t.cadetId, tries: t.tries, pct: t.asked ? Math.round(t.right / t.asked * 100) : 0, last: t.last }));
+    }
+    return json(out);
   }
 
   // ---- uniform: cadets' own items, payment
@@ -1026,6 +1346,31 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const { data, error } = await db.from("cadetflow_backups").select("id, taken_at, kind, size, cadets, parades, tasks").order("taken_at", { ascending: false }).limit(100);
     if (error) throw new Error("could not list the backups: " + error.message);
     return json({ backups: (data || []).map((b) => ({ id: b.id, at: Date.parse(b.taken_at), kind: b.kind, size: b.size, cadets: b.cadets, parades: b.parades, tasks: b.tasks })) });
+  }
+
+
+  if (action === "suggestions" || action === "suggestionUpdate") {
+    const a = await access(me, "admin");
+    if (action === "suggestionUpdate") {
+      const { data: x, error: re } = await db.from("cadetflow_suggestions").select("id, user_id, text").eq("id", String(body.id || "")).maybeSingle();
+      if (re) throw new Error("could not read it: " + re.message);
+      if (!x) fail(404, "That suggestion was removed.");
+      const change: Obj = {};
+      if (["new", "seen", "done"].includes(body.status)) change.status = body.status;
+      if (typeof body.reply === "string") {
+        const reply = body.reply.trim().slice(0, 1000);
+        Object.assign(change, reply ? { reply, replied_at: new Date().toISOString(), replied_by_name: nameOf(a) } : { reply: null, replied_at: null, replied_by_name: null });
+        if (reply && !x.user_id) fail(400, "This one was sent without a name, so a reply cannot reach anyone.");
+      }
+      if (!Object.keys(change).length) return json({ ok: true });
+      const { error } = await db.from("cadetflow_suggestions").update(change).eq("id", x.id);
+      if (error) throw new Error("could not save it: " + error.message);
+      if (change.reply && x.user_id) await tell([x.user_id], { title: "Reply to your suggestion", body: change.reply.length > 150 ? change.reply.slice(0, 147) + "…" : change.reply, tag: `suggestion-${x.id}`, url: "./?page=home" });
+      return json({ ok: true });
+    }
+    const { data, error } = await db.from("cadetflow_suggestions").select("id, text, created_at, status, name, cadet_id, user_id, reply, replied_at, replied_by_name").order("created_at", { ascending: false }).limit(300);
+    if (error) throw new Error("could not read them: " + error.message);
+    return json({ suggestions: (data || []).map((x) => ({ id: x.id, text: x.text, at: Date.parse(x.created_at), status: x.status, name: x.name || "", cadetId: x.cadet_id || null, anonymous: !x.user_id, reply: x.reply || "", repliedAt: x.replied_at ? Date.parse(x.replied_at) : null, repliedBy: x.replied_by_name || "" })) });
   }
 
   if (action === "invite") {

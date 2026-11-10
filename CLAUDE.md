@@ -32,7 +32,7 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Powers always follow the current roster: a rank or POC change reaches every open page with the next sync (`rerenderAfterRemote` re-applies `applyAccessUI`), and the server and database read the roster on every request. Setting a second CQMS warns that the old one keeps uniform powers until their rank changes.
 - Checks: `app.can(perm)`, `app.canEdit()` (= `write`), `app.isAdmin()`, `app.myCadet()`. Body classes `can-edit`, `can-parade`, `can-requests`, `can-attendance`, `can-uniform`, `is-admin`, `has-cadet`, `signed-in` hide buttons through CSS.
 - The old `editor`/`senior` role gives nothing now: link those accounts to their cadets.
-- The database enforces the important part as well (trigger `cadetflow_state_guard`, in the launch SQL): only the administrator can change `cadets` or remove tasks, only the CQMS and the administrator can change `uniform` and `uniformPrices`, and nobody can move the row. The site sends those parts back exactly as it read them for everyone else (`lockedKeys()`, `savePayload()`). Change the trigger, `lockedKeys()` and `guardRefuses` in `tests/fake-supabase.cjs` together. `cadetflow-api` (service role) is not checked. A writer can still change parades, history and call-outs by hand.
+- The database enforces the important part as well (trigger `cadetflow_state_guard`, in the launch SQL): only the administrator can change `cadets` or remove tasks, only the CQMS and the administrator can change `uniform`, `uniformPrices` and `equipment` (migration `20261111_quiz_suggestions_equipment.sql` has the current trigger), and nobody can move the row. The site sends those parts back exactly as it read them for everyone else (`lockedKeys()`, `savePayload()`). Change the trigger, `lockedKeys()` and `guardRefuses` in `tests/fake-supabase.cjs` together. `cadetflow-api` (service role) is not checked. A writer can still change parades, history and call-outs by hand.
 
 ## App (install + notifications)
 - Live at https://pathakabhinav777.github.io/cadetmanagement/ (GitHub Pages from `main`).
@@ -45,14 +45,14 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
   - `sw.js` shows the push and opens `?parade=<id>` or `?page=<page>`. iPhone needs Add to Home Screen first (iOS 16.4+).
 
 ## Notices, parade calendar, camps, mess duty, new year, payments, activity (2026-11-08)
-- Shared data keys `notices`, `camps`, `alumni`, `messDuty` (lists with safe ids) and `messConfig` (object) go through `EXTRA_LISTS`/`extraLists()` in every load, save, merge, backup and restore path. Add a new key there.
+- Shared data keys `notices`, `camps`, `alumni`, `messDuty`, `leaves`, `signups`, `messSwaps`, `library`, `equipment` (lists with safe ids) and `messConfig` (object) go through `EXTRA_LISTS`/`extraLists()` in every load, save, merge, backup and restore path. Add a new key there.
 - Notice board on Home (`renderNotices`): `write` power posts (`postNotice`), with an optional notification (server `announce`, once per notice). The poster or the administrator removes it.
 - "Seen by": `markSeen()` sends `seen` for notices shown on Home and for upcoming parades on the Parades page the cadet is expected at; `write` power opens the list (`seenBy`). Stored in table `cadetflow_seen` (migration `20261108_seen_and_alumni.sql`).
 - Parades: List/Calendar toggle (`PAR.view`, remembered per device), repeating parades (Repeat + How many in the parade dialog; separate parades sharing a `seriesId`; only the first is announced; deleting offers to remove the later ones of the series).
 - Reminders: server action `remind` (no sign-in, idempotent; rules `paradesToRemind`, `messToRemind` in rules.mjs) sends parade reminders 2 hours before and mess duty reminders from 6 pm the evening before, each once (`cadetflow_push_sent` keys `remind:<id>@<reportAt>`, so a moved parade is reminded again; an older `remind:<id>` row counts when its `sent_at` was for that time; `mess:<id>`). Scheduled by `supabase/launch/reminders_cron.sql` (pg_cron every 10 min); the site also nudges it on open.
 - Camps (Cadet Roster page, `renderCamps`, `#campModal`): `parade` power (JUO, SUO, administrator) records them; shown on profiles.
 - New academic year (administrator, Cadet Roster page): 1st → 2nd, 2nd → 3rd, 3rd years move to `alumni` ("Past cadets", with Bring back). `alumni` is locked like `cadets` (`lockedKeys`, the guard trigger, `guardRefuses`).
-- Mess duty (Availability page, `renderMessCard`): `write` power plans the next 7 days (fewest duties first, then longest since the last), swaps a cadet, sets cadets a day, days, years and excused cadets.
+- Mess duty (Parades page since 2026-11-11, `renderMessCard`): see the 2026-11-11 section.
 - Uniform payment summary for the CQMS (`renderUniPaySummary`): billed, collected, to check, not paid, per order, who still owes.
 - Activity log page (`#activityPage`, from the account menu or Data menu): the history with search, kinds and dates. History entries now carry `by`.
 
@@ -71,6 +71,22 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Accounts page "Not on the app yet" (`notOnAppHtml`): cadets with no account (Invite fills the invite form) and approved accounts with no device for notifications (`accounts` now returns `devices`).
 - Migration `supabase/migrations/20261109_leave_answers_backups.sql` (additive): leave columns and kind, `cadetflow_answers`, `cadetflow_backups`, grants to `service_role` (its `cadetflow_daily_backup()` was dropped again on 2026-11-10).
 
+## Leave rework, kit, minutes, sign-ups, mess duty per parade, Learn, suggestions, trends, ranks, equipment (2026-11-11)
+- Leave: a waiting leave that covers a parade shows on that parade for SGT and above (`renderParadeLeaveCard`, `leaveAsksFor`): "Excuse for this parade" (server `excuse`: adds an absent report `fromLeave: true`, the leave stays waiting, the cadet is told), "Approve the whole leave", "Don't approve". `#leaveArea` is sections with buttons (no `<details>`), hidden when empty; waiting leave lists its parades with per-parade Excuse. A cadet on approved leave, excused from it, or with leave waiting for that day gets no "I'll be late"/"I can't come" (`renderMyParadeCard`, Your day); they can still read agenda and minutes.
+- Kit: `pd.dress`, `pd.kit` in the parade dialog (a new parade copies the last one of the same kind); shown on cards, detail, Your day, the announcement, notifications and the 2-hour reminder.
+- Minutes: `pd.minutes = { text, by, at }` once the parade has started; `attendance` or `parade` power writes them (`renderMinutesCard`); everyone reads them.
+- Sign-ups (`state.signups`, Home `#signupsCard`): `parade` power opens one (`#signupModal`: places, closing time, company, years, notification `signupAnnounce` once). Cadets apply or withdraw through server `signup` (eligible by `inParade`, only while open; selected cannot withdraw). Applicants `{ id: 'ap-<cadet>', cadetId, at, status: applied|selected|not }`; past the places = waiting list. "Select the first N", Copy, "Notify the selected" (`signupTell`, once per set of selected).
+- Mess duty is per parade: `state.messDuty` items `{ id: 'mess-<parade id>', paradeId, date, cadetIds }`, planned for parades in the next 14 days (`planMessParades`), default 4 a parade. Only rank CDT (`messRankOk`), only cadets expected at that parade, not excused or on leave, never locals. Locals are `messConfig.exempt`; only the administrator changes them (`toggleMessList`, `setMessConfig`). No week-day setting any more. Shown on the parade detail (`paradeMessHtml`); the evening-before reminder names the parade.
+- Mess duty swaps (`state.messSwaps`): `swapAsk` (asker on that duty; the other must be a CDT, not a local, expected at the parade), `swapAnswer`, `swapWithdraw`, `swapDecide` (`write` power, not one of the two unless administrator; applies the change). Both told at each step.
+- 75%: `needFor75(a, n) = 3n - 4a` in both files; Your day and the profile say how many parades to attend. `remind` tells a cadet once when a parade in the last 3 days took them below 75% (`attendanceDrops`, key `below75:<cadet>@<parade>`).
+- Print record (profile, own or SGT and above): `printRecord` fills `#recordPrint`, `body.printing-record`.
+- Learn page (`#learnPage`, page `learn`): Practice (tables `cadetflow_quiz`, `cadetflow_quiz_scores`; `quizBank`, `quizScore`, `quizScores`; SGT and above `quizSave`, `quizDelete`, `quizImport` from Excel/CSV, scores by cadet) and Study library (`state.library`, links only, https; writers add, others `suggestLink`, at most 5 waiting each; writers approve). Nothing is uploaded.
+- Suggestion box (account menu): `suggest` (anonymous rows keep no user, name or cadet), `mySuggestions`; administrator `suggestions`, `suggestionUpdate` (status, reply; replying tells a named sender). Table `cadetflow_suggestions`.
+- Trends (Attendance register page, Register | Trends): weekly attendance by company for 12 weeks (SVG, palette Jessami #3987e5, Kohima #d95926, Naushera #199e70, legend, end labels, hover, table view), by year last 30 days vs before, "Needs a word" list (`slippingCadets`).
+- Rank history: rank changes on the roster add `cadet.rankHistory` `{ id, from, to, at, by, order?, on? }` (`noteRankChange`); administrator adds the order number on the profile.
+- Equipment (`state.equipment`, Uniform page `#equipCard`, CQMS and administrator, locked like uniform): issue, Returned (Undo), show returned, Copy. Cadets see their own; `remind` tells them once when overdue (`equip:<id>@<due>`).
+- Migration `supabase/migrations/20261111_quiz_suggestions_equipment.sql`: the three tables (service role only) and the guard with `equipment`.
+
 ## Server: Edge Function `cadetflow-api`
 - Source in `supabase/functions/cadetflow-api/index.ts` plus `rules.mjs` (plain rules shared with the tests). The list of actions is at the top of `index.ts`.
 - Deployed with verify_jwt off: every action checks who is calling itself.
@@ -87,12 +103,12 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
   - One live account per cadet.
   - Users can read only their own row; every change goes through `cadetflow-api`.
 - Table `cadetflow_requests`: cadets' late/absence requests and leave (`kind 'leave'`, `from_date`, `to_date`). Only the server uses it.
-- Tables `cadetflow_answers` (answers to notice questions) and `cadetflow_backups` (copies of the shared data): service role only.
+- Tables `cadetflow_answers` (answers to notice questions), `cadetflow_backups` (copies of the shared data), `cadetflow_quiz`, `cadetflow_quiz_scores`, `cadetflow_suggestions`: service role only.
 - Table `cadetflow_settings`: `payment` = `{ upi, payee, note, qr }`.
 - Private bucket `cadetflow-report-files`: request screenshots under `<parade id>/`, payment screenshots under `pay/`, the payment QR under `settings/`. Shown through signed links only.
 - Push tables `cadetflow_push_subscriptions` (with `user_id`), `cadetflow_push_keys`, `cadetflow_push_sent` are service-role only.
 - Schema: `supabase/migrations/20261107_cadet_accounts.sql` (additive). The read lock-down is `supabase/launch/cadet_accounts_launch.sql`.
-- This Supabase project does not grant table access to `service_role` automatically. Any table an Edge Function reads or writes needs an explicit `grant ... to service_role`; a missing grant shows up as "permission denied for table". Current grants: SELECT and UPDATE on `cadetflow_state`, full access on `cadetflow_profiles`, `cadetflow_requests`, `cadetflow_settings`, `cadetflow_answers` and the `cadetflow_push_*` tables, SELECT, INSERT and DELETE on `cadetflow_backups`.
+- This Supabase project does not grant table access to `service_role` automatically. Any table an Edge Function reads or writes needs an explicit `grant ... to service_role`; a missing grant shows up as "permission denied for table". Current grants: SELECT and UPDATE on `cadetflow_state`, full access on `cadetflow_profiles`, `cadetflow_requests`, `cadetflow_settings`, `cadetflow_answers`, `cadetflow_quiz`, `cadetflow_quiz_scores`, `cadetflow_suggestions` and the `cadetflow_push_*` tables, SELECT, INSERT and DELETE on `cadetflow_backups`.
 
 ## Conventions
 - Cadet fields: `id, name, rank, wing, company, year ('1st'|'2nd'|'3rd'|''), cycle, regNo?, free?` (timetable halves like `MON1`). Ranks: CDT, LCPL, CPL, SGT, CQMS, CSM, JUO, SUO. Companies: Jessami, Kohima, Naushera, or `No company` (CSM/CQMS).

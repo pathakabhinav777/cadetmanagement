@@ -257,3 +257,71 @@ export function weekSummary(state, now = Date.now()) {
   }
   return { parades: week.length, pct: pctOf(att, cnt), byCompany, under, owed };
 }
+
+// ---- Attendance: how many more parades to reach 75%, and who just dropped below it -------------
+/** Parades in a row a cadet must attend to get back to 75% (0 when already there). */
+export function needFor75(attended, counted) { return Math.max(0, 3 * counted - 4 * attended); }
+/**
+ * Cadets who fell below 75% because of a parade marked in the last 3 days: they were at 75% or more
+ * before it (with at least 3 parades counted now). One entry per cadet, for their latest counted parade.
+ */
+export function attendanceDrops(state, now = Date.now()) {
+  const cadets = (Array.isArray(state?.cadets) ? state.cadets : []).filter(c => c && c.id != null);
+  const parades = (Array.isArray(state?.parades) ? state.parades : []).filter(p => p && p.id && Number.isFinite(Number(p.reportAt)) && Number(p.reportAt) <= now)
+    .sort((a, b) => Number(a.reportAt) - Number(b.reportAt));
+  const leaves = state?.leaves || [];
+  const out = [];
+  for (const c of cadets) {
+    const seq = [];
+    for (const pd of parades) {
+      if (!inParade(c, pd)) continue;
+      const st = attendanceOf(pd, String(c.id), leaves);
+      if (st === 'attended' || st === 'missed') seq.push({ pd, ok: st === 'attended' });
+    }
+    if (seq.length < 3) continue;
+    const last = seq[seq.length - 1];
+    if (last.ok || Number(last.pd.reportAt) < now - 3 * 86400000) continue;
+    const a = seq.filter(x => x.ok).length, n = seq.length;
+    if (a / n >= 0.75 || (a / (n - 1)) < 0.75) continue;
+    out.push({ cadetId: String(c.id), paradeId: last.pd.id, pct: Math.round(a / n * 100), need: needFor75(a, n) });
+  }
+  return out;
+}
+
+// ---- Equipment issued by the CQMS: state.equipment = [{ id, cadetId, item, qty, dueDate?, returnedAt? }]
+/** Items not returned whose due date (India time) is over. */
+export function equipmentOverdue(list, now = Date.now()) {
+  const today = istDay(now).date;
+  return (Array.isArray(list) ? list : []).filter(e => e && e.id && e.cadetId && !e.returnedAt && DAY.test(String(e.dueDate || '')) && e.dueDate < today);
+}
+
+// ---- Sign-ups (camps, selections, drives): state.signups = [{ id, title, closesAt, seats?, scope, years?, cadetIds?, closed?, applicants }]
+export function signupOpen(s, now = Date.now()) { return !!s && !s.closed && now < Number(s.closesAt); }
+
+// ---- Practice questions for the certificate exams
+export const QUIZ_CERTS = ['B', 'C', 'both'];
+/** A question as typed or imported, checked; returns { q } or { error }. */
+export function cleanQuestion(x) {
+  const text = v => String(v ?? '').trim().replace(/\s+/g, ' ');
+  const cert = String(x?.cert || '').trim().toUpperCase() === 'BOTH' ? 'both' : String(x?.cert || '').trim().toUpperCase();
+  if (!QUIZ_CERTS.includes(cert)) return { error: "Certificate must be B, C or both." };
+  const subject = text(x?.subject).slice(0, 60), question = text(x?.question).slice(0, 600);
+  if (!subject) return { error: 'Write the subject.' };
+  if (question.length < 5) return { error: 'Write the question.' };
+  const options = (Array.isArray(x?.options) ? x.options : []).map(o => text(o).slice(0, 200));
+  while (options.length && !options[options.length - 1]) options.pop();
+  if (options.length < 2 || options.some(o => !o)) return { error: 'Give at least two answers to pick from, with no gaps.' };
+  if (options.length > 6) return { error: 'Six answers at most.' };
+  let answer = x?.answer;
+  if (typeof answer === 'string' && /^[A-Fa-f]$/.test(answer.trim())) answer = answer.trim().toUpperCase().charCodeAt(0) - 65;
+  answer = Number(answer);
+  if (!Number.isInteger(answer) || answer < 0 || answer >= options.length) return { error: 'Mark which answer is right.' };
+  return { q: { cert, subject, question, options, answer, explain: text(x?.explain).slice(0, 600) } };
+}
+
+/** A link for the study library: https only, no spaces. */
+export function cleanLink(url) {
+  const s = String(url || '').trim();
+  if (s.length > 500 || !/^https:\/\/[^\s/$.?#][^\s]*$/i.test(s)) return '';
+  try { const u = new URL(s); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
+}
