@@ -768,7 +768,7 @@
           <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="document.getElementById('restoreFileInput').click(); closeMemoryMenu()">Import data</button>
           <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800" onclick="closeMemoryMenu(); switchCadetFlowPage('activity')">Activity log</button>
           <button type="button" class="attendance-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); switchCadetFlowPage('register')">Attendance register</button>
-          <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); openBackups()">Daily backups</button>
+          <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); openBackups()">Backups</button>
         </div>
       </div>
     </nav>
@@ -2250,11 +2250,11 @@
     </div>
   </div>
 
-  <!-- Modal: daily backups of the shared data (administrator) -->
+  <!-- Modal: backups of the shared data, made by hand (administrator) -->
   <div id="backupsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
-        <div><p class="text-[11px] font-semibold text-amber-400">Data</p><h3 class="text-lg font-extrabold text-white mt-1">Daily backups</h3><p class="text-xs text-slate-400 mt-1">A copy of all the shared data is kept every night at 2 am, for 30 days. Restoring one replaces everything for everyone; a copy of the data as it is now is kept first.</p></div>
+        <div><p class="text-[11px] font-semibold text-amber-400">Data</p><h3 class="text-lg font-extrabold text-white mt-1">Backups</h3><p class="text-xs text-slate-400 mt-1">Make a copy of all the shared data before a big change. Copies are kept for 30 days. Restoring one replaces everything for everyone; a copy of the data as it is now is kept first.</p></div>
         <button type="button" onclick="app.closeModal('backupsModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="backupsBody"><p class="text-sm text-slate-400">Loading…</p></div>
@@ -10801,7 +10801,7 @@
       return opts;
     }
 
-    // ---- Daily backups (administrator): list, make one now, restore one
+    // ---- Backups (administrator, made by hand): list, make one now, restore one
     const BK = { list: null, busy: false, error: '' };
     async function openBackups() {
       if (!app?.isAdmin?.()) return;
@@ -10813,12 +10813,12 @@
     function renderBackups() {
       const host = document.getElementById('backupsBody'); if (!host) return;
       const esc = escapeHtml, dis = BK.busy ? 'disabled' : '';
-      const kind = k => ({ daily: 'Nightly', manual: 'Made by hand', 'before-restore': 'Before a restore' })[k] || k;
+      const kind = k => ({ manual: 'Made by hand', 'before-restore': 'Before a restore' })[k] || k;
       const size = n => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
       host.innerHTML = `
         <button type="button" ${dis} onclick="backupNow()" class="mb-3 px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Make a backup now</button>
         ${BK.error ? `<p class="text-sm text-rose-300">${esc(BK.error)}</p>` : !BK.list ? '<p class="text-sm text-slate-400">Loading…</p>'
-          : !BK.list.length ? '<p class="text-sm text-slate-400">No backups yet. The first nightly copy is made at 2 am.</p>'
+          : !BK.list.length ? '<p class="text-sm text-slate-400">No backups yet. Make one before a big change.</p>'
           : `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${BK.list.map(b => `<li class="px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
               <div class="min-w-0"><p class="text-sm text-white font-semibold">${esc(fmtWhen(b.at))}</p>
                 <p class="text-[11px] text-slate-500">${esc(kind(b.kind))} · ${b.cadets ?? 0} cadets · ${b.parades ?? 0} parades · ${b.tasks ?? 0} tasks${b.size ? ' · ' + esc(size(b.size)) : ''}</p></div>

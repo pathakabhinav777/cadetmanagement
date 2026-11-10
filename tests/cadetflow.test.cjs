@@ -3481,24 +3481,24 @@ test('weekly summary: the administrator is told about the week on Sunday evening
   noErrors(admin);
 }));
 
-test('backups: a copy every night, one by hand, and the administrator restores one (keeping a copy of now first)', () => withBrowser(async browser => {
+test('backups: no nightly copy; the administrator makes one by hand and restores it (keeping a copy of now first)', () => withBrowser(async browser => {
   const db = makeDb();
   const admin = await openAs(browser, db, 'user-a');
   await flush(admin);
-  db.dailyBackup(new Date(Date.now() - 3600000).toISOString());
   const old = db.row.state.cadets.find(c => c.id === 'cadet-5').name;
-  await run(admin, () => app.updateCadetField('cadet-5', 'name', 'Wrong Name'));
-  await flush(admin);
   await assert.rejects(db.api('user-v', 'backups'), /administrator/);
 
   await run(admin, () => { switchCadetFlowPage('parades'); toggleMemoryMenu(); });
-  await admin.click('#memoryDropdown button:has-text("Daily backups")');
-  await admin.waitForSelector('#backupsBody li');
-  assert.match(await admin.textContent('#backupsBody'), /Nightly[\s\S]*cadets/);
+  await admin.click('#memoryDropdown button:has-text("Backups")');
+  await admin.waitForFunction(() => /No backups yet/.test(document.getElementById('backupsBody').textContent));
+  assert.doesNotMatch(await admin.textContent('#backupsModal'), /every night|nightly|2 am/i);
   await admin.click('#backupsBody button:has-text("Make a backup now")');
   await waitToast(admin, 'Backup made');
-  assert.deepEqual(db.tables.cadetflow_backups.map(b => b.kind).sort(), ['daily', 'manual']);
-  await admin.click('#backupsBody li:has-text("Nightly") button:has-text("Restore")');
+  assert.deepEqual(db.tables.cadetflow_backups.map(b => b.kind), ['manual']);
+
+  await run(admin, () => app.updateCadetField('cadet-5', 'name', 'Wrong Name'));
+  await flush(admin);
+  await admin.click('#backupsBody li:has-text("Made by hand") button:has-text("Restore")');
   await waitToast(admin, 'Backup restored');
   assert.equal(db.row.state.cadets.find(c => c.id === 'cadet-5').name, old);
   assert.equal(await run(admin, () => app.state.cadets.find(c => c.id === 'cadet-5').name), old);

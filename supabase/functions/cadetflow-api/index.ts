@@ -995,8 +995,8 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     return json({ accounts });
   }
 
-  // ---- daily backups of the shared data (table cadetflow_backups; the nightly copy is made by
-  // supabase/launch/daily_backup_cron.sql). Kept 30 days.
+  // ---- backups of the shared data (table cadetflow_backups), made by hand by the administrator,
+  // plus one just before each restore. Kept 30 days. There is no nightly copy.
   if (action === "backups" || action === "backupNow" || action === "restoreBackup") {
     const a = await access(me, "admin");
     const summary = (s: Obj) => ({

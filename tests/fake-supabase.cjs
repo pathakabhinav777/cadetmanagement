@@ -198,15 +198,6 @@ class Backend {
     return '';
   }
 
-  /** What public.cadetflow_daily_backup() does each night (supabase/migrations/20261109_…). */
-  dailyBackup(at = now()) {
-    const s = this.row.state; if (!s) return null;
-    const len = k => (Array.isArray(s[k]) ? s[k].length : 0);
-    const b = { ...DEFAULTS.cadetflow_backups(), taken_at: at, kind: 'daily', state: clone(s), size: JSON.stringify(s).length, cadets: len('cadets'), parades: len('parades'), tasks: len('events') };
-    this.tables.cadetflow_backups.push(b);
-    return b;
-  }
-
   /** Add a sign-in account with its CadetFlow profile. */
   account(id, { role = 'viewer', status = 'approved', cadetId = null, email = `${id}@example.com`, password = `pass-${id}`, name = null, regNo = null } = {}) {
     if (!this.users.has(id)) this.addUser({ id, email, password });
