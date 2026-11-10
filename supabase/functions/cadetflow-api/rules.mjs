@@ -287,12 +287,6 @@ export function messLeadRank(cadet) {
   const rank = String(cadet?.rank || 'CDT').toUpperCase();
   return rank === 'LCPL' || rank === 'CPL' || (cadet?.poc === true && rank === 'CDT');
 }
-/** May a volunteer still step back? Until 6 pm (India time) the evening before the duty. */
-export function messStepBackOpen(date, now = Date.now()) {
-  const { date: today, hour } = istDay(now);
-  const tomorrow = istDay(now + 86400000).date;
-  return String(date) > tomorrow || (String(date) === tomorrow && hour < MESS_REMIND_HOUR);
-}
 
 /** Item ids for "seen by": 'notice:<id>' or 'parade:<id>'. */
 export const SEEN_ITEM = /^(notice|parade):[A-Za-z0-9_.:-]{1,128}$/;

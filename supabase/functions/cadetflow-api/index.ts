@@ -33,8 +33,9 @@
 //                                             cadet (optionally taking one of their duties in return)
 //   swapTake  { id }                       -> { ok, done }       take a duty someone put up (done at once)
 //   swapAnswer { id, accept } / swapWithdraw { id } -> { ok }    agreeing makes the swap at once; no senior needed
-//   messVolunteer { paradeId, undo? }    -> { ok }             volunteer for mess duty at a parade with refreshments
-//                                             (or step back until 6 pm the evening before)
+//   messOut   { dayId, reason }            -> { ok }             ask a senior to let you off your mess duty (with a reason)
+//   messOutDecide { id, approve }          -> { ok }             SGT and above: let the cadet off, or keep them on it
+//   messVolunteer { paradeId }             -> { ok }             volunteer for mess duty at a parade with refreshments
 //   messStandby { on }                     -> { ok, on }         on the advance volunteers list (asked first)
 //   suggestLink { title, url, subject, cert } -> { ok }          suggest a link for the study library
 //   suggest   { text, anonymous }          -> { ok }             suggestion box (anonymous ones keep no account)
@@ -78,7 +79,7 @@ import webpush from "npm:web-push@3.6.7";
 import * as rules from "./rules.mjs";
 
 const { approvedReport, attendanceDrops, audienceText, can, cleanLink, cleanQuestion, CUTOFF_MIN, equipmentOverdue, hasRefreshments, inParade, isLeaveRequest, istDay, istWeekday,
-  excusedFrom, messCallsDue, messCanDo, messLeadRank, messPerDay, messStandbyIds, messStepBackOpen, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
+  excusedFrom, messCallsDue, messCanDo, messLeadRank, messPerDay, messStandbyIds, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
   uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS, weekSummary, WEEKLY_HOUR } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
@@ -1029,16 +1030,20 @@ async function handle(req: Request, body: Obj): Promise<Response> {
   // ---- mess duty swaps: a cadet on duty puts their duty up for anyone to take, or asks one cadet
   // (optionally taking one of their duties in return). Taking it, or agreeing, makes the change at once:
   // both cadets agreed, so no senior needs to approve it.
-  if (action === "swapAsk" || action === "swapAnswer" || action === "swapWithdraw" || action === "swapTake") {
-    const a = await access(me, null);
+  // A cadet on duty who cannot do it either finds someone (above) or asks a senior to let them off with a
+  // reason (messOut, kind 'out' in the same list); sergeants and above decide it (messOutDecide).
+  if (action === "swapAsk" || action === "swapAnswer" || action === "swapWithdraw" || action === "swapTake" || action === "messOut" || action === "messOutDecide") {
+    const deciding = action === "messOutDecide";
+    const a = await access(me, deciding ? "requests" : null);
     const myId = a.who.cadet ? String(a.who.cadet.id) : "";
-    if (!myId) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    if (!myId && !deciding) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    let tellAdmins = false;
     const today = istDay(Date.now()).date;
     const dayLabel = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: IST, weekday: "short", day: "numeric", month: "short" }).format(new Date(`${d}T12:00:00+05:30`));
     let notify: { cadetIds: string[]; title: string; body: string }[] = [];
     let done = "";
     await changeState(a.me.id, (s) => {
-      notify = []; done = "";
+      notify = []; done = ""; tellAdmins = false;
       const days: Obj[] = Array.isArray(s.messDuty) ? s.messDuty : [];
       const swaps: Obj[] = Array.isArray(s.messSwaps) ? s.messSwaps : (s.messSwaps = []);
       const name = (id: string) => rankName(findCadet(s, id)) || "A cadet";
@@ -1097,8 +1102,56 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         notify.push({ cadetIds: [to], title: "Mess duty swap", body: `${name(myId)} asks you to take their mess duty at ${where(d!)}${t ? `, and they take yours on ${dayLabel(t.date)}` : ""}. Answer on the Parades page.` });
         return true;
       }
+      if (action === "messOut") {
+        const d = days.find((x) => x && x.id === String(body.dayId || ""));
+        const pd = d && d.paradeId ? findParade(s, d.paradeId) : null;
+        if (!d || d.date < today || (pd && Number(pd.reportAt) <= Date.now())) fail(404, "That mess duty is over or was removed.");
+        if (!ids(d!).includes(myId)) fail(400, "You are not on that mess duty.");
+        if (swaps.some((x) => live(x) && x.dayId === d!.id && x.from === myId)) fail(409, "You already asked about that duty. Withdraw it first.");
+        const reason = String(body.reason || "").replace(/\s+/g, " ").trim().slice(0, 300);
+        if (reason.length < 3) fail(400, "Write why you cannot do it.");
+        swaps.push({ id: rid("swap"), kind: "out", dayId: d!.id, date: d!.date, from: myId, to: null, reason, status: "asked", at: Date.now() });
+        // Sergeants and above expected at that parade (all of them if none); the administrator when there are none.
+        const seniors = cadetsOf(s).filter((c) => can({ admin: false, rank: String(c.rank || "").toUpperCase() }, "requests"));
+        const there = pd ? seniors.filter((c) => inParade(c, pd)) : [];
+        const to = (there.length ? there : seniors).map((c) => String(c.id));
+        if (!to.length) tellAdmins = true;
+        notify.push({ cadetIds: to, title: "Mess duty: asks to be let off", body: `${name(myId)}, ${where(d!)}: ${reason}. Decide on the Parades page.` });
+        addHistory(s, "mess-out-asked", myId, `${name(myId)} asked to be let off mess duty at ${where(d!)}: ${reason}`);
+        return true;
+      }
       const sw = swaps.find((x) => x && x.id === String(body.id || ""));
-      if (!sw) fail(404, "That swap request was removed.");
+      if (!sw) fail(404, "That request was removed.");
+      if (deciding) {
+        if (sw!.kind !== "out") fail(400, "That is a swap between cadets: they settle it themselves.");
+        if (sw!.status !== "asked") fail(409, "That request was already decided or withdrawn.");
+        const d = days.find((x) => x && x.id === sw!.dayId) || null;
+        sw!.decidedBy = nameOf(a); sw!.answeredAt = Date.now();
+        if (body.approve !== true) {
+          sw!.status = "refused";
+          notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty: stay on it", body: `${nameOf(a)} did not let you off mess duty at ${d ? where(d) : dayLabel(sw!.date)}. You can still ask a cadet to take your place.` });
+          addHistory(s, "mess-out-refused", String(sw!.from), `${nameOf(a)} kept ${name(String(sw!.from))} on mess duty at ${d ? where(d) : dayLabel(sw!.date)}`);
+          tidy();
+          return true;
+        }
+        if (!d || d.date < today || !ids(d).includes(String(sw!.from))) fail(409, "That mess duty changed meanwhile, so there is nothing to let them off.");
+        d!.cadetIds = d!.cadetIds.filter((x: unknown) => String(x) !== String(sw!.from));
+        if (Array.isArray(d!.volunteers)) d!.volunteers = d!.volunteers.filter((x: unknown) => String(x) !== String(sw!.from));
+        sw!.status = "approved";
+        for (const x of swaps) if (x !== sw && live(x) && x.dayId === d!.id && x.from === sw!.from) { x.status = "withdrawn"; x.answeredAt = Date.now(); }
+        notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty: you are off it", body: `${nameOf(a)} let you off mess duty at ${where(d!)}.` });
+        // The call to the lance corporals has gone already: tell them a place opened again.
+        if (d!.asked && d!.asked.leads) {
+          const pd = d!.paradeId ? findParade(s, d!.paradeId) : null;
+          const leads = cadetsOf(s).filter((c) => messLeadRank(c)), there = pd ? leads.filter((c) => inParade(c, pd)) : [];
+          notify.push({ cadetIds: (there.length ? there : leads).map((c) => String(c.id)), title: "Pick mess duty", body: `${name(String(sw!.from))} was let off mess duty at ${where(d!)}. Pick someone on the Parades page.` });
+        }
+        addHistory(s, "mess-out-approved", String(sw!.from), `${nameOf(a)} let ${name(String(sw!.from))} off mess duty at ${where(d!)}`);
+        done = "off";
+        tidy();
+        return true;
+      }
+      if (sw!.kind === "out" && action !== "swapWithdraw") fail(400, "That request is for a senior to decide.");
       if (action === "swapTake") {
         if (sw!.status !== "open") fail(409, sw!.status === "done" ? "Someone already took it." : "That request was withdrawn.");
         if (sw!.from === myId) fail(400, "That is your own duty.");
@@ -1133,12 +1186,13 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     if (notify.length) {
       const profiles = await approvedProfiles();
       for (const n of notify) await tell(profiles.filter((p) => p.cadet_id && n.cadetIds.includes(String(p.cadet_id))).map((p) => p.user_id), { title: n.title, body: n.body, tag: "mess-swap", url: "./?page=parades" });
+      if (tellAdmins && notify[0]) await tell(profiles.filter((p) => p.role === "admin").map((p) => p.user_id), { title: notify[0].title, body: notify[0].body, tag: "mess-swap", url: "./?page=parades" });
     }
     return json({ ok: true, ...(done ? { done } : {}) });
   }
 
-  // ---- mess duty volunteers: { paradeId } to volunteer, { paradeId, undo: true } to step back (until 6 pm
-  // the evening before; after that, ask someone to swap). Only while there are places left.
+  // ---- mess duty volunteers: { paradeId } to volunteer, only while there are places left. Getting off it
+  // again goes through a senior (messOut) or another cadet who agrees to take the place (swapAsk).
   if (action === "messVolunteer") {
     const a = await access(me, null);
     const myId = a.who.cadet ? String(a.who.cadet.id) : "";
@@ -1152,15 +1206,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const date = istDay(Number(pd.reportAt)).date;
       let d = s.messDuty.find((x: Obj) => x && x.paradeId === pd.id);
       const ids = () => (Array.isArray(d?.cadetIds) ? d!.cadetIds : []).map(String);
-      if (undo) {
-        if (!d || !ids().includes(myId)) fail(400, "You are not on that mess duty.");
-        if (!(Array.isArray(d.volunteers) ? d.volunteers : []).map(String).includes(myId)) fail(400, "You were picked for it, so you cannot step back. Ask someone to swap.");
-        if (!messStepBackOpen(d.date)) fail(400, "It is too late to step back. Ask someone to swap.");
-        d.cadetIds = d.cadetIds.filter((x: unknown) => String(x) !== myId);
-        d.volunteers = d.volunteers.filter((x: unknown) => String(x) !== myId);
-        addHistory(s, "mess-step-back", myId, `${nameOf(a)} stepped back from mess duty at ${String(pd.title || "the parade")} (${date})`);
-        return true;
-      }
+      if (undo) fail(400, "To get off mess duty, ask a senior with a reason, or ask a cadet to take your place.");
       if (!messCanDo(a.who.cadet, pd, date, s.messConfig, s.leaves)) fail(400, "Mess duty is only for cadets (no rank holders, no locals) who are expected at that parade and not on leave.");
       if ((Array.isArray(pd.reports) ? pd.reports : []).some((r: Obj) => r && String(r.cadetId) === myId && r.kind === "absent")) fail(400, "You are excused from that parade.");
       if (d && ids().includes(myId)) fail(409, "You are already on it.");

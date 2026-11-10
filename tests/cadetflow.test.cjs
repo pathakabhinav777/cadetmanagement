@@ -3450,9 +3450,9 @@ test('leave: a cadet asks for several days, a sergeant approves, those days are 
   await c.click('#leaveArea button:has-text("Ask for leave")');
   await c.fill('#lvFrom', ymdIn(1));
   await c.fill('#lvTo', ymdIn(3));
-  await c.fill('#lvReason', 'Sister\'s wedding at home');
   await c.setInputFiles('#lvImage', { name: 'card.png', mimeType: 'image/png', buffer: PNG });
   await c.waitForFunction(() => !!LV.image);
+  await c.fill('#lvReason', 'Sister\'s wedding at home');
   await c.click('#lvSubmit');
   await c.waitForFunction(() => document.getElementById('leaveModal').classList.contains('hidden'));
   const row = db.tables.cadetflow_requests[0];
@@ -4059,9 +4059,10 @@ test('mess duty swaps: put up for anyone (any eligible cadet takes it) or ask on
   // Put up for anyone
   const c = await openAs(browser, db, 'user-c');
   await run(c, () => { switchCadetFlowPage('parades'); openMessDialog(); });
-  await c.click('#messCard button:has-text("Swap")');
+  await c.click('#messCard button:has-text("Can\'t do it?")');
   const pool = await c.textContent('#swapBody');
   assert.ok(!pool.includes('Harsh Rajesh Koti') && pool.includes('CDT'), 'no rank holders offered');
+  await c.click('#swapBody [data-mode="anyone"]');
   await c.click('#swapOpen');
   await waitToast(c, 'Put up');
   const open = db.row.state.messSwaps[0];
@@ -4096,6 +4097,84 @@ test('mess duty swaps: put up for anyone (any eligible cadet takes it) or ask on
   assert.equal(db.row.state.messSwaps.find(x => x.to === 'cadet-6').status, 'done');
   assert.deepEqual([db.pushes.at(-1).userId, db.pushes.at(-1).payload.title], ['user-4', 'Mess duty swap done']);
   noErrors(admin, c, six, nine);
+}));
+
+test('mess duty: a cadet on duty asks a senior to let them off with a reason, or names a cadet who must agree; no stepping back alone', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => { app.updateCadetField('cadet-31', 'rank', 'SGT'); app.updateCadetField('cadet-1', 'rank', 'LCPL'); });
+  const pid = await makeParade(admin, 48, 'Drill');
+  await run(admin, ({ pid, date }) => {
+    app.state.messConfig = { perDay: 2, years: ['1st', '2nd'], exempt: [] };
+    findParade(pid).refreshments = true;
+    app.state.messDuty = [{ id: 'mess-p', paradeId: pid, date, cadetIds: ['cadet-3', 'cadet-4'], volunteers: ['cadet-3'], asked: { standby: 1, all: 2, leads: 3 }, at: Date.now(), by: 'x' }];
+    app.saveStorage();
+  }, { pid, date: ymdIn(2) });
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-4', { cadetId: 'cadet-4' }).account('user-6', { cadetId: 'cadet-6' })
+    .account('user-s', { cadetId: 'cadet-31' }).account('user-l', { cadetId: 'cadet-1' });
+  ['user-c', 'user-4', 'user-6', 'user-s', 'user-l'].forEach(u => device(db, u));
+  const day = () => db.row.state.messDuty.find(d => d.id === 'mess-p');
+
+  // A volunteer can no longer step back alone
+  await assert.rejects(db.api('user-c', 'messVolunteer', { paradeId: pid, undo: true }), /ask a senior/);
+
+  // Cadet 3 asks a senior, with a reason
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  await c.click('#paradeMess button:has-text("Can\'t do it?")');
+  await c.click('#swapBody [data-mode="senior"]');
+  await c.click('#swapSenior');
+  assert.match(await c.textContent('#swapError'), /Write why/);
+  await c.fill('#swapReason', 'University exam that morning');
+  await c.click('#swapSenior');
+  await waitToast(c, 'until a sergeant or above lets you off');
+  const out = db.row.state.messSwaps[0];
+  assert.deepEqual([out.kind, out.status, out.from, out.reason], ['out', 'asked', 'cadet-3', 'University exam that morning']);
+  assert.deepEqual(db.pushes.filter(p => p.payload.title === 'Mess duty: asks to be let off').map(p => p.userId), ['user-s']);
+  assert.deepEqual(day().cadetIds, ['cadet-3', 'cadet-4'], 'still on it until a senior decides');
+  await assert.rejects(db.api('user-c', 'messOut', { dayId: 'mess-p', reason: 'again' }), /already asked/);
+  await assert.rejects(db.api('user-4', 'messOutDecide', { id: out.id, approve: true }), /not allowed|permission|only|power/i);
+  await assert.rejects(db.api('user-l', 'messOutDecide', { id: out.id, approve: true }), /not allowed|permission|only|power/i);
+  await assert.rejects(db.api('user-s', 'swapAnswer', { id: out.id, accept: true }), /senior to decide/);
+
+  // The sergeant sees it in the Requests box and lets them off; the lance corporals hear a place opened
+  const sgt = await openAs(browser, db, 'user-s');
+  await run(sgt, () => switchCadetFlowPage('parades'));
+  assert.match(await sgt.textContent('#paradeTiles [data-tile="requests"]'), /1 waiting/);
+  await sgt.click('#paradeTiles [data-tile="requests"]');
+  assert.match(await sgt.textContent('#rqWaitingMess'), /University exam that morning/);
+  db.pushes.length = 0;
+  await sgt.click('#rqWaitingMess button:has-text("Let off")');
+  await waitToast(sgt, 'Let off');
+  assert.deepEqual([day().cadetIds, day().volunteers], [['cadet-4'], []]);
+  assert.equal(db.row.state.messSwaps[0].status, 'approved');
+  assert.deepEqual(db.pushes.map(p => [p.userId, p.payload.title]), [['user-c', 'Mess duty: you are off it'], ['user-l', 'Pick mess duty']]);
+
+  // Cadet 4 asks again; refused, they stay on it
+  await db.api('user-4', 'messOut', { dayId: 'mess-p', reason: 'Family function' });
+  const second = db.row.state.messSwaps.find(x => x.from === 'cadet-4');
+  await db.api('user-s', 'messOutDecide', { id: second.id, approve: false });
+  assert.equal(db.row.state.messSwaps.find(x => x.id === second.id).status, 'refused');
+  assert.deepEqual(day().cadetIds, ['cadet-4']);
+  assert.equal(db.pushes.at(-1).payload.title, 'Mess duty: stay on it');
+
+  // Then cadet 4 names cadet 6, who has to agree
+  const four = await openAs(browser, db, 'user-4');
+  await run(four, () => { switchCadetFlowPage('parades'); openMessDialog(); });
+  await four.click('#messCard button:has-text("Can\'t do it?")');
+  await four.fill('#swapSearch', db.row.state.cadets.find(x => x.id === 'cadet-6').name);
+  await four.click('#swapBody button[data-id="cadet-6"]');
+  await four.click('#swapSend');
+  await waitToast(four, 'When they agree');
+  assert.deepEqual(day().cadetIds, ['cadet-4'], 'nothing changes until they agree');
+  const six = await openAs(browser, db, 'user-6');
+  await run(six, () => { switchCadetFlowPage('parades'); openMessDialog(); });
+  await six.click('#messSwaps button:has-text("Agree")');
+  await waitToast(six, 'the duty is yours');
+  assert.deepEqual(day().cadetIds, ['cadet-6']);
+  noErrors(admin, c, sgt, four, six);
 }));
 
 test('below 75%: Your day and the profile say how many parades to attend, the cadet is told once; equipment register and overdue notice', () => withBrowser(async browser => {

@@ -2433,7 +2433,7 @@
   <div id="swapModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
-        <div><p class="text-[11px] font-semibold text-amber-400">Mess duty</p><h3 id="swapModalHeading" class="text-lg font-extrabold text-white mt-1">Ask to swap</h3></div>
+        <div><p class="text-[11px] font-semibold text-amber-400">Mess duty</p><h3 id="swapModalHeading" class="text-lg font-extrabold text-white mt-1">Can't do it</h3></div>
         <button type="button" onclick="app.closeModal('swapModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="swapBody"></div>
@@ -6974,13 +6974,13 @@
           <span class="par-tile-sub">${!on ? 'Turn on if there are refreshments' : names ? esc(names) : 'Nobody yet: cadets volunteer first'}</span>
           <span class="flex flex-wrap gap-1.5 mt-2">
             ${canJoin ? `<button type="button" data-id="${id}" onclick="messVolunteer(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-emerald-600 bg-emerald-600 text-white">Volunteer</button>` : ''}
-            ${mine && d && messVolunteers(d).includes(me.id) && messCanStepBack(d) ? `<button type="button" data-id="${id}" onclick="messVolunteer(this.dataset.id, true)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300">Step back</button>` : ''}
+            ${mine && d && !d.virtual && pd.reportAt > Date.now() ? `<button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300">${messOutMine(d) ? 'Waiting for a senior' : "Can't do it?"}</button>` : ''}
             ${on ? `<button type="button" data-id="${id}" onclick="openMessDialog(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">${messLead() || app.isAdmin() ? 'Pick and manage' : 'Mess duty'}</button>` : ''}
             ${cq && upcoming ? `<button type="button" data-id="${id}" onclick="toggleRefreshments(this.dataset.id)" aria-pressed="${on}" class="af-chip text-[11px]">${on ? 'Refreshments: on' : 'Refreshments: off'}</button>` : ''}
           </span></div>`);
       }
       if (app.can('requests')) {
-        const own = paradeRequests(pd.id), wait = own.filter(r => r.status === 'pending').length + leaveAsksFor(pd).length;
+        const own = paradeRequests(pd.id), wait = own.filter(r => r.status === 'pending').length + leaveAsksFor(pd).length + messOutWaiting(pd.id).length;
         boxes.push(`<button type="button" class="par-tile ${wait ? 'par-tile-warn' : ''}" id="paradeRequestsBox" data-id="${id}" onclick="openRequestsDialog(this.dataset.id)">
           <span class="par-tile-label">Requests from cadets</span><b class="par-tile-main">${wait ? `${wait} waiting` : 'None waiting'}</b>
           <span class="par-tile-sub">${own.length} about this parade · tap to see them all</span></button>`);
@@ -9357,7 +9357,6 @@
       return rows.sort((a, b) => a.date.localeCompare(b.date) || (findParade(a.paradeId)?.reportAt || 0) - (findParade(b.paradeId)?.reportAt || 0));
     }
     /** Can a cadet still step back from a duty they volunteered for? Until 6 pm the evening before (then places are filled). */
-    function messCanStepBack(d) { const t = fromYmd(d.date); t.setHours(-6); return Date.now() < t.getTime(); }
     function messRedraw() { renderMessCard(); if (isVisible('paradePage') && PAR.openId) renderParadePage(); renderMyDay?.(); }
     /** Upcoming parades with refreshments in the next 14 days with empty places. */
     function messParadesToPlan() {
@@ -9506,11 +9505,11 @@
     function toggleMessManage() { MESS.manage = !MESS.manage; if (!MESS.manage) MESS.settings = false; renderMessCard(); }
 
     // ---- Volunteering (through the server: cadets cannot save the shared data themselves)
-    async function messVolunteer(pid, undo = false) {
+    async function messVolunteer(pid) {
       try {
-        await api('messVolunteer', { paradeId: pid, ...(undo ? { undo: true } : {}) });
+        await api('messVolunteer', { paradeId: pid });
         await app.refreshFromRemote();
-        app.showToast(undo ? 'You stepped back.' : 'Thank you. You are on mess duty for this parade.');
+        app.showToast('Thank you. You are on mess duty for this parade.');
       } catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
       messRedraw();
     }
@@ -9573,7 +9572,7 @@
         ${!isPast && left && !manage ? `<p class="mt-1.5 text-[11px] text-slate-400">${left} place${left === 1 ? '' : 's'} left for volunteers. If nobody takes them, the LCPLs and CPLs pick.</p>` : ''}
         ${!isPast && calls.length && (manage || app.canEdit()) ? `<p class="mt-1 text-[11px] text-slate-500 mess-calls">${esc(calls.join(' · '))}</p>` : ''}
         ${canJoin ? `<div class="mt-2"><button type="button" data-id="${esc(pd.id)}" onclick="messVolunteer(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Volunteer</button></div>` : ''}
-        ${mine ? `<div class="mt-2 flex flex-wrap gap-1.5">${vols.has(me.id) && pd && messCanStepBack(d) ? `<button type="button" data-id="${esc(pd.id)}" onclick="messVolunteer(this.dataset.id, true)" class="${btn} border-slate-700 text-slate-300">Step back</button>` : ''}${!d.virtual ? `<button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="${btn} border-sky-700/60 text-sky-200 hover:bg-sky-950/40">Swap</button>` : ''}</div>` : ''}
+        ${mine && !d.virtual && (!pd || pd.reportAt > Date.now()) ? `<div class="mt-2 flex flex-wrap gap-1.5"><button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="${btn} border-sky-700/60 text-sky-200 hover:bg-sky-950/40">${messOutMine(d) ? 'Waiting for a senior' : "Can't do it?"}</button></div>` : ''}
       </li>`;
     }
     function renderMessCard() {
@@ -11251,8 +11250,8 @@
       if (open.length) cards.push(card('Questions', `${open.length} to answer`, esc(String(open[0].text).slice(0, 80)), { go: "document.getElementById('noticeBoard')?.scrollIntoView({ behavior: 'smooth' })", warn: true }));
       // Seniors: requests waiting; administrator: the week.
       if (app.can('requests')) {
-        const waiting = REQ.list.filter(r => r.status === 'pending' && !(r.mine && !app.isAdmin()));
-        if (waiting.length) cards.push(card('Requests', `${waiting.length} waiting`, 'Late, absence and leave requests to decide', { go: "switchCadetFlowPage('parades'); openRequestsDialog()", warn: true }));
+        const waiting = REQ.list.filter(r => r.status === 'pending' && !(r.mine && !app.isAdmin())).length + messOutWaiting().length;
+        if (waiting) cards.push(card('Requests', `${waiting} waiting`, 'Late, absence, leave and mess duty requests to decide', { go: "switchCadetFlowPage('parades'); openRequestsDialog()", warn: true }));
       }
       if (app.isAdmin()) {
         const wk = weekFigures();
@@ -11692,8 +11691,8 @@
       const tile = (key, label, main, sub, onclick, warn) => `<button type="button" class="par-tile ${warn ? 'par-tile-warn' : ''}" data-tile="${key}" onclick="${onclick}">
           <span class="par-tile-label">${label}</span><b class="par-tile-main">${esc(main)}</b><span class="par-tile-sub">${esc(sub)}</span></button>`;
       if (app.can('requests')) {
-        const n = requestsWaiting().length;
-        tiles.push(tile('requests', 'Requests', n ? `${n} waiting` : 'None waiting', n ? 'Late, absence and leave to decide' : 'Everything is decided', 'openRequestsDialog()', n > 0));
+        const n = requestsWaiting().length + messOutWaiting().length;
+        tiles.push(tile('requests', 'Requests', n ? `${n} waiting` : 'None waiting', n ? 'Late, absence, leave and mess duty to decide' : 'Everything is decided', 'openRequestsDialog()', n > 0));
       }
       if (me) {
         const mine = leaveList().filter(l => l.cadetId === me.id && l.to >= today).sort((a, b) => a.from.localeCompare(b.from))[0];
@@ -11725,7 +11724,7 @@
       const body = document.getElementById('requestsBody'); if (!body || !app.can('requests')) return;
       const esc = escapeHtml, pd = REQD.pid ? findParade(REQD.pid) : null;
       document.getElementById('requestsModalFor').textContent = pd ? `${pd.title} · ${paradeDay(pd.reportAt)} ${paradeClock(pd.reportAt)}` : 'Waiting for a decision';
-      if (pd) { body.innerHTML = renderParadeRequestsCard(pd); return; }
+      if (pd) { const outs = messOutHtml(pd.id); body.innerHTML = renderParadeRequestsCard(pd) + (outs ? `<div class="mt-4">${outs}</div>` : ''); return; }
       const now = Date.now();
       const late = REQ.list.filter(r => r.status === 'pending' && r.kind !== 'leave' && (findParade(r.paradeId)?.reportAt || 0) + 3 * 3600000 >= now);
       const groups = [...new Set(late.map(r => r.paradeId))].map(findParade).filter(Boolean).sort((a, b) => a.reportAt - b.reportAt);
@@ -11733,12 +11732,13 @@
           <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="text-sm font-extrabold text-white">${esc(p.title)} <span class="text-xs font-semibold text-slate-400">· ${esc(paradeDay(p.reportAt))} ${esc(paradeClock(p.reportAt))}</span></h4>
             <button type="button" data-id="${esc(p.id)}" onclick="REQD.pid = this.dataset.id; renderRequestsDialog()" class="text-[11px] font-bold text-amber-300 hover:text-amber-200">All requests for this parade</button></div>
           <ul class="space-y-2">${late.filter(r => r.paradeId === p.id).sort((a, b) => (a.at || 0) - (b.at || 0)).map(r => rqRowHtml(r)).join('')}</ul></section>`).join('');
-      const leaveHtml = seniorLeaveHtml();
+      const leaveHtml = seniorLeaveHtml(), outHtml = messOutHtml();
       body.innerHTML = `<div class="flex items-center justify-between gap-2"><p class="text-xs text-slate-400">Approved requests go onto the parade's reports. To see decided ones too, open a parade's requests.</p>
           <button type="button" onclick="loadRequests(true)" class="shrink-0 text-[11px] font-bold text-slate-400 hover:text-white">Refresh</button></div>
         ${lateHtml ? `<div class="space-y-3" id="rqWaitingLate"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">Coming late or can't come</h4>${lateHtml}</div>` : ''}
         ${leaveHtml ? `<div class="space-y-3" id="rqWaitingLeave">${leaveHtml}</div>` : ''}
-        ${!lateHtml && !leaveHtml ? '<p class="text-sm text-slate-400">Nothing is waiting for a decision.</p>' : ''}`;
+        ${outHtml}
+        ${!lateHtml && !leaveHtml && !outHtml ? '<p class="text-sm text-slate-400">Nothing is waiting for a decision.</p>' : ''}`;
     }
     /** Redraw whatever dialog of the Parades page is open (after a sync or a change). */
     function rerenderParadeDialogs() {
@@ -12002,70 +12002,111 @@
       }
     }
 
-    // ---- Mess duty swaps, through the server: the cadet on duty puts it up for anyone (any cadet who can
-    // do it takes it), or asks one cadet, optionally taking one of their duties in return. Taking it or
-    // agreeing makes the change at once: both agreed, so no senior needs to approve.
-    // state.messSwaps = [{ id, dayId, date, from, to (null while open), takeDayId?, takeDate?, status: open|asked|done|declined|withdrawn, at, answeredAt? }]
-    const SWAP = { dayId: null, to: null, q: '', busy: false };
+    // ---- "Can't do it?": a cadet on mess duty asks one cadet to take their place (optionally taking one of
+    // their duties in return; done when that cadet agrees), puts it up for anyone (done when someone takes it),
+    // or asks a senior to let them off with a reason (kind 'out': sergeants and above decide). All through the server.
+    // state.messSwaps = [{ id, kind?: 'out', dayId, date, from, to (null while open), takeDayId?, takeDate?, reason?,
+    //   status: open|asked|done|declined|withdrawn|approved|refused, at, answeredAt?, decidedBy? }]
+    const SWAP = { dayId: null, to: null, q: '', busy: false, mode: 'ask', reason: '' };
     function swapList() { return (cfState()?.messSwaps || []).filter(x => x && safeId(x.id) && x.from); }
+    const swapLive = x => x.status === 'open' || x.status === 'asked';
+    /** My request to be let off this duty, while a senior has not decided it. */
+    function messOutMine(d, me = app.myCadet()) { return !!me && swapList().some(x => x.kind === 'out' && x.status === 'asked' && x.dayId === d.id && x.from === me.id); }
+    /** Requests to be let off mess duty waiting for a sergeant or above (for one parade, or all). */
+    function messOutWaiting(pid = null) {
+      if (!app?.can?.('requests')) return [];
+      const today = ymd(new Date()), me = app.myCadet();
+      return swapList().filter(x => x.kind === 'out' && x.status === 'asked' && x.date >= today && x.from !== me?.id && (!pid || messDayById(x.dayId)?.paradeId === pid));
+    }
     /** Can I take this open swap? Same rules as picking: a cadet expected at that parade, not a local, not on leave. */
     function canTakeSwap(x, me = app.myCadet()) {
-      if (!me || x.status !== 'open' || x.from === me.id) return false;
+      if (!me || x.kind === 'out' || x.status !== 'open' || x.from === me.id) return false;
       const d = messDayById(x.dayId);
       return !!d && d.date >= ymd(new Date()) && d.cadetIds.includes(x.from) && !d.cadetIds.includes(me.id) && messShown(d) && messPool(d).some(c => c.id === me.id);
     }
+    function swapRowHtml(x) {
+      const me = app.myCadet(), esc = escapeHtml, btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
+      const where = () => { const d = messDayById(x.dayId); return esc(d ? messTitle(d) : dayLabel(x.date)); };
+      const out = x.kind === 'out';
+      const what = out ? `${esc(cadetLabel(x.from))} asks to be let off ${where()}: <span class="text-slate-400">${esc(x.reason || '')}</span>`
+        : x.status === 'open' ? `${esc(cadetLabel(x.from))} needs someone for ${where()}`
+        : x.status === 'done' ? `${esc(cadetLabel(x.to))} took ${esc(cadetLabel(x.from))}'s duty at ${where()}${x.takeDate ? `; ${esc(cadetLabel(x.from))} took ${esc(dayLabel(x.takeDate))}` : ''}`
+        : `${esc(cadetLabel(x.from))} asks ${esc(cadetLabel(x.to))} to take ${where()}${x.takeDate ? `; in return ${esc(cadetLabel(x.from))} takes ${esc(dayLabel(x.takeDate))}` : ''}`;
+      const label = out ? { asked: 'Waiting for a sergeant or above', approved: `Let off${x.decidedBy ? ` by ${x.decidedBy}` : ''}`, refused: `Kept on duty${x.decidedBy ? ` by ${x.decidedBy}` : ''}`, withdrawn: 'Withdrawn' }
+        : { open: 'Up for anyone to take', asked: 'Waiting for an answer', done: 'Swapped', declined: 'Said no', withdrawn: 'Withdrawn', accepted: 'Agreed', approved: 'Swapped', refused: 'Not approved' };
+      let acts = '';
+      if (out && x.status === 'asked' && app.can('requests') && x.from !== me?.id) acts = `<button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Let off</button><button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Keep on duty</button>`;
+      else if (canTakeSwap(x, me)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="takeSwap(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">I'll take it</button>`;
+      else if (me && x.to === me.id && x.status === 'asked') acts = `<button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Agree</button><button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Say no</button>`;
+      else if (me && x.from === me.id && swapLive(x)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="withdrawSwap(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw</button>`;
+      const good = ['done', 'approved'].includes(x.status), quiet = ['declined', 'refused', 'withdrawn'].includes(x.status);
+      return `<li class="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 space-y-1.5" data-swap="${esc(x.id)}"><p class="text-xs text-slate-200">${what}</p>
+        <p class="text-[11px] ${good ? 'text-emerald-300' : quiet ? 'text-slate-500' : 'text-amber-300'}">${esc(label[x.status] || '')}</p>
+        ${acts ? `<div class="flex flex-wrap gap-1.5">${acts}</div>` : ''}</li>`;
+    }
     function messSwapsHtml(manage = false) {
-      const me = app.myCadet(), esc = escapeHtml, recent = Date.now() - 7 * 86400000, today = ymd(new Date());
-      const live = x => x.status === 'open' || x.status === 'asked';
+      const me = app.myCadet(), recent = Date.now() - 7 * 86400000, today = ymd(new Date()), senior = app.can('requests');
       const list = swapList().filter(x => x.date >= today || Number(x.answeredAt || 0) > recent).filter(x =>
-        (me && (x.from === me.id || x.to === me.id) && (live(x) || Number(x.answeredAt || x.at || 0) > recent)) || canTakeSwap(x, me) || (manage && live(x)));
+        (me && (x.from === me.id || x.to === me.id) && (swapLive(x) || Number(x.answeredAt || x.at || 0) > recent)) || canTakeSwap(x, me) || (manage && swapLive(x)) || (senior && x.kind === 'out' && swapLive(x)));
       if (!list.length) return '';
-      const btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
-      const where = x => { const d = messDayById(x.dayId); return esc(d ? messTitle(d) : dayLabel(x.date)); };
-      const what = x => x.status === 'open' ? `${esc(cadetLabel(x.from))} needs someone for ${where(x)}`
-        : x.status === 'done' ? `${esc(cadetLabel(x.to))} took ${esc(cadetLabel(x.from))}'s duty at ${where(x)}${x.takeDate ? `; ${esc(cadetLabel(x.from))} took ${esc(dayLabel(x.takeDate))}` : ''}`
-        : `${esc(cadetLabel(x.from))} asks ${esc(cadetLabel(x.to))} to take ${where(x)}${x.takeDate ? `; in return ${esc(cadetLabel(x.from))} takes ${esc(dayLabel(x.takeDate))}` : ''}`;
-      const label = { open: 'Up for anyone to take', asked: 'Waiting for an answer', done: 'Swapped', declined: 'Said no', withdrawn: 'Withdrawn', accepted: 'Agreed', approved: 'Swapped', refused: 'Not approved' };
-      const row = x => {
-        let acts = '';
-        if (canTakeSwap(x, me)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="takeSwap(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">I'll take it</button>`;
-        else if (me && x.to === me.id && x.status === 'asked') acts = `<button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Agree</button><button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Say no</button>`;
-        else if (me && x.from === me.id && live(x)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="withdrawSwap(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw</button>`;
-        return `<li class="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 space-y-1.5"><p class="text-xs text-slate-200">${what(x)}</p>
-          <p class="text-[11px] ${['done', 'approved'].includes(x.status) ? 'text-emerald-300' : ['declined', 'refused', 'withdrawn'].includes(x.status) ? 'text-slate-500' : 'text-amber-300'}">${label[x.status] || ''}</p>
-          ${acts ? `<div class="flex flex-wrap gap-1.5">${acts}</div>` : ''}</li>`;
-      };
-      return `<div class="space-y-2" id="messSwaps"><h4 class="text-xs font-extrabold text-white">Swaps</h4><ul class="space-y-1.5">${list.map(row).join('')}</ul></div>`;
+      return `<div class="space-y-2" id="messSwaps"><h4 class="text-xs font-extrabold text-white">Swaps and requests</h4><ul class="space-y-1.5">${list.map(swapRowHtml).join('')}</ul></div>`;
+    }
+    /** Sergeants and above, in the Requests dialog: cadets asking to be let off mess duty. */
+    function messOutHtml(pid = null) {
+      const list = messOutWaiting(pid);
+      if (!list.length) return '';
+      return `<div class="space-y-2" id="rqWaitingMess"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">Let off mess duty</h4>
+        <p class="text-xs text-slate-500">Letting a cadet off opens their place again for volunteers, or for the LCPLs and CPLs to pick.</p>
+        <ul class="space-y-1.5">${list.map(swapRowHtml).join('')}</ul></div>`;
     }
     function openSwapModal(dayId) {
       const me = app.myCadet(), d = messDayById(dayId);
       if (!me || !d) return;
-      SWAP.dayId = dayId; SWAP.to = null; SWAP.q = '';
-      document.getElementById('swapModalHeading').textContent = `Swap: ${messTitle(d)}`;
+      SWAP.dayId = dayId; SWAP.to = null; SWAP.q = ''; SWAP.reason = ''; SWAP.mode = 'ask';
+      document.getElementById('swapModalHeading').textContent = `Can't do it: ${messTitle(d)}`;
       renderSwapModal();
       document.getElementById('swapModal').classList.remove('hidden');
     }
+    function setSwapMode(m) { SWAP.mode = ['ask', 'anyone', 'senior'].includes(m) ? m : 'ask'; renderSwapModal(); if (SWAP.mode === 'senior') setTimeout(() => document.getElementById('swapReason')?.focus(), 30); }
     function renderSwapModal() {
       const d = messDayById(SWAP.dayId); if (!d) return;
       const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), q = SWAP.q.trim().toLowerCase();
-      const pool = messPool(d, new Set([...d.cadetIds, me.id])).filter(c => !q || c.name.toLowerCase().includes(q))
-        .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40);
-      const theirDays = SWAP.to ? messDays().filter(x => x.date >= today && x.cadetIds.includes(SWAP.to) && !x.cadetIds.includes(me.id)) : [];
-      const was = document.getElementById('swapTake')?.value || '';
+      const mine = swapList().filter(x => x.dayId === d.id && x.from === me?.id && swapLive(x));
+      const choice = (m, text) => `<button type="button" onclick="setSwapMode('${m}')" aria-pressed="${SWAP.mode === m}" class="af-chip text-xs" data-mode="${m}">${text}</button>`;
+      const cancel = `<button type="button" onclick="app.closeModal('swapModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>`;
+      if (mine.length) {
+        document.getElementById('swapBody').innerHTML = `<div class="space-y-3"><p class="text-xs text-slate-300">You already asked about this duty. Withdraw it to ask another way.</p>
+          <ul class="space-y-1.5">${mine.map(swapRowHtml).join('')}</ul><div class="flex justify-end">${cancel.replace('Cancel', 'Close')}</div></div>`;
+        return;
+      }
+      let part;
+      if (SWAP.mode === 'anyone') {
+        part = `<p class="text-xs text-slate-300">Any cadet who can do it may take it. You are off it as soon as someone does, and you are told.</p>
+          <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
+          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapOpen" onclick="sendSwap(true)" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Put it up for anyone</button></div>`;
+      } else if (SWAP.mode === 'senior') {
+        part = `<p class="text-xs text-slate-300">Tell a sergeant or above why you cannot do it. If they let you off, your place opens for someone else; if not, you stay on it.</p>
+          <textarea id="swapReason" rows="3" maxlength="300" oninput="SWAP.reason = this.value" placeholder="Why you cannot do it" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">${esc(SWAP.reason)}</textarea>
+          <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
+          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapSenior" onclick="sendMessOut()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Send to seniors</button></div>`;
+      } else {
+        const pool = messPool(d, new Set([...d.cadetIds, me.id])).filter(c => !q || c.name.toLowerCase().includes(q))
+          .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40);
+        const theirDays = SWAP.to ? messDays().filter(x => x.date >= today && x.cadetIds.includes(SWAP.to) && !x.cadetIds.includes(me.id)) : [];
+        const was = document.getElementById('swapTake')?.value || '';
+        part = `<p class="text-xs text-slate-300">Pick the cadet who takes your place. They are asked, and when they agree they are on it and you are off.</p>
+          <input type="search" id="swapSearch" value="${esc(SWAP.q)}" oninput="SWAP.q = this.value; renderSwapModal(); const b = document.getElementById('swapSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
+          <div class="max-h-56 overflow-y-auto border border-slate-800 rounded-xl p-1">${pool.map(c => `<button type="button" data-id="${esc(c.id)}" onclick="SWAP.to = this.dataset.id; renderSwapModal()" aria-pressed="${SWAP.to === c.id}" class="af-chip text-xs m-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="opacity-60">${esc(c.company)}</span></button>`).join('') || '<p class="p-2 text-xs text-slate-500">Nobody matches.</p>'}</div>
+          ${SWAP.to ? `<label class="block text-xs font-bold text-slate-300">In return <span class="font-normal text-slate-500">(optional)</span>
+            <select id="swapTake" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">Nothing: they just take mine</option>${theirDays.map(x => `<option value="${esc(x.id)}" ${was === x.id ? 'selected' : ''}>I take their duty at ${esc(messTitle(x))}</option>`).join('')}</select></label>` : ''}
+          <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
+          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapSend" onclick="sendSwap(false)" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div>`;
+      }
       document.getElementById('swapBody').innerHTML = `<div class="space-y-3">
-        <div class="rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-3 space-y-2">
-          <p class="text-xs text-slate-300">Put it up: any cadet who can do it takes it. You are off it as soon as someone does, no senior needed.</p>
-          <button type="button" id="swapOpen" onclick="sendSwap(true)" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Put it up for anyone</button>
-        </div>
-        <p class="text-xs text-slate-400">Or ask one cadet. When they agree, the swap is done.</p>
-        <input type="search" id="swapSearch" value="${esc(SWAP.q)}" oninput="SWAP.q = this.value; renderSwapModal(); const b = document.getElementById('swapSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
-        <div class="max-h-56 overflow-y-auto border border-slate-800 rounded-xl p-1">${pool.map(c => `<button type="button" data-id="${esc(c.id)}" onclick="SWAP.to = this.dataset.id; renderSwapModal()" aria-pressed="${SWAP.to === c.id}" class="af-chip text-xs m-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="opacity-60">${esc(c.company)}</span></button>`).join('') || '<p class="p-2 text-xs text-slate-500">Nobody matches.</p>'}</div>
-        ${SWAP.to ? `<label class="block text-xs font-bold text-slate-300">In return <span class="font-normal text-slate-500">(optional)</span>
-          <select id="swapTake" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">Nothing: they just take mine</option>${theirDays.map(x => `<option value="${esc(x.id)}" ${was === x.id ? 'selected' : ''}>I take their duty at ${esc(messTitle(x))}</option>`).join('')}</select></label>` : ''}
-        <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
-        <div class="flex justify-end gap-2"><button type="button" onclick="app.closeModal('swapModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
-          <button type="button" id="swapSend" onclick="sendSwap(false)" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div></div>`;
+        <div class="flex flex-wrap gap-1.5" role="group" aria-label="How">${choice('ask', 'Ask a cadet')}${choice('anyone', 'Anyone can take it')}${choice('senior', 'Ask a senior')}</div>
+        ${part}</div>`;
     }
+    function swapError(text) { const el = document.getElementById('swapError'); if (el) { el.textContent = text; el.classList.remove('hidden'); } }
     async function sendSwap(open) {
       if (SWAP.busy || (!open && !SWAP.to)) return;
       const take = open ? '' : (document.getElementById('swapTake')?.value || '');
@@ -12074,18 +12115,32 @@
         await api('swapAsk', open ? { dayId: SWAP.dayId } : { dayId: SWAP.dayId, to: SWAP.to, ...(take ? { takeDayId: take } : {}) });
         app.closeModal('swapModal');
         await app.refreshFromRemote();
-        app.showToast(open ? 'Put up. You are told when someone takes it.' : `Asked ${cadetLabel(SWAP.to)}. When they agree, the swap is done.`);
-      } catch (e) { const el = document.getElementById('swapError'); if (el) { el.textContent = e.message || 'Could not send it.'; el.classList.remove('hidden'); } }
+        app.showToast(open ? 'Put up. You are told when someone takes it.' : `Asked ${cadetLabel(SWAP.to)}. When they agree, they are on it and you are off.`);
+      } catch (e) { swapError(e.message || 'Could not send it.'); }
+      finally { SWAP.busy = false; messRedraw(); }
+    }
+    async function sendMessOut() {
+      const reason = (document.getElementById('swapReason')?.value || '').replace(/\s+/g, ' ').trim();
+      if (SWAP.busy) return;
+      if (reason.length < 3) { swapError('Write why you cannot do it.'); return; }
+      SWAP.busy = true;
+      try {
+        await api('messOut', { dayId: SWAP.dayId, reason });
+        app.closeModal('swapModal');
+        await app.refreshFromRemote();
+        app.showToast('Sent. You stay on the duty until a sergeant or above lets you off; you are told.');
+      } catch (e) { swapError(e.message || 'Could not send it.'); }
       finally { SWAP.busy = false; messRedraw(); }
     }
     async function swapCall(action, body, done) {
       try { await api(action, body); await app.refreshFromRemote(); app.showToast(done); }
       catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
-      messRedraw();
+      messRedraw(); rerenderParadeDialogs(); renderParadeTiles();
     }
     function takeSwap(id) { return swapCall('swapTake', { id }, 'Done: the duty is yours now.'); }
     function answerSwap(id, accept) { return swapCall('swapAnswer', { id, accept }, accept ? 'Done: the duty is yours now.' : 'Told them no.'); }
-    function withdrawSwap(id) { return swapCall('swapWithdraw', { id }, 'Swap request withdrawn.'); }
+    function withdrawSwap(id) { return swapCall('swapWithdraw', { id }, 'Withdrawn.'); }
+    function decideMessOut(id, approve) { return swapCall('messOutDecide', { id, approve }, approve ? 'Let off. Their place is open again; they were told.' : 'Kept on duty. They were told.'); }
 
     // ---- Learn: practice questions (server tables, SGT and above keep the bank) and the study library
     // (links only: files stay on Google Drive, YouTube or websites, so nothing is stored here).
