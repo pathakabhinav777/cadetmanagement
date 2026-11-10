@@ -321,6 +321,8 @@
     .pc-has:hover { border-color: rgba(201,154,53,.7); transform: translateY(-2px); }
     .pc-has .pc-num { color: var(--ink); font-weight: 600; }
     .pc-today { box-shadow: inset 0 0 0 1px var(--brass-hi); }
+    .pc-hol { background-image: repeating-linear-gradient(135deg, rgba(45,212,191,.08) 0 6px, transparent 6px 12px); }
+    .pc-hol-tag { display: block; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #5eead4; margin-top: 2px; }
     .pc-today .pc-num { color: var(--brass-hi); }
     .pc-sel { border-color: var(--brass) !important; background: #22365A; }
     .pc-chip { display: block; font-size: 10.5px; line-height: 1.25; padding: 2px 5px; border-radius: 5px; background: rgba(108,180,228,.16); color: #CFE6F7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -656,7 +658,7 @@
   </style>
   <!-- Tailwind classes, built from this page by tools/build_css.mjs (npm run build:css). After its
        own styles, as the Tailwind CDN used to put them. Settings: tools/tailwind.config.cjs. -->
-  <link rel="stylesheet" href="cadetflow.css?v=eca8436087">
+  <link rel="stylesheet" href="cadetflow.css?v=03c996e140">
 </head>
 <body class="locked bg-slate-950 text-slate-200 min-h-screen flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200">
   <!-- Sign-in screen (body.locked): sign in, register, or wait for approval. Drawn by renderGate(). -->
@@ -710,7 +712,6 @@
             <button type="button" onclick="closeAccountMenu(); openSuggestBox()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestion box</button>
             <button type="button" onclick="closeAccountMenu(); openSuggestions()" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestions received <span data-suggest-new class="ml-1 text-amber-400"></span></button>
             <button type="button" onclick="closeAccountMenu(); openPasswordModal()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Change password</button>
-            <button type="button" onclick="closeAccountMenu(); openNotifyPrefs()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Notification choices</button>
             <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('help')" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Help</button>
             <button type="button" onclick="closeAccountMenu(); openPreviewPicker()" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">See it as a cadet</button>
             <button id="accountAction" type="button" onclick="handleAccountAction()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800">Sign out</button>
@@ -759,7 +760,7 @@
         </div>
         <form id="noticeComposer" class="nb-composer hidden" onsubmit="event.preventDefault(); postNotice()">
           <div class="nb-type grid grid-cols-2 gap-2 mb-2" role="group" aria-label="What to post">
-            <button type="button" data-ntype="notice" aria-pressed="true" onclick="setNoticeType('notice')" class="turnout-btn">Notice<span class="block text-[11px] font-normal text-slate-400">A message on everyone's Home page</span></button>
+            <button type="button" data-ntype="notice" aria-pressed="true" onclick="setNoticeType('notice')" class="turnout-btn">Notice<span class="block text-[11px] font-normal text-slate-400">A message on Home for those it is for</span></button>
             <button type="button" data-ntype="signup" aria-pressed="false" onclick="setNoticeType('signup')" class="turnout-btn">Sign-up<span class="block text-[11px] font-normal text-slate-400">Cadets apply for a few places</span></button>
           </div>
           <div id="noticeSignupFields" class="hidden space-y-2 mb-2">
@@ -775,11 +776,12 @@
               <label class="block text-xs font-bold text-slate-300">Apply by (date)<input id="nsCloseDate" type="date" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
               <label class="block text-xs font-bold text-slate-300">Apply by (time)<input id="nsCloseTime" type="time" value="20:00" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <label class="block text-xs font-bold text-slate-300">Open to<select id="nsScope" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="All">All companies</option><option>Jessami</option><option>Kohima</option><option>Naushera</option></select></label>
+          </div>
+          <div id="noticeAudience" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+              <label class="block text-xs font-bold text-slate-300">For<select id="nsScope" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="All">All companies</option><option>Jessami</option><option>Kohima</option><option>Naushera</option></select></label>
               <div><span class="block text-xs font-bold text-slate-300">Years <span class="font-normal text-slate-500">(none = all)</span></span>
                 <div id="nsYears" class="mt-1 flex gap-1.5"><button type="button" class="af-chip text-xs" data-y="1st" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">1st</button><button type="button" class="af-chip text-xs" data-y="2nd" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">2nd</button><button type="button" class="af-chip text-xs" data-y="3rd" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">3rd</button></div></div>
-            </div>
+              <label class="block text-xs font-bold text-slate-300">Wing<select id="nsWing" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">SD and SW</option><option value="SD">SD only</option><option value="SW">SW only</option></select></label>
           </div>
           <label class="sr-only" for="noticeText">Notice</label>
           <textarea id="noticeText" rows="3" maxlength="600" placeholder="e.g. Drill is moved to the main ground tomorrow. Bring water bottles." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></textarea>
@@ -791,6 +793,8 @@
             </label>
             <label class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeNotify" checked> Send a notification</label>
             <label id="noticeAskWrap" class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeAsk" onchange="document.getElementById('noticeOptionsRow').classList.toggle('hidden', !this.checked)"> Ask a question</label>
+            <label id="noticeLaterWrap" class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeLater" onchange="document.getElementById('noticeAt').classList.toggle('hidden', !this.checked)"> Post later</label>
+            <input type="datetime-local" id="noticeAt" class="hidden bg-slate-950 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs" aria-label="When to post it">
           </div>
           <div id="noticeOptionsRow" class="hidden mt-2">
             <label class="block text-xs text-slate-300">Answers to pick from, separated by commas
@@ -1271,6 +1275,7 @@
             <p class="text-xs text-slate-400 mt-0.5">Tap a parade for its details. Late and absence requests close 30 minutes before reporting.</p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="openHolidays()" id="holidaysBtn" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl" title="Holidays and exam weeks: no parades">Holidays and exams</button>
             <button type="button" onclick="downloadMyParades()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl" title="A calendar file with the upcoming parades you are expected at">Add to calendar</button>
             <button type="button" onclick="switchCadetFlowPage('register')" class="attendance-only px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Register</button>
             <button type="button" onclick="openParadeModal()" class="parade-only px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New parade</button>
@@ -1407,7 +1412,7 @@
             <button type="button" onclick="app.openRosterModal()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit roster</button>
           </div>
         </div>
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <label class="col-span-2 lg:col-span-1 text-xs font-bold text-slate-300">Search
             <input type="search" id="dirSearch" oninput="renderRosterDirectory()" placeholder="Name…" class="mt-1 block w-full placeholder-slate-600 bg-slate-950 border border-slate-700 text-white px-3 py-2.5 text-sm rounded-xl focus:outline-none focus:border-amber-500">
           </label>
@@ -1422,6 +1427,9 @@
           </label>
           <label class="text-xs font-bold text-slate-300">Rank
             <select id="dirRank" onchange="renderRosterDirectory()" class="mt-1 block w-full bg-slate-950 border border-slate-700 text-white px-3 py-2.5 text-sm rounded-xl focus:outline-none focus:border-amber-500"><option value="all">All ranks</option></select>
+          </label>
+          <label class="text-xs font-bold text-slate-300">Local
+            <select id="dirLocal" onchange="renderRosterDirectory()" class="mt-1 block w-full bg-slate-950 border border-slate-700 text-white px-3 py-2.5 text-sm rounded-xl focus:outline-none focus:border-amber-500"><option value="all">Everyone</option><option value="yes">Locals</option><option value="no">Not locals</option></select>
           </label>
         </div>
         <div id="dirSummary" class="flex flex-wrap items-center gap-2 text-xs" aria-live="polite"></div>
@@ -1618,6 +1626,7 @@
         <select id="rosterFilterWing" onchange="app.setRosterFilter('wing', this.value)" class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500" aria-label="Wing"><option value="all">SD &amp; SW</option><option value="SD">SD</option><option value="SW">SW</option></select>
         <select id="rosterFilterCycle" onchange="app.setRosterFilter('cycle', this.value)" class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500" aria-label="Cycle"><option value="all">Cycle: any</option><option value="yes">Has cycle</option><option value="no">No cycle</option></select>
         <select id="rosterFilterRank" onchange="app.setRosterFilter('rank', this.value)" class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500" aria-label="Rank"><option value="all">All ranks</option></select>
+        <select id="rosterFilterLocal" onchange="app.setRosterFilter('local', this.value)" class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500" aria-label="Local"><option value="all">Local: any</option><option value="yes">Locals</option><option value="no">Not locals</option></select>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <span id="rosterShowing" class="text-slate-400"></span>
@@ -1756,6 +1765,7 @@
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="2nd" onchange="app.updateTaskScopeHint('new')" class="accent-violet-500"> 2nd year</label>
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="3rd" onchange="app.updateTaskScopeHint('new')" class="accent-violet-500"> 3rd year</label>
           </div>
+          <label class="block mt-2 text-xs font-bold text-slate-300">Wing <select id="newEventWing" onchange="app.updateTaskScopeHint('new')" class="ml-1 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs"><option value="">SD and SW</option><option value="SD">SD only</option><option value="SW">SW only</option></select></label>
           <p id="newEventScopeHint" class="text-[10px] text-slate-500 mt-1"></p>
         </div>
         </div>
@@ -1781,6 +1791,17 @@
           <p class="text-[10px] text-slate-500 mt-1">Each cadet: everyone is marked separately (forms, fees). Once for the group: they do one thing together, one mark for all.</p>
         </div>
         
+        <div class="border border-slate-800 bg-slate-900/50 rounded-xl p-3" id="newVolunteerBox">
+          <label class="flex items-center gap-2 text-xs font-bold text-emerald-400 cursor-pointer">
+            <input type="checkbox" id="newEventVolunteer" onchange="document.getElementById('newEventVolunteerMore').classList.toggle('hidden', !this.checked)" class="w-3.5 h-3.5 accent-emerald-500">
+            Ask for volunteers on the notice board
+          </label>
+          <div id="newEventVolunteerMore" class="hidden mt-2 space-y-1">
+            <label class="text-xs font-bold text-slate-300">People needed <input type="number" id="newEventSeats" min="1" max="200" value="5" class="ml-1 w-20 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-sm"></label>
+            <p class="text-[10px] text-slate-500">Posted on the notice board with a notification to everyone the task is for. Anyone can volunteer until the places are full. Nobody can step out alone: a senior takes them off, and they are told. The task then tracks only the volunteers.</p>
+          </div>
+        </div>
+
         <!-- DEADLINE SYSTEM -->
         <div class="border border-slate-800 bg-slate-900/50 rounded-xl p-3">
           <label class="flex items-center gap-2 text-xs font-bold text-amber-500 cursor-pointer">
@@ -1848,6 +1869,7 @@
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="2nd" onchange="app.updateTaskScopeHint('edit')" class="accent-violet-500"> 2nd year</label>
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="3rd" onchange="app.updateTaskScopeHint('edit')" class="accent-violet-500"> 3rd year</label>
           </div>
+          <label class="block mt-2 text-xs font-bold text-slate-300">Wing <select id="editEventWing" onchange="app.updateTaskScopeHint('edit')" class="ml-1 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs"><option value="">SD and SW</option><option value="SD">SD only</option><option value="SW">SW only</option></select></label>
           <p id="editEventScopeHint" class="text-[10px] text-slate-500 mt-1"></p>
         </div>
         </div>
@@ -2061,7 +2083,7 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-xs font-bold text-slate-300">Date
-            <input type="date" id="paradeDate" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
+            <input type="date" id="paradeDate" oninput="updateParadeRepeatHint()" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
           </label>
           <label class="block text-xs font-bold text-slate-300">Reporting time
             <input type="time" id="paradeTime" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500">
@@ -2078,6 +2100,7 @@
           </label>
           <p id="paradeRepeatHint" class="col-span-2 hidden text-[11px] text-slate-400"></p>
         </div>
+        <p id="paradeHolidayWarn" class="hidden text-xs font-bold text-amber-300" role="status"></p>
         <label class="block text-xs font-bold text-slate-300">Venue
           <input type="text" id="paradeVenue" maxlength="120" placeholder="e.g. Main parade ground" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
         </label>
@@ -2125,6 +2148,7 @@
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="2nd" onchange="app.updateTaskScopeHint('parade')" class="accent-violet-500"> 2nd year</label>
             <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-700 bg-slate-950 rounded-lg text-xs font-bold text-slate-200 cursor-pointer has-[:checked]:border-violet-500 has-[:checked]:text-violet-200"><input type="checkbox" value="3rd" onchange="app.updateTaskScopeHint('parade')" class="accent-violet-500"> 3rd year</label>
           </div>
+          <label class="block mt-2 text-xs font-bold text-slate-300">Wing <select id="paradeEventWing" onchange="app.updateTaskScopeHint('parade')" class="ml-1 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs"><option value="">SD and SW</option><option value="SD">SD only</option><option value="SW">SW only</option></select></label>
           <p id="paradeEventScopeHint" class="text-[10px] text-slate-500 mt-1"></p>
         </div>
         </div>
@@ -2555,13 +2579,13 @@
     </div>
   </div>
 
-  <div id="prefsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="holidayModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
-        <div><p class="text-[11px] font-semibold text-amber-400">Account</p><h3 class="text-lg font-extrabold text-white mt-1">Notification choices</h3><p class="text-xs text-slate-400 mt-1">Which notifications this account gets.</p></div>
-        <button type="button" onclick="app.closeModal('prefsModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        <div><p class="text-[11px] font-semibold text-amber-400">Parades</p><h3 class="text-lg font-extrabold text-white mt-1">Holidays and exams</h3><p class="text-xs text-slate-400 mt-1">Days with no parades. The parade dialog warns on them and repeating parades skip them.</p></div>
+        <button type="button" onclick="app.closeModal('holidayModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
-      <div id="prefsBody"></div>
+      <div id="holidayBody"></div>
     </div>
   </div>
 
@@ -2603,7 +2627,7 @@
   <div id="swapModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
-        <div><p class="text-[11px] font-semibold text-amber-400">Mess duty</p><h3 id="swapModalHeading" class="text-lg font-extrabold text-white mt-1">Can't do it</h3></div>
+        <div><p class="text-[11px] font-semibold text-amber-400">Refreshments returning duty</p><h3 id="swapModalHeading" class="text-lg font-extrabold text-white mt-1">Can't do it</h3></div>
         <button type="button" onclick="app.closeModal('swapModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="swapBody"></div>
@@ -2612,7 +2636,7 @@
   <div id="messPickModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
-        <div><p class="text-[11px] font-semibold text-amber-400">Mess duty</p><h3 id="messPickHeading" class="text-lg font-extrabold text-white mt-1">Pick a cadet</h3></div>
+        <div><p class="text-[11px] font-semibold text-amber-400">Refreshments returning duty</p><h3 id="messPickHeading" class="text-lg font-extrabold text-white mt-1">Pick a cadet</h3></div>
         <button type="button" onclick="app.closeModal('messPickModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="messPickBody"></div>
@@ -4272,14 +4296,14 @@
       }
 
       get rosterUI() {
-        if (!this._rosterUI) this._rosterUI = { q: '', company: 'all', year: 'all', wing: 'all', cycle: 'all', rank: 'all', ticked: new Set() };
+        if (!this._rosterUI) this._rosterUI = { q: '', company: 'all', year: 'all', wing: 'all', cycle: 'all', rank: 'all', local: 'all', ticked: new Set() };
         return this._rosterUI;
       }
 
       resetRosterFilters(render = true) {
-        Object.assign(this.rosterUI, { q: '', company: 'all', year: 'all', wing: 'all', cycle: 'all', rank: 'all' });
+        Object.assign(this.rosterUI, { q: '', company: 'all', year: 'all', wing: 'all', cycle: 'all', rank: 'all', local: 'all' });
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-        set('rosterSearch', ''); ['Company', 'Year', 'Wing', 'Cycle', 'Rank'].forEach(k => set(`rosterFilter${k}`, 'all'));
+        set('rosterSearch', ''); ['Company', 'Year', 'Wing', 'Cycle', 'Rank', 'Local'].forEach(k => set(`rosterFilter${k}`, 'all'));
         if (render) this.renderModalRosterTable();
       }
 
@@ -4295,7 +4319,7 @@
           (!q || c.name.toLowerCase().includes(q)) &&
           (f.company === 'all' || c.company === f.company) && yearMatches(c, f.year) &&
           (f.wing === 'all' || c.wing === f.wing) && (f.cycle === 'all' || cycleState(c) === f.cycle) &&
-          (f.rank === 'all' || (c.rank || 'CDT') === f.rank));
+          (f.rank === 'all' || (c.rank || 'CDT') === f.rank) && (!f.local || f.local === 'all' || isLocalCadet(c) === (f.local === 'yes')));
       }
 
       renderModalRosterTable() {
@@ -4320,7 +4344,7 @@
           return `<tr data-cadet-id="${c.id}" class="${this.rosterUI.ticked.has(c.id) ? 'bg-amber-950/30' : 'hover:bg-slate-800/40'}">
             <td class="p-1.5 text-center"><input type="checkbox" class="cadet-cb" ${this.rosterUI.ticked.has(c.id) ? 'checked' : ''} onchange="app.tickRosterRow('${c.id}', this.checked)" aria-label="Tick ${this.escape(c.name)}"></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'rank', this.value, this)" class="${sel} text-slate-300" aria-label="Rank">${RANKS.map(rk => opt(rk, r)).join('')}</select></td>
-            <td class="p-1.5"><div class="flex items-center gap-1.5"><input type="text" value="${this.escape(c.name)}" onchange="app.rosterEdit('${c.id}', 'name', this.value, this)" onkeydown="if(event.key==='Enter'){this.blur()}" class="min-w-0 flex-1 w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-md text-xs font-semibold text-white focus:outline-none focus:border-amber-500" aria-label="Name"><button type="button" onclick="app.rosterEdit('${c.id}', 'poc', '${c.poc ? 'no' : 'yes'}', this)" aria-pressed="${!!c.poc}" aria-label="POC" title="POC (point of contact): can also mark attendance and create tasks" class="shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold ${c.poc ? 'bg-amber-500/20 border-amber-500/60 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-500'}">POC</button></div></td>
+            <td class="p-1.5"><div class="flex items-center gap-1.5"><input type="text" value="${this.escape(c.name)}" onchange="app.rosterEdit('${c.id}', 'name', this.value, this)" onkeydown="if(event.key==='Enter'){this.blur()}" class="min-w-0 flex-1 w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-md text-xs font-semibold text-white focus:outline-none focus:border-amber-500" aria-label="Name"><button type="button" onclick="app.rosterEdit('${c.id}', 'poc', '${c.poc ? 'no' : 'yes'}', this)" aria-pressed="${!!c.poc}" aria-label="POC" title="POC (point of contact): can also mark attendance and create tasks" class="shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold ${c.poc ? 'bg-amber-500/20 border-amber-500/60 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-500'}">POC</button><button type="button" onclick="app.rosterEdit('${c.id}', 'local', '${isLocalCadet(c) ? 'no' : 'yes'}', this)" aria-pressed="${isLocalCadet(c)}" aria-label="Local" title="Local: goes home after parades, never on refreshments returning duty" class="shrink-0 px-2 py-1 rounded-md border text-[10px] font-bold ${isLocalCadet(c) ? 'bg-teal-500/20 border-teal-500/60 text-teal-300' : 'bg-slate-900 border-slate-700 text-slate-500'}">Local</button></div></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'wing', this.value, this)" class="${sel} ${c.wing === 'SD' ? 'text-sky-400' : 'text-rose-400'}" aria-label="Wing">${opt('SD', c.wing)}${opt('SW', c.wing)}</select></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'year', this.value, this)" class="${sel} ${YEARS.includes(c.year) ? 'text-violet-300' : 'text-amber-400 border-amber-700/60'}" aria-label="Year">${opt('', YEARS.includes(c.year) ? c.year : '', 'Not set')}${YEARS.map(y => opt(y, c.year)).join('')}</select></td>
             <td class="p-1.5"><select onchange="app.rosterEdit('${c.id}', 'company', this.value, this)" class="${sel} text-slate-300" aria-label="Company">${COMPANY_CHOICES.map(x => opt(x, c.company)).join('')}</select></td>
@@ -4368,6 +4392,20 @@
           this.saveStorage();
           this.renderModalRosterTable();
           this.showToast(on ? `${cadet.name} is a POC: can mark attendance and create tasks.` : `${cadet.name} is no longer a POC.`);
+          this.refreshAfterRosterChange();
+          return;
+        }
+        if (field === 'local') {
+          // A local goes home after parades: never on refreshments returning duty.
+          const on = v === 'yes';
+          if (isLocalCadet(cadet) === on) return;
+          if (on) cadet.local = true; else delete cadet.local;
+          const cfg = this.state.messConfig;
+          if (!on && cfg && Array.isArray(cfg.exempt) && cfg.exempt.includes(id)) this.state.messConfig = { ...cfg, exempt: cfg.exempt.filter(x => x !== id) };
+          this.logHistory('roster-local', id, `${cadet.name} is ${on ? 'now a local' : 'no longer a local'}`);
+          this.saveStorage();
+          this.renderModalRosterTable();
+          this.showToast(on ? `${cadet.name} is a local: never on refreshments returning duty.` : `${cadet.name} is no longer a local.`);
           this.refreshAfterRosterChange();
           return;
         }
@@ -4655,6 +4693,9 @@
         document.getElementById('newEventHasDeadline').checked = false;
         document.getElementById('newEventDeadlineInput').classList.add('hidden');
         document.getElementById('newEventDeadlineInput').value = '';
+        document.getElementById('newEventVolunteer').checked = false;
+        document.getElementById('newEventVolunteerMore').classList.add('hidden');
+        document.getElementById('newEventSeats').value = '5';
         
         document.getElementById('newEventModal').classList.remove('hidden');
       }
@@ -4665,7 +4706,7 @@
         const title = document.getElementById('newEventTitleInput').value.trim();
         const desc = document.getElementById('newEventDescInput').value.trim();
         const scope = document.getElementById('newEventScopeInput').value;
-        const years = this.readYearChecks('new');
+        const years = this.readYearChecks('new'), wings = this.readWing('new');
         const who = this.readTaskWho('new');
         const type = document.getElementById('newEventTypeInput').value;
         const hasDl = document.getElementById('newEventHasDeadline').checked;
@@ -4679,13 +4720,24 @@
         }
 
         if (who.mode === 'pick' && !who.ids.length) { this.showToast('Pick at least one cadet, or choose Companies & years.'); return; }
+        const volunteer = document.getElementById('newEventVolunteer').checked;
+        const seats = Math.min(200, Math.max(1, Math.round(Number(document.getElementById('newEventSeats').value)) || 0));
+        if (volunteer && who.mode === 'pick') { this.showToast('Volunteers come from companies and years: choose Companies & years.'); return; }
+        if (volunteer && !(Number(document.getElementById('newEventSeats').value) >= 1)) { this.showToast('Write how many people are needed.'); document.getElementById('newEventSeats').focus(); return; }
         const id = `event-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const scopeOk = who.mode === 'pick' ? true : this.confirmYearScope(scope, years); // true, or a question
         if (scopeOk !== true && !(await scopeOk)) return;
-        const audience = who.mode === 'pick' ? { scope: 'All', cadetIds: who.ids } : { scope, ...(years.length ? { years } : {}) };
+        const audience = who.mode === 'pick' ? { scope: 'All', cadetIds: who.ids } : { scope, ...(years.length ? { years } : {}), ...(wings.length ? { wings } : {}) };
         const completion = this.readCompletion('newCompletion');
-        this.state.events.unshift({ id, title, description: desc, ...audience, type, ...(completion === 'group' ? { completion } : {}), deadline, archived: false, createdAt: Date.now(), records: {} });
-        this.logHistory('task-created', null, `Created ${type === 'attendance' ? 'attendance event' : 'task'}: ${title}`);
+        const noticeId = volunteer ? newId('notice') : null;
+        this.state.events.unshift({ id, title, description: desc, ...audience, type, ...(completion === 'group' ? { completion } : {}), deadline, archived: false, createdAt: Date.now(), records: {},
+          ...(volunteer ? { volunteer: { seats, cadetIds: [], noticeId } } : {}) });
+        if (volunteer) {
+          const now = Date.now();
+          this.state.notices = [{ id: noticeId, taskId: id, text: `Volunteers wanted: ${title}${desc ? `. ${desc}` : ''}`.slice(0, 600), at: now, by: this.authorName(), byCadet: this.myCadet()?.id || null,
+            ...(deadline ? { until: deadline } : {}), ...audience }, ...(this.state.notices || []).filter(x => !x.until || x.until > now - 30 * 86400000)];
+        }
+        this.logHistory('task-created', null, `Created ${type === 'attendance' ? 'attendance event' : 'task'}${volunteer ? ` for ${seats} volunteer${seats === 1 ? '' : 's'}` : ''}: ${title}`);
         this.state.activeEventId = id;
         this.saveStorage();
         this.closeModal('newEventModal');
@@ -4693,7 +4745,13 @@
         this.renderAll();
         renderOngoingTasks();
         showTaskMasterSection('home');
-        this.showToast(`Created: ${title}. It is now listed under Ongoing Tasks.`);
+        if (!volunteer) { this.showToast(`Created: ${title}. It is now listed under Ongoing Tasks.`); return; }
+        renderNotices();
+        try {
+          await this.flushRemoteSave?.(); // the server reads the task from the saved data
+          const r = await api('taskAnnounce', { eventId: id });
+          this.showToast(`Created: ${title}. On the notice board; sent to ${r.people || 0} ${r.people === 1 ? 'person' : 'people'} it is for.`);
+        } catch (e) { this.showToast(`Created: ${title}, but the notification was not sent: ${e.message || e}`); }
       }
 
       readCompletion(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value === 'group' ? 'group' : 'each'; }
@@ -4771,21 +4829,24 @@
         return normalizeYears([...document.querySelectorAll(`#${prefix}EventYears input:checked`)].map(i => i.value));
       }
 
-      setYearChecks(prefix, years) {
+      setYearChecks(prefix, years, wings = []) {
         document.querySelectorAll(`#${prefix}EventYears input`).forEach(i => { i.checked = years.includes(i.value); });
+        const w = document.getElementById(`${prefix}EventWing`); if (w) w.value = normalizeWings(wings)[0] || '';
         this.updateTaskScopeHint(prefix);
       }
+      /** Wing a task or parade is for: [] = SD and SW. */
+      readWing(prefix) { const v = document.getElementById(`${prefix}EventWing`)?.value; return WINGS.includes(v) ? [v] : []; }
 
       /** Live summary under the year boxes: who the task will include, and who is left out for having no year. */
       updateTaskScopeHint(prefix) {
         const hint = document.getElementById(`${prefix}EventScopeHint`);
         if (!hint) return;
         const scope = document.getElementById(`${prefix}EventScopeInput`).value;
-        const years = this.readYearChecks(prefix);
-        const probe = { type: 'task', scope, years };
+        const years = this.readYearChecks(prefix), wings = this.readWing(prefix);
+        const probe = { type: 'task', scope, years, wings };
         const included = this.state.cadets.filter(c => cadetInEvent(c, probe)).length;
         const noYear = years.length ? this.state.cadets.filter(c => (scope === 'All' || c.company === scope) && !YEARS.includes(c.year)).length : 0;
-        hint.innerHTML = `Includes <b class="text-slate-300">${included}</b> cadet${included === 1 ? '' : 's'} (${escapeHtml(scopeText(scope, years))}).` +
+        hint.innerHTML = `Includes <b class="text-slate-300">${included}</b> cadet${included === 1 ? '' : 's'} (${escapeHtml(scopeText(scope, years, wings))}).` +
           (noYear ? ` <span class="text-amber-400">${noYear} cadet${noYear === 1 ? ' has' : 's have'} no year set and won't be included — set years in Manage roster.</span>` : '');
       }
 
@@ -4806,7 +4867,7 @@
         document.getElementById('editEventTitleInput').value = ev.title;
         document.getElementById('editEventDescInput').value = ev.description || '';
         document.getElementById('editEventScopeInput').value = ev.scope || 'All';
-        this.setYearChecks('edit', eventYears(ev));
+        this.setYearChecks('edit', eventYears(ev), ev.wings);
         this.resetTaskPicker('edit', eventPicked(ev) ? 'pick' : 'group', eventPicked(ev) ? ev.cadetIds : []);
         this.setCompletion('editCompletion', ev.completion);
         document.getElementById('editEventTypeInput').value = ev.type || 'task';
@@ -4837,7 +4898,7 @@
         if (!ev) { this.closeModal('editEventModal'); return; }
         
         const newScope = document.getElementById('editEventScopeInput').value;
-        const newYears = this.readYearChecks('edit');
+        const newYears = this.readYearChecks('edit'), newWings = this.readWing('edit');
         const who = this.readTaskWho('edit');
         const newTitle = document.getElementById('editEventTitleInput').value.trim();
         if (!newTitle) { this.showToast('Give the task a title.'); return; }
@@ -4858,10 +4919,11 @@
         }
         ev.title = newTitle;
         ev.description = document.getElementById('editEventDescInput').value.trim();
-        if (who.mode === 'pick') { ev.scope = 'All'; delete ev.years; ev.cadetIds = who.ids; }
+        if (who.mode === 'pick') { ev.scope = 'All'; delete ev.years; delete ev.wings; ev.cadetIds = who.ids; }
         else {
           ev.scope = newScope;
           if (newYears.length) ev.years = newYears; else delete ev.years;
+          if (newWings.length) ev.wings = newWings; else delete ev.wings;
           delete ev.cadetIds;
         }
         ev.type = document.getElementById('editEventTypeInput').value;
@@ -5895,7 +5957,7 @@
     function cloneData(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
     function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
     // Newer parts of the shared data: lists of items with plain ids, plus the mess duty settings.
-    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment', 'trophy', 'awards', 'medical', 'service'];
+    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment', 'trophy', 'awards', 'medical', 'service', 'holidays'];
     function extraLists(data) {
       const out = {};
       EXTRA_LISTS.forEach(k => { out[k] = (Array.isArray(data?.[k]) ? data[k] : []).filter(x => isPlainObject(x) && safeId(x.id)); });
@@ -6089,7 +6151,7 @@
           wing: c.wing === 'SW' ? 'SW' : 'SD',
           company: COMPANY_CHOICES.includes(c.company) ? c.company : (c.company ? String(c.company) : 'Jessami'),
           ...(c.free !== undefined ? { free: Array.isArray(c.free) ? ['MON1', 'MON2', 'TUE1', 'TUE2', 'WED1', 'WED2', 'THU1', 'THU2', 'FRI1', 'FRI2', 'SAT1', 'SAT2'].filter(sl => c.free.includes(sl)) : [] } : {}) };
-      }).map(c => { if (c.poc !== true) delete c.poc; return c; });
+      }).map(c => { if (c.poc !== true) delete c.poc; if (c.local !== true) delete c.local; return c; });
     }
     function normalizeEvent(ev) {
       if (!ev.type) ev.type = 'task';
@@ -6158,21 +6220,27 @@
     function cadetInEvent(cadet, ev) {
       if (!ev || !cadet) return false;
       if (ev.type === 'special') return (ev.teams || []).some(t => (t.cadetIds || []).includes(cadet.id));
+      if (ev.volunteer && ev.type !== 'special') return (ev.volunteer.cadetIds || []).includes(cadet.id); // volunteer task: only those who joined
       if (eventPicked(ev)) return ev.cadetIds.includes(cadet.id); // hand-picked cadets only
       if (ev.scope && ev.scope !== 'All' && cadet.company !== ev.scope) return false;
+      const wings = normalizeWings(ev.wings);
+      if (wings.length && !wings.includes(cadet.wing === 'SW' ? 'SW' : 'SD')) return false;
       const years = eventYears(ev);
       return !years.length || years.includes(cadet.year);
     }
+    /** Wing a task, parade, notice or sign-up is limited to; [] = both (same as rules.mjs audienceWings). */
+    function normalizeWings(w) { const list = WINGS.filter(x => Array.isArray(w) && w.includes(x)); return list.length === WINGS.length ? [] : list; }
     /** True when a normal task is for hand-picked cadets instead of companies / years. */
     function eventPicked(ev) { return !!ev && ev.type !== 'special' && Array.isArray(ev.cadetIds) && ev.cadetIds.length > 0; }
     /** Who a normal task is for, in words. */
     function eventAudienceText(ev) {
+      if (ev.volunteer) { const n = (ev.volunteer.cadetIds || []).length; return `${n} of ${ev.volunteer.seats} volunteer${ev.volunteer.seats === 1 ? '' : 's'} · from ${scopeText(ev.scope, eventYears(ev), ev.wings)}`; }
       if (eventPicked(ev)) { const n = ev.cadetIds.length; return `${n} picked cadet${n === 1 ? '' : 's'}`; }
-      return scopeText(ev.scope, eventYears(ev));
+      return scopeText(ev.scope, eventYears(ev), ev.wings);
     }
-    function scopeText(scope, years) {
-      const coy = !scope || scope === 'All' ? 'All companies' : `${scope} Company`;
-      return years && years.length ? `${coy} · ${years.join(' & ')} year` : coy;
+    function scopeText(scope, years, wings) {
+      const coy = !scope || scope === 'All' ? 'All companies' : `${scope} Company`, w = normalizeWings(wings);
+      return (years && years.length ? `${coy} · ${years.join(' & ')} year` : coy) + (w.length ? ` · ${w[0]} only` : '');
     }
     /**
      * After updating a cadet that was found with a search box: empty the box, redraw the list,
@@ -6258,7 +6326,7 @@
       const cadets = (typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) ? app.state.cadets : [];
       const val = id => document.getElementById(id)?.value || 'all';
       const q = (document.getElementById('dirSearch')?.value || '').toLowerCase().trim();
-      const coy = val('dirCompany'), year = val('dirYear'), wing = val('dirWing');
+      const coy = val('dirCompany'), year = val('dirYear'), wing = val('dirWing'), local = val('dirLocal');
       // Rank options: only ranks that exist on the roster.
       const rankSel = document.getElementById('dirRank');
       const ranks = RANKS.filter(r => cadets.some(c => (c.rank || 'CDT') === r));
@@ -6270,7 +6338,8 @@
       const rankOrder = r => -RANKS.indexOf(r || 'CDT'); // senior ranks first
       const list = cadets.filter(c =>
         (coy === 'all' || c.company === coy) && yearMatches(c, year) && (wing === 'all' || c.wing === wing) &&
-        (rank === 'all' || (c.rank || 'CDT') === rank) && (!q || c.name.toLowerCase().includes(q))
+        (rank === 'all' || (c.rank || 'CDT') === rank) && (!q || c.name.toLowerCase().includes(q)) &&
+        (local === 'all' || isLocalCadet(c) === (local === 'yes'))
       ).sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || (YEARS.indexOf(b.year) - YEARS.indexOf(a.year)) || a.name.localeCompare(b.name));
 
       const count = (arr, f) => arr.filter(f).length;
@@ -6280,7 +6349,8 @@
         YEARS.map(y => chip(`${y} yr`, count(list, c => c.year === y), 'border-violet-700/50 text-violet-300 bg-violet-900/20')).join('') +
         chip('Year not set', count(list, c => !YEARS.includes(c.year)), 'border-slate-700 text-slate-400') +
         chip('SD', count(list, c => c.wing === 'SD'), 'border-sky-700/50 text-sky-300') +
-        chip('SW', count(list, c => c.wing === 'SW'), 'border-rose-700/50 text-rose-300');
+        chip('SW', count(list, c => c.wing === 'SW'), 'border-rose-700/50 text-rose-300') +
+        chip('Locals', count(list, c => isLocalCadet(c)), 'border-teal-700/50 text-teal-300');
 
       const tones = { Jessami: 'text-amber-400 border-amber-700/50', Kohima: 'text-indigo-400 border-indigo-700/50', Naushera: 'text-emerald-400 border-emerald-700/50', 'No company': 'text-slate-200 border-slate-700' };
       const companies = COMPANY_CHOICES.filter(c => (coy === 'all' || c === coy) && (c !== NO_COMPANY || coy === c || cadets.some(x => x.company === c)));
@@ -6302,6 +6372,7 @@
                 <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${c.wing === 'SD' ? 'bg-sky-900/40 text-sky-400 border-sky-700/50' : 'bg-rose-900/40 text-rose-400 border-rose-700/50'}">${escapeHtml(c.wing || '')}</span>
                 ${yearBadgeHtml(c.year)}
                 ${cycleState(c) === 'yes' ? cycleBadgeHtml(c) : ''}
+                ${isLocalCadet(c) ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-black border border-teal-700/50 text-teal-300" title="Local: goes home after parades, never on refreshments returning duty">Local</span>' : ''}
               </span>
             </li>`).join('')}</ul>` : '<p class="px-4 py-6 text-xs text-slate-500 text-center">No cadets match these filters.</p>'}
         </section>`;
@@ -6670,8 +6741,8 @@
     /** Sergeants and above can add/remove reports until the cutoff; the administrator any time. */
     function canChangeReports(pd) { return !!app?.can?.('requests') && (paradeOpenForReports(pd) || app.isAdmin()); }
     /** Cadets expected at a parade (same "who" rules as tasks). */
-    function paradeCadets(pd) { return (app?.state?.cadets || []).filter(c => cadetInEvent(c, { type: 'task', scope: pd.scope, years: pd.years, cadetIds: pd.cadetIds })); }
-    function paradeAudience(pd) { return eventAudienceText({ type: 'task', scope: pd.scope, years: pd.years, cadetIds: pd.cadetIds }); }
+    function paradeCadets(pd) { return (app?.state?.cadets || []).filter(c => cadetInEvent(c, { type: 'task', scope: pd.scope, years: pd.years, wings: pd.wings, cadetIds: pd.cadetIds })); }
+    function paradeAudience(pd) { return eventAudienceText({ type: 'task', scope: pd.scope, years: pd.years, wings: pd.wings, cadetIds: pd.cadetIds }); }
     function paradeDay(ts) { return new Date(ts).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }); }
     function paradeClock(ts) { return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
     function informerName(id) { const c = (app?.state?.cadets || []).find(x => x.id === id); return c ? `${c.rank} ${c.name}` : 'a senior'; }
@@ -7145,19 +7216,21 @@
     function paradeStripHtml(pd) {
       const esc = escapeHtml, id = esc(pd.id), on = hasRefreshments(pd), cq = canRefreshments(), upcoming = pd.reportAt + 3 * 3600000 > Date.now();
       const boxes = [], me = app.myCadet(), per = messConfig().perDay;
-      if (on || (cq && upcoming)) {
+      const sees = app.isAdmin() || comingTo(pd, me?.id); // only those coming to the parade see the duty
+      if ((on && sees) || (cq && upcoming)) {
         const d = messList().find(x => x.paradeId === pd.id) || (on ? messVirtual(pd) : null);
         const n = d ? d.cadetIds.length : 0, mine = me && d?.cadetIds.includes(me.id);
         const canJoin = on && d && me && !mine && n < per && pd.reportAt > Date.now() && messPool(d).some(c => c.id === me.id);
         const names = d && d.cadetIds.length ? d.cadetIds.map(cadetLabel).join(', ') : '';
         boxes.push(`<div class="par-tile par-tile-static ${canJoin ? 'par-tile-warn' : ''}" id="paradeMess">
-          <span class="par-tile-label">${on ? 'Refreshments · mess duty' : 'Refreshments'}</span>
-          <b class="par-tile-main">${!on ? 'None at this parade' : mine ? 'You are on it' : `${n} of ${per} cadets`}</b>
-          <span class="par-tile-sub">${!on ? 'Turn on if there are refreshments' : names ? esc(names) : 'Nobody yet: cadets volunteer first'}</span>
+          <span class="par-tile-label">${on ? 'Refreshments returning duty' : 'Refreshments'}</span>
+          <b class="par-tile-main">${!on ? 'None at this parade' : !sees ? 'At this parade' : mine ? 'You are on it' : `${n} of ${per} cadets`}</b>
+          <span class="par-tile-sub">${!on ? 'Turn on if there are refreshments' : !sees ? 'The cadets coming to it return the items to Apoorva mess' : names ? esc(names) : 'Nobody yet: cadets coming to it volunteer'}</span>
           <span class="flex flex-wrap gap-1.5 mt-2">
             ${canJoin ? `<button type="button" data-id="${id}" onclick="messVolunteer(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-emerald-600 bg-emerald-600 text-white">Volunteer</button>` : ''}
             ${mine && d && !d.virtual && pd.reportAt > Date.now() ? `<button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300">${messOutMine(d) ? 'Waiting for a senior' : "Can't do it?"}</button>` : ''}
-            ${on ? `<button type="button" data-id="${id}" onclick="openMessDialog(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">${messLead() || app.isAdmin() ? 'Pick and manage' : 'Mess duty'}</button>` : ''}
+            ${on && sees && messCanPick(pd) && d && n < per ? `<button type="button" data-id="${id}" onclick="openMessPickParade(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-amber-600 text-amber-200">Pick a cadet</button>` : ''}
+            ${on && sees ? `<button type="button" data-id="${id}" onclick="openMessDialog(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Open</button>` : ''}
             ${cq && upcoming ? `<button type="button" data-id="${id}" onclick="toggleRefreshments(this.dataset.id)" aria-pressed="${on}" class="af-chip text-[11px]">${on ? 'Refreshments: on' : 'Refreshments: off'}</button>` : ''}
           </span></div>`);
       }
@@ -7264,7 +7337,7 @@
       document.getElementById('paradeVenue').value = pd?.venue || '';
       document.getElementById('paradeAgenda').value = pd?.agenda || '';
       document.getElementById('paradeEventScopeInput').value = pd?.scope || 'All';
-      app.setYearChecks('parade', pd ? normalizeYears(pd.years) : []);
+      app.setYearChecks('parade', pd ? normalizeYears(pd.years) : [], pd?.wings);
       const picked = pd && Array.isArray(pd.cadetIds) && pd.cadetIds.length;
       app.resetTaskPicker('parade', picked ? 'pick' : 'group', picked ? pd.cadetIds : []);
       document.getElementById('paradeModalError').classList.add('hidden');
@@ -7295,9 +7368,9 @@
       const kit = document.getElementById('paradeKit').value.trim().replace(/\s+/g, ' ').slice(0, 200);
       const who = app.readTaskWho('parade');
       const scope = document.getElementById('paradeEventScopeInput').value;
-      const years = app.readYearChecks('parade');
+      const years = app.readYearChecks('parade'), wings = app.readWing('parade');
       if (who.mode === 'pick' && !who.ids.length) { fail('Pick at least one cadet, or choose Companies & years.'); return; }
-      const audience = who.mode === 'pick' ? { scope: 'All', cadetIds: who.ids } : { scope, ...(years.length ? { years } : {}) };
+      const audience = who.mode === 'pick' ? { scope: 'All', cadetIds: who.ids } : { scope, ...(years.length ? { years } : {}), ...(wings.length ? { wings } : {}) };
       if (!Array.isArray(app.state.parades)) app.state.parades = [];
       let pd, changedFrom = null, callMess = false;
       if (PAR.editId) {
@@ -7312,7 +7385,7 @@
           if (refresh && reportAt > Date.now()) callMess = true;
           if (!refresh) app.state.messDuty = (app.state.messDuty || []).filter(d => d.paradeId !== pd.id);
         }
-        delete pd.years; delete pd.cadetIds; Object.assign(pd, audience);
+        delete pd.years; delete pd.wings; delete pd.cadetIds; Object.assign(pd, audience);
         app.logHistory('parade-edited', null, `Edited parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast('Parade updated.');
       } else {
@@ -9010,10 +9083,45 @@
       </div>`;
     }
 
+    // ---- Volunteer tasks on the notice board: anyone the task is for joins until it is full (server taskVolunteer);
+    // nobody steps out alone, a writer takes them off (taskVolunteerRemove, they are told).
+    function volunteerTask(n) { return (cfState()?.events || []).find(e => e && e.id === n.taskId && e.volunteer) || null; }
+    function volunteerNoticeHtml(n) {
+      const ev = volunteerTask(n); if (!ev) return '';
+      const esc = escapeHtml, me = app.myCadet(), v = ev.volunteer, ids = (v.cadetIds || []).filter(id => cadetById(id)), seats = Math.max(1, Number(v.seats) || 1);
+      const inIt = me && ids.includes(me.id), full = ids.length >= seats, past = ev.deadline && ev.deadline < Date.now();
+      const canJoin = me && !inIt && !full && !past && !ev.archived && !v.closed && cadetInEvent(me, { type: 'task', scope: ev.scope, years: ev.years, wings: ev.wings });
+      const cross = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      const chips = ids.map(id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''}">${esc(cadetLabel(id))}${app.canEdit() ? `<button type="button" data-ev="${esc(ev.id)}" data-id="${esc(id)}" onclick="removeTaskVolunteer(this.dataset.ev, this.dataset.id)" title="Take off" aria-label="Take ${esc(cadetLabel(id))} off">${cross}</button>` : ''}</span>`).join('');
+      return `<div class="vol-box mt-2 space-y-1.5" data-volunteer="${esc(ev.id)}">
+        <p class="text-xs font-bold ${full ? 'text-emerald-300' : 'text-amber-300'}">${ids.length} of ${seats} volunteered${full ? ' · full' : ''}${ev.deadline ? ` · by ${esc(fmtWhen(ev.deadline))}` : ''}</p>
+        ${chips ? `<div class="flex flex-wrap gap-1.5">${chips}</div>` : ''}
+        ${canJoin ? `<button type="button" data-ev="${esc(ev.id)}" onclick="joinTaskVolunteer(this.dataset.ev)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-emerald-600 bg-emerald-600 text-white">Volunteer</button>` : ''}
+        ${inIt ? '<p class="text-[11px] text-slate-400">You are in. Only a senior can take you off.</p>' : ''}
+      </div>`;
+    }
+    async function joinTaskVolunteer(eventId) {
+      try { await api('taskVolunteer', { eventId }); await app.refreshFromRemote(); app.showToast('You are in. Only a senior can take you off.'); }
+      catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
+      renderNotices();
+    }
+    async function removeTaskVolunteer(eventId, cadetId) {
+      if (!app.canEdit()) return;
+      if (!(await askConfirm(`Take ${cadetLabel(cadetId)} off the volunteers? They are told.`, { ok: 'Take off' }))) return;
+      try { await app.flushRemoteSave?.(); await api('taskVolunteerRemove', { eventId, cadetId }); await app.refreshFromRemote(); app.showToast(`${cadetLabel(cadetId)} is off it. They were told.`); }
+      catch (e) { app.showToast(e.message || 'Could not save it.'); }
+      renderNotices();
+    }
+
     // ---- Notice board (Home). Lance corporals and above, and POCs, post; everyone reads.
+    /** Is this notice for me? Its company, years and wing (accounts not linked to a cadet see all; same as rules.mjs noticeFor). */
+    function noticeForMe(n, me = app?.myCadet?.()) { return !me || cadetInEvent(me, { type: 'task', scope: n.scope || 'All', years: n.years, wings: n.wings }); }
+    function noticeAudienceText(n) { return n.scope || normalizeYears(n.years).length || normalizeWings(n.wings).length ? scopeText(n.scope, normalizeYears(n.years), n.wings) : ''; }
+    function noticeWings() { const v = document.getElementById('nsWing')?.value; return WINGS.includes(v) ? [v] : []; }
+    /** Notices on the board now: up, not ended, and for me. Writers also see the ones for others and those waiting to go up. */
     function activeNotices() {
-      const now = Date.now();
-      return (cfState()?.notices || []).filter(n => !n.until || n.until > now).sort((a, b) => (b.at || 0) - (a.at || 0));
+      const now = Date.now(), writer = !!app?.canEdit?.();
+      return (cfState()?.notices || []).filter(n => (!n.until || n.until > now) && (writer || ((!n.postAt || n.postAt <= now) && noticeForMe(n)))).sort((a, b) => (b.at || 0) - (a.at || 0));
     }
     function canRemoveNotice(n) { return app.isAdmin() || (app.canEdit() && !!n.byCadet && n.byCadet === app.myCadet()?.id); }
     function renderNotices() {
@@ -9027,15 +9135,16 @@
         const item = 'notice:' + n.id;
         return `<article class="nb-item" data-notice="${esc(n.id)}" style="--i:${i}">
           <p class="nb-text">${esc(n.text)}</p>
-          <p class="nb-meta">${esc(n.by || 'A senior')} · <span title="${esc(fmtWhen(n.at))}" data-ago="${Number(n.at) || 0}">${esc(ago(n.at))}</span>${n.until ? ` · up until ${esc(new Date(n.until).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : ''}</p>
+          <p class="nb-meta">${esc(n.by || 'A senior')} · ${n.postAt > Date.now() ? `<b class="text-amber-300">goes up ${esc(fmtWhen(n.postAt))}${n.notify ? ' with a notification' : ''}</b>` : `<span title="${esc(fmtWhen(n.at))}" data-ago="${Number(n.at) || 0}">${esc(ago(n.at))}</span>`}${n.until ? ` · up until ${esc(new Date(n.until).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : ''}${noticeAudienceText(n) ? ` · for ${esc(noticeAudienceText(n))}` : ''}</p>
+          ${n.taskId ? volunteerNoticeHtml(n) : ''}
           ${noticeQuestionHtml(n)}
           <div class="nb-actions">${seenButton(item)}${answersButton(n)}${canRemoveNotice(n) ? `<button type="button" class="nb-link" onclick="removeNotice('${esc(n.id)}')">Remove</button>` : ''}</div>
           ${seenPanel(item)}${answersPanel(n)}
         </article>`;
-      }).join('') : '<p class="nb-empty">Nothing on the board. A notice posted here shows on everyone\'s Home page.</p>';
+      }).join('') : '<p class="nb-empty">Nothing on the board. A notice posted here shows on Home for everyone it is for.</p>';
       // Notices that just arrived from someone else get a short highlight.
       if (before.size) list.querySelectorAll('[data-notice]').forEach(el => { if (!before.has(el.dataset.notice)) el.classList.add('nb-fresh'); });
-      if (isVisible('homePage')) markSeen(items.map(n => 'notice:' + n.id));
+      if (isVisible('homePage')) markSeen(items.filter(n => (!n.postAt || n.postAt <= Date.now()) && noticeForMe(n)).map(n => 'notice:' + n.id));
     }
     let NOTICE_TYPE = 'notice';
     /** The notice form posts a plain notice or a sign-up (title, place, date and time, description, vacancies, apply-by). */
@@ -9044,7 +9153,9 @@
       const su = NOTICE_TYPE === 'signup';
       document.querySelectorAll('#noticeComposer [data-ntype]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ntype === NOTICE_TYPE)));
       document.getElementById('noticeSignupFields')?.classList.toggle('hidden', !su);
-      ['noticeText', 'noticeKeepWrap', 'noticeAskWrap'].forEach(id => document.getElementById(id)?.classList.toggle('hidden', su));
+      ['noticeText', 'noticeKeepWrap', 'noticeAskWrap', 'noticeLaterWrap'].forEach(id => document.getElementById(id)?.classList.toggle('hidden', su));
+      if (su) document.getElementById('noticeAt')?.classList.add('hidden');
+      else document.getElementById('noticeAt')?.classList.toggle('hidden', !document.getElementById('noticeLater')?.checked);
       if (su) document.getElementById('noticeOptionsRow')?.classList.add('hidden');
       else document.getElementById('noticeOptionsRow')?.classList.toggle('hidden', !document.getElementById('noticeAsk')?.checked);
       const close = document.getElementById('nsCloseDate');
@@ -9070,6 +9181,9 @@
       const seats = document.getElementById('nsSeats'); if (seats) seats.value = '0';
       const ct = document.getElementById('nsCloseTime'); if (ct) ct.value = '20:00';
       const sc = document.getElementById('nsScope'); if (sc) sc.value = 'All';
+      const wg = document.getElementById('nsWing'); if (wg) wg.value = '';
+      const later = document.getElementById('noticeLater'); if (later) later.checked = false;
+      const at = document.getElementById('noticeAt'); if (at) { at.value = ''; at.classList.add('hidden'); }
       document.querySelectorAll('#nsYears [data-y]').forEach(b => b.setAttribute('aria-pressed', 'false'));
       setNoticeType('notice');
     }
@@ -9087,10 +9201,10 @@
       if (closesAt <= Date.now()) return fail('The apply-by time has already passed.', 'nsCloseDate');
       if (startsAt && startsAt < Date.now() - 86400000) return fail('The date has already passed.', 'nsDate');
       const scope = val('nsScope') || 'All', notify = document.getElementById('noticeNotify').checked;
-      const years = normalizeYears([...document.querySelectorAll('#nsYears [data-y][aria-pressed="true"]')].map(b => b.dataset.y));
+      const years = normalizeYears([...document.querySelectorAll('#nsYears [data-y][aria-pressed="true"]')].map(b => b.dataset.y)), wings = noticeWings();
       if (!Array.isArray(app.state.signups)) app.state.signups = [];
       const id = newId('signup');
-      app.state.signups.push({ id, title, details, seats, closesAt, scope, ...(years.length ? { years } : {}), ...(place ? { place } : {}), ...(date ? { date, ...(time ? { time } : {}) } : {}),
+      app.state.signups.push({ id, title, details, seats, closesAt, scope, ...(years.length ? { years } : {}), ...(wings.length ? { wings } : {}), ...(place ? { place } : {}), ...(date ? { date, ...(time ? { time } : {}) } : {}),
         createdBy: app.authorName(), byCadet: app.myCadet()?.id || null, createdAt: Date.now(), applicants: [] });
       app.logHistory('signup-created', null, `Opened sign-up: ${title} (apply by ${fmtWhen(closesAt)})`);
       app.saveStorage();
@@ -9115,18 +9229,27 @@
       const options = noticeOptionsFromComposer();
       if (options && options.length < 2) { app.showToast('Write at least two answers, separated by commas.'); document.getElementById('noticeOptions').focus(); return; }
       const now = Date.now();
-      const n = { id: newId('notice'), text, at: now, by: app.authorName(), byCadet: app.myCadet()?.id || null, ...(days ? { until: now + days * 86400000 } : {}), ...(options ? { options } : {}) };
+      const later = document.getElementById('noticeLater')?.checked, atVal = document.getElementById('noticeAt')?.value || '';
+      const postAt = later ? new Date(atVal).getTime() : 0;
+      if (later && (!atVal || !Number.isFinite(postAt))) { app.showToast('Pick when to post it.'); document.getElementById('noticeAt').focus(); return; }
+      if (later && postAt <= now) { app.showToast('That time has already passed.'); document.getElementById('noticeAt').focus(); return; }
+      const scope = document.getElementById('nsScope')?.value || 'All', wings = noticeWings();
+      const years = normalizeYears([...document.querySelectorAll('#nsYears [data-y][aria-pressed="true"]')].map(b => b.dataset.y));
+      const start = later ? postAt : now;
+      const n = { id: newId('notice'), text, at: start, by: app.authorName(), byCadet: app.myCadet()?.id || null, ...(days ? { until: start + days * 86400000 } : {}), ...(options ? { options } : {}),
+        ...(scope !== 'All' ? { scope } : {}), ...(years.length ? { years } : {}), ...(wings.length ? { wings } : {}), ...(later ? { postAt, notify } : {}) };
       // Notices that ended more than 30 days ago are dropped to keep the shared data small.
       app.state.notices = [n, ...(app.state.notices || []).filter(x => !x.until || x.until > now - 30 * 86400000)];
-      app.logHistory('notice-posted', null, `Posted a notice: ${text.slice(0, 90)}${text.length > 90 ? '…' : ''}`);
+      app.logHistory('notice-posted', null, `${later ? `Wrote a notice for ${fmtWhen(postAt)}` : 'Posted a notice'}: ${text.slice(0, 90)}${text.length > 90 ? '…' : ''}`);
       app.saveStorage();
       closeNoticeComposer();
       renderNotices();
+      if (later) { app.showToast(`It goes up ${fmtWhen(postAt)}${notify ? ', with a notification' : ''}.`); return; }
       if (!notify) { app.showToast('Notice posted.'); return; }
       try {
         await app.flushRemoteSave(); // the server reads the notice from the saved data
         const r = await api('announce', { id: n.id });
-        app.showToast(`Notice posted. Sent to ${r.devices || 0} device${r.devices === 1 ? '' : 's'}.`);
+        app.showToast(`Notice posted. Sent to ${r.people || 0} ${r.people === 1 ? 'person' : 'people'} it is for.`);
       } catch (e) { app.showToast(`Notice posted, but the notification was not sent: ${e.message || e}`); }
     }
     function removeNotice(id) {
@@ -9160,7 +9283,7 @@
         `<span class="hn-item"><b class="hn-clock">${hh}<i>:</i>${mm}</b> ${esc(now.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }))}</span>`,
         `<span class="hn-item">${esc(half)}</span>`,
         next ? `<button type="button" class="hn-item hn-link${soon ? ' hn-soon' : ''}" onclick="switchCadetFlowPage('parades'); openParadeDetail('${esc(next.id)}')">Next parade <b>${esc(next.title)}</b> in <span data-until="${next.reportAt}">${esc(untilShort(next.reportAt - Date.now()))}</span></button>` : '<span class="hn-item">No parade planned</span>',
-        myMess ? `<button type="button" class="hn-item hn-link hn-mine" onclick="switchCadetFlowPage('parades')">Your mess duty <b>${myMess.date === ymd(now) ? 'today' : esc(dayLabel(myMess.date))}</b></button>` : '',
+        myMess ? `<button type="button" class="hn-item hn-link hn-mine" onclick="switchCadetFlowPage('parades')">Refreshments duty <b>${myMess.date === ymd(now) ? 'today' : esc(dayLabel(myMess.date))}</b></button>` : '',
         LIVE.count > 0 ? `<span class="hn-item hn-live" title="Devices with CadetFlow open right now"><b>${LIVE.count}</b> online now</span>` : '',
       ];
       // Rebuilt only when something in it changed, so a focused button is not lost every few seconds.
@@ -9237,12 +9360,13 @@
       for (let d = 1; d <= daysIn; d++) {
         const key = ymd(new Date(PAR.calY, PAR.calM, d));
         const list = byDay.get(key) || [];
-        const cls = ['pc-cell', key === today ? 'pc-today' : '', list.length ? 'pc-has' : '', PAR.calDay === key ? 'pc-sel' : ''].join(' ');
+        const hol = holidayOn(key);
+        const cls = ['pc-cell', key === today ? 'pc-today' : '', list.length ? 'pc-has' : '', PAR.calDay === key ? 'pc-sel' : '', hol ? 'pc-hol' : ''].join(' ');
         const chips = list.slice(0, 2).map(pd => `<span class="pc-chip ${pd.reportAt + 3 * 3600000 < now ? 'pc-past' : ''}">${esc(paradeClock(pd.reportAt))} ${esc(pd.title)}</span>`).join('') + (list.length > 2 ? `<span class="pc-more">+${list.length - 2}</span>` : '');
         const label = list.length ? `${d}: ${list.map(pd => `${pd.title} at ${paradeClock(pd.reportAt)}`).join(', ')}` : String(d);
         cells += list.length
           ? `<button type="button" class="${cls}" style="--i:${d}" onclick="paradeCalPick('${key}')" aria-label="${esc(label)}" aria-pressed="${PAR.calDay === key}"><span class="pc-num">${d}</span>${chips}<span class="pc-dots" aria-hidden="true">${list.map(() => '<i></i>').join('')}</span></button>`
-          : `<span class="${cls}" style="--i:${d}"><span class="pc-num">${d}</span></span>`;
+          : `<span class="${cls}" style="--i:${d}" ${hol ? `title="${esc(holidayText(hol))}"` : ''}><span class="pc-num">${d}</span>${hol ? `<span class="pc-hol-tag">${hol.kind === 'exams' ? 'Exams' : 'Holiday'}</span>` : ''}</span>`;
       }
       const sel = PAR.calDay ? (byDay.get(PAR.calDay) || []) : [];
       const monthCount = [...byDay.keys()].filter(k => k.startsWith(`${PAR.calY}-${String(PAR.calM + 1).padStart(2, '0')}`)).reduce((n, k) => n + byDay.get(k).length, 0);
@@ -9271,6 +9395,8 @@
 
     // ---- Repeating parades (made as separate parades with the same seriesId)
     function updateParadeRepeatHint() {
+      const warn = document.getElementById('paradeHolidayWarn'), day = document.getElementById('paradeDate')?.value, hol = day ? holidayOn(day) : null;
+      if (warn) { warn.textContent = hol ? `${dayLabel(day)} is in ${hol.kind === 'exams' ? 'exams' : 'a holiday'}: ${holidayText(hol)}.` : ''; warn.classList.toggle('hidden', !hol); }
       const every = Number(document.getElementById('paradeRepeat').value) || 0;
       const wrap = document.getElementById('paradeRepeatCountWrap'), hint = document.getElementById('paradeRepeatHint');
       wrap.classList.toggle('hidden', !every);
@@ -9280,12 +9406,61 @@
       const date = document.getElementById('paradeDate').value;
       if (!date) { hint.textContent = `${n} parades, ${every === 7 ? 'one every week' : 'one every 2 weeks'}. Pick the first date above.`; return; }
       const last = fromYmd(date); last.setDate(last.getDate() + every * (n - 1));
-      hint.textContent = `${n} parades, from ${dayLabel(date)} to ${dayLabel(ymd(last))}. The first is announced now; every parade gets a reminder 2 hours before.`;
+      const made = paradeRepeatDates(date, '12:00').length, skipped = n - made;
+      hint.textContent = `${made} parades, from ${dayLabel(date)} to ${dayLabel(ymd(last))}${skipped ? ` (${skipped} skipped: holidays or exams)` : ''}. The first is announced now; every parade gets a reminder 2 hours before.`;
     }
     function paradeRepeatDates(date, time) {
       const every = Number(document.getElementById('paradeRepeat')?.value) || 0;
       const n = every ? Math.min(26, Math.max(2, Number(document.getElementById('paradeRepeatCount').value) || 2)) : 1;
-      return Array.from({ length: n }, (_, i) => { const d = fromYmd(date); d.setDate(d.getDate() + every * i); return new Date(`${ymd(d)}T${time}`).getTime(); });
+      const all = Array.from({ length: n }, (_, i) => { const d = fromYmd(date); d.setDate(d.getDate() + every * i); return ymd(d); });
+      // Repeating parades skip holidays and exam weeks (a single parade is only warned about).
+      return (n > 1 ? all.filter(day => !holidayOn(day)) : all).map(day => new Date(`${day}T${time}`).getTime());
+    }
+
+    // ---- Holidays and exam weeks (state.holidays): JUOs, SUOs and the administrator mark them once; the parade
+    // dialog warns on them, repeating parades skip them, and the calendar shows them.
+    // state.holidays = [{ id: 'hol-…', title, kind: 'holiday'|'exams', from, to, by, at }]
+    const HOL = { kind: 'holiday' };
+    function holidayList() { return (cfState()?.holidays || []).filter(h => h && safeId(h.id) && /^\d{4}-\d\d-\d\d$/.test(h.from) && /^\d{4}-\d\d-\d\d$/.test(h.to)).sort((a, b) => a.from.localeCompare(b.from)); }
+    function holidayOn(day) { return holidayList().find(h => h.from <= day && day <= h.to) || null; }
+    function holidayText(h) { return `${h.title || (h.kind === 'exams' ? 'Exams' : 'Holiday')} (${h.from === h.to ? dayLabel(h.from) : `${dayLabel(h.from)} to ${dayLabel(h.to)}`})`; }
+    function openHolidays() { renderHolidays(); document.getElementById('holidayModal').classList.remove('hidden'); }
+    function renderHolidays() {
+      const host = document.getElementById('holidayBody'); if (!host || !cfState()) return;
+      const esc = escapeHtml, edit = app.can('parade'), today = ymd(new Date());
+      const list = holidayList().filter(h => h.to >= today), inp = 'mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm';
+      host.innerHTML = `<div class="space-y-3">
+        <ul class="space-y-1.5" id="holidayList">${list.map(h => `<li class="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2"><span class="text-sm text-slate-200"><span class="text-[10px] font-black uppercase tracking-wider ${h.kind === 'exams' ? 'text-violet-300' : 'text-teal-300'}">${h.kind === 'exams' ? 'Exams' : 'Holiday'}</span> ${esc(holidayText(h))}</span>${edit ? `<button type="button" data-id="${esc(h.id)}" onclick="removeHoliday(this.dataset.id)" class="text-[11px] text-slate-500 hover:text-rose-300">Remove</button>` : ''}</li>`).join('') || '<li class="text-xs text-slate-500">None coming up.</li>'}</ul>
+        ${edit ? `<div class="space-y-2 border-t border-slate-800 pt-3">
+          <div class="flex gap-1.5" role="group" aria-label="Kind"><button type="button" class="af-chip text-xs" aria-pressed="${HOL.kind === 'holiday'}" onclick="HOL.kind = 'holiday'; renderHolidays()">Holiday</button><button type="button" class="af-chip text-xs" aria-pressed="${HOL.kind === 'exams'}" onclick="HOL.kind = 'exams'; renderHolidays()">Exams</button></div>
+          <label class="block text-xs font-bold text-slate-300">Name<input id="holTitle" maxlength="80" placeholder="${HOL.kind === 'exams' ? 'e.g. Semester exams' : 'e.g. Christmas break'}" class="${inp}"></label>
+          <div class="grid grid-cols-2 gap-2"><label class="block text-xs font-bold text-slate-300">From<input id="holFrom" type="date" class="${inp}"></label><label class="block text-xs font-bold text-slate-300">To<input id="holTo" type="date" class="${inp}"></label></div>
+          <div class="flex justify-end"><button type="button" onclick="saveHoliday()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Add</button></div>
+        </div>` : ''}</div>`;
+    }
+    function saveHoliday() {
+      if (!app.can('parade')) return;
+      const val = id => (document.getElementById(id)?.value || '').trim();
+      const from = val('holFrom'), to = val('holTo') || from, title = val('holTitle').replace(/\s+/g, ' ').slice(0, 80);
+      if (!from) { app.showToast('Pick the first day.'); document.getElementById('holFrom').focus(); return; }
+      if (to < from) { app.showToast('The last day is before the first.'); document.getElementById('holTo').focus(); return; }
+      if (Math.round((fromYmd(to) - fromYmd(from)) / 86400000) > 120) { app.showToast('At most 120 days at a time.'); return; }
+      const h = { id: newId('hol'), title, kind: HOL.kind, from, to, by: app.authorName(), at: Date.now() };
+      app.state.holidays = [...(app.state.holidays || []), h];
+      app.logHistory('holiday-added', null, `Marked ${h.kind === 'exams' ? 'exams' : 'a holiday'}: ${holidayText(h)}`);
+      app.saveStorage();
+      const clash = paradeList().filter(pd => pd.reportAt > Date.now() && from <= ymd(new Date(pd.reportAt)) && ymd(new Date(pd.reportAt)) <= to);
+      renderHolidays(); renderParadeCalendar();
+      app.showToast(clash.length ? `Added. ${clash.length} parade${clash.length === 1 ? ' is' : 's are'} already planned in it: ${clash.map(pd => pd.title).join(', ')}.` : 'Added.');
+    }
+    function removeHoliday(id) {
+      if (!app.can('parade')) return;
+      const list = app.state.holidays || [], at = list.findIndex(h => h.id === id); if (at < 0) return;
+      const h = list[at];
+      app.state.holidays = list.filter(x => x.id !== id);
+      app.logHistory('holiday-removed', null, `Removed: ${holidayText(h)}`);
+      app.saveStorage(); renderHolidays(); renderParadeCalendar();
+      app.showToast('Removed.', { undo: () => { app.state.holidays = putBack(app.state.holidays || [], h, at); app.saveStorage(); renderHolidays(); renderParadeCalendar(); } });
     }
 
     // ---- Camps and courses (Cadet Roster page). JUOs, SUOs and the administrator keep them.
@@ -9470,119 +9645,82 @@
       app.showToast(`${a.name} is back on the roster as a 3rd year.`);
     }
 
-    // ---- Mess duty (Parades page, Mess duty box and dialog): at parades with refreshments some cadets return
-    // them to the mess. The CQMS, JUOs, SUOs or the administrator turn refreshments on per parade
-    // (pd.refreshments, in the parade dialog or on its page). The server then calls for cadets (messCall,
-    // and the reminders job): first the advance volunteers (state.messStandby), then every cadet who can do
-    // it, then the lance corporals and corporals, who pick by hand or Fill the rest fairly. Cadets take a place
-    // with messVolunteer. Only cadets (rank CDT), only those expected at that parade, never the locals or anyone
-    // on leave or excused. LCPLs and CPLs have a big button; sergeants and above a small Manage link; the
-    // administrator always sees everything.
-    // state.messDuty = [{ id: 'mess-<parade id>', paradeId, date, cadetIds, volunteers?: [cadetId], asked?: { standby, all, leads (times), standbyN, allN, leadsN }, at, by }]
-    // state.messStandby = [{ id: 'sb-<cadet id>', cadetId, at }] (server only)
+    // ---- Refreshments returning duty (Parades page, the parade's box and the dialog): at a parade with
+    // refreshments some cadets return the items to Apoorva mess afterwards. The CQMS, JUOs, SUOs or the
+    // administrator turn refreshments on per parade (pd.refreshments). Nothing is assigned automatically:
+    // cadets coming to that parade volunteer (messVolunteer); the server calls them (messCall and the reminders
+    // job), and when places are still empty it tells the lance corporals and corporals coming to it, who pick a
+    // cadet by hand (server messPick: the cadet is told at once). Only rank CDT, only cadets coming to that
+    // parade, never locals (cadet.local, set on the roster), anyone on leave, excused or on medical exemption.
+    // A cadet on it who cannot do it asks a cadet to swap (they must agree) or sends a reason to a senior.
+    // Only cadets coming to the parade (and the administrator) see any of it.
+    // state.messDuty = [{ id: 'mess-<parade id>', paradeId, date, cadetIds, volunteers?: [cadetId], picked?: { cadetId: { by, at } }, asked?: { all, leads (times), allN, leadsN }, at, by }]
     // (older items have no paradeId).
-    const MESS = { settings: false, q: '', manage: false };
+    const MESS_NAME = 'Refreshments returning duty';
+    const MESS = { settings: false, focus: null };
     function messConfig() {
       const c = cfState()?.messConfig || {};
       const years = (Array.isArray(c.years) ? c.years : []).filter(y => YEARS.includes(y));
-      // 'exempt' holds the locals (kept under its old name so older saves still read).
+      // 'exempt' is the older list of locals (kept so older saves still read); the roster's Local tick is the new way.
       return { perDay: Math.min(30, Math.max(1, Math.round(Number(c.perDay)) || 4)), years: years.length ? years : ['1st', '2nd'], exempt: Array.isArray(c.exempt) ? c.exempt : [] };
     }
+    /** A local goes home after parades: never on this duty (same as rules.mjs isLocal). */
+    function isLocalCadet(c, cfg = messConfig()) { return !!c && (c.local === true || cfg.exempt.includes(c.id)); }
     function messList() { return (cfState()?.messDuty || []).filter(d => d && safeId(d.id) && /^\d{4}-\d\d-\d\d$/.test(d.date) && Array.isArray(d.cadetIds)).slice().sort((a, b) => a.date.localeCompare(b.date) || (findParade(a.paradeId)?.reportAt || 0) - (findParade(b.paradeId)?.reportAt || 0)); }
-    /** Refreshments at this parade? Set by the CQMS; parades from before the switch count when they already had mess duty (same as rules.mjs). */
+    /** Refreshments at this parade? Parades from before the switch count when they already had a list (same as rules.mjs). */
     function hasRefreshments(pd) {
       if (!pd) return false;
       if (pd.refreshments === true) return true;
       if (pd.refreshments === false) return false;
       return (cfState()?.messDuty || []).some(d => d && d.paradeId === pd.id);
     }
-    /** Mess duty that is shown: parades with refreshments (and older days that belong to no parade). */
     function messShown(d) { const pd = d.paradeId ? findParade(d.paradeId) : null; return d.paradeId ? !!pd && hasRefreshments(pd) : true; }
     function messDays() { return messList().filter(messShown); }
     function messDayById(id) { return (app.state.messDuty || []).find(x => x && x.id === id) || null; }
     function messVolunteers(d) { return (Array.isArray(d?.volunteers) ? d.volunteers : []).filter(id => (d.cadetIds || []).includes(id)); }
     /** Who switches refreshments on: the CQMS, those who create parades (JUO, SUO) and the administrator. */
     function canRefreshments() { return !!app?.can?.('uniform') || !!app?.can?.('parade'); }
-    /** The advance volunteers list (state.messStandby): asked first when a parade gets refreshments. */
-    function messOnStandby(cadetId) { return (cfState()?.messStandby || []).some(x => x && x.cadetId === cadetId); }
-    function messStandbyOk(c) { const cfg = messConfig(); return !!c && messRankOk(c) && cfg.years.includes(c.year) && !cfg.exempt.includes(c.id); }
-    async function toggleMessStandby() {
-      const me = app.myCadet(); if (!me) return;
-      const on = !messOnStandby(me.id);
-      try {
-        await api('messStandby', { on });
-        await app.refreshFromRemote();
-        app.showToast(on ? 'Thank you. You will be asked first when a parade has refreshments.' : 'You are off the volunteers list.');
-      } catch (e) { app.showToast(e.message || 'Could not save it.'); }
-      messRedraw();
-    }
-    /** Refreshments were just turned on: the server asks the advance volunteers at once (the rest follows on its own). */
+    /** Refreshments were just turned on: the server calls the cadets who can do it at once. */
     async function messCallNow(pid) {
       try { await app.flushRemoteSave?.(); const r = await api('messCall', pid ? { paradeId: pid } : {}); if (r.calls) await app.refreshFromRemote(); }
       catch (e) { console.warn('CadetFlow mess call:', e); }
     }
-    /** Lance corporals and corporals (and POCs below sergeant) look after mess duty; sergeants and above only oversee. */
+    /** Lance corporals and corporals (and POCs below sergeant) pick by hand when volunteers are short. */
     function messLead() { return !!app?.canEdit?.() && !app.isAdmin() && ['CDT', 'LCPL', 'CPL'].includes(app.myCadet()?.rank || 'CDT'); }
     function messRankOk(c) { return !c.rank || c.rank === 'CDT'; }
-    function messEligible(cfg = messConfig()) { return (cfState()?.cadets || []).filter(c => messRankOk(c) && cfg.years.includes(c.year) && !cfg.exempt.includes(c.id)); }
+    function messEligible(cfg = messConfig()) { return (cfState()?.cadets || []).filter(c => messRankOk(c) && cfg.years.includes(c.year) && !isLocalCadet(c, cfg)); }
     function messCounts() {
       const m = new Map();
       messDays().forEach(d => (d.cadetIds || []).forEach(id => { const x = m.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; m.set(id, x); }));
       return m;
     }
-    function messHash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
     function messTitle(d) { const pd = findParade(d.paradeId); return pd ? `${pd.title}, ${dayLabel(d.date)} ${paradeClock(pd.reportAt)}` : dayLabel(d.date); }
-    /** Cadets who can do this duty: expected at the parade, not excused or on leave, not a local, not on it already (skip). */
+    /** Is this cadet coming to that parade (expected, not excused, not on leave)? */
+    function comingTo(pd, cadetId) { return !!pd && !!cadetId && paradeCadets(pd).some(c => c.id === cadetId) && paradeStatus(pd, cadetId) !== 'excused' && !leaveOnDate(cadetId, ymd(new Date(pd.reportAt))); }
+    /** Who sees a parade's duty: the administrator, and those coming to that parade. */
+    function messSeesDay(d, me = app.myCadet()) {
+      if (app.isAdmin()) return true;
+      const pd = d.paradeId ? findParade(d.paradeId) : null;
+      return !!me && (pd ? comingTo(pd, me.id) : (d.cadetIds || []).includes(me.id));
+    }
+    /** May I pick by hand at this parade? Lance corporals and above (and POCs) coming to it, and the administrator. */
+    function messCanPick(pd) { return !!pd && pd.reportAt > Date.now() && (app.isAdmin() || (!!app?.canEdit?.() && comingTo(pd, app.myCadet()?.id))); }
+    /** Cadets who can do this duty: rank CDT, coming to the parade, not a local, not on medical exemption, not on it already (skip). */
     function messPool(d, skip = new Set()) {
       const pd = findParade(d.paradeId), expected = pd ? new Set(paradeCadets(pd).map(c => c.id)) : null;
-      return messEligible().filter(c => !skip.has(c.id) && !leaveOnDate(c.id, d.date) && (!expected || (expected.has(c.id) && paradeStatus(pd, c.id) !== 'excused')));
-    }
-    /** The fairest cadets for a parade: fewest duties, then longest since the last (same as rules.mjs messFairPick). */
-    function messPick(d, count, counts, skip) {
-      return messPool(d, skip).filter(c => !medicalOn(c.id, d.date))
-        .map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '', h: messHash(c.id + d.date) }))
-        .sort((a, b) => a.n - b.n || a.last.localeCompare(b.last) || a.h - b.h)
-        .slice(0, count).map(x => x.c.id);
+      return messEligible().filter(c => !skip.has(c.id) && !leaveOnDate(c.id, d.date) && !medicalOn(c.id, d.date) && (!expected || (expected.has(c.id) && paradeStatus(pd, c.id) !== 'excused')));
     }
     /** A parade with refreshments and nobody on it yet, shown as an empty list. */
     function messVirtual(pd) { return { id: 'mess-' + pd.id, paradeId: pd.id, date: ymd(new Date(pd.reportAt)), cadetIds: [], volunteers: [], virtual: true }; }
-    /** Upcoming mess duty: one row per parade with refreshments (empty ones too), plus older days with no parade. */
+    /** Upcoming duty: one row per parade with refreshments (empty ones too), plus older days with no parade. */
     function messUpcoming() {
       const today = ymd(new Date()), days = messDays();
       const rows = paradeList().filter(pd => pd.reportAt + 3 * 3600000 > Date.now() && hasRefreshments(pd)).map(pd => days.find(d => d.paradeId === pd.id) || messVirtual(pd));
       days.filter(d => d.date >= today && !(d.paradeId && findParade(d.paradeId))).forEach(d => rows.push(d));
       return rows.sort((a, b) => a.date.localeCompare(b.date) || (findParade(a.paradeId)?.reportAt || 0) - (findParade(b.paradeId)?.reportAt || 0));
     }
-    /** Can a cadet still step back from a duty they volunteered for? Until 6 pm the evening before (then places are filled). */
-    function messRedraw() { renderMessCard(); if (isVisible('paradePage') && PAR.openId) renderParadePage(); renderMyDay?.(); }
-    /** Upcoming parades with refreshments in the next 14 days with empty places. */
-    function messParadesToPlan() {
-      const per = messConfig().perDay, soon = Date.now() + 14 * 86400000;
-      return messUpcoming().filter(d => d.paradeId && findParade(d.paradeId)?.reportAt > Date.now() && findParade(d.paradeId).reportAt <= soon && d.cadetIds.length < per);
-    }
-    /** Fill the empty places of the next 14 days' parades with the fairest cadets (volunteers stay). */
-    function planMessParades() {
-      if (!app?.canEdit?.()) return;
-      const cfg = messConfig(), todo = messParadesToPlan();
-      if (!todo.length) { app.showToast('Every parade with refreshments in the next 14 days is full.'); return; }
-      const counts = messCounts(), filled = [], short = [];
-      todo.forEach(row => {
-        const d = ensureMessDay(row.paradeId); if (!d) return;
-        const ids = messPick(d, cfg.perDay - d.cadetIds.length, counts, new Set(d.cadetIds));
-        if (d.cadetIds.length + ids.length < cfg.perDay) short.push(findParade(d.paradeId)?.title || d.date);
-        if (!ids.length) return;
-        ids.forEach(id => { const x = counts.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; counts.set(id, x); });
-        d.cadetIds = [...d.cadetIds, ...ids];
-        filled.push(d);
-      });
-      if (!filled.length) { app.showToast('No more cadets can do mess duty at those parades.'); return; }
-      app.logHistory('mess-planned', null, `Filled mess duty for ${filled.length} parade(s): ${filled.map(messTitle).join('; ')}`);
-      app.saveStorage();
-      MESS.flash = new Set(filled.map(d => d.id));
-      messRedraw();
-      app.showToast(`Filled ${filled.length} parade${filled.length === 1 ? '' : 's'}.${short.length ? ` Not enough cadets free for: ${short.join(', ')}.` : ''}`);
-    }
-    /** CQMS or administrator: refreshments at this parade, or not. Turning them on lets cadets volunteer. */
+    function messRedraw() { renderMessCard(); if (isVisible('paradePage') && PAR.openId) renderParadePage(); renderMyDay?.(); renderParadeTiles?.(); }
+    /** CQMS, JUO, SUO or administrator: refreshments at this parade, or not. Turning them on calls for volunteers. */
     function toggleRefreshments(pid) {
       if (!canRefreshments()) return;
       const pd = findParade(pid); if (!pd) return;
@@ -9593,8 +9731,8 @@
       app.logHistory(on ? 'mess-refreshments-on' : 'mess-refreshments-off', null, `${on ? 'Refreshments at' : 'No refreshments at'} ${pd.title} (${paradeDay(pd.reportAt)})`);
       app.saveStorage();
       messRedraw();
-      if (on) { app.showToast(`Refreshments at ${pd.title}. The cadets who offered are asked first.`); if (pd.reportAt > Date.now()) messCallNow(pid); return; }
-      app.showToast(`No refreshments at ${pd.title}.${day && day.cadetIds.length ? ' Its mess duty list is removed.' : ''}`, { undo: () => {
+      if (on) { app.showToast(`Refreshments at ${pd.title}. The cadets coming to it are asked to volunteer.`); if (pd.reportAt > Date.now()) messCallNow(pid); return; }
+      app.showToast(`No refreshments at ${pd.title}.${day && day.cadetIds.length ? ' Its duty list is removed.' : ''}`, { undo: () => {
         const p = findParade(pid); if (!p) return;
         p.refreshments = true;
         if (day && !(app.state.messDuty || []).some(x => x.id === day.id)) app.state.messDuty = putBack(app.state.messDuty || [], day, at);
@@ -9602,239 +9740,130 @@
         app.saveStorage(); messRedraw();
       } });
     }
-    /** The mess duty list of a parade, made (empty) when there is none yet. */
-    function ensureMessDay(pid) {
-      const pd = findParade(pid); if (!pd) return null;
-      let d = (app.state.messDuty || []).find(x => x && x.paradeId === pid);
-      if (!d) { d = { id: 'mess-' + pid, paradeId: pid, date: ymd(new Date(pd.reportAt)), cadetIds: [], volunteers: [], at: Date.now(), by: app.authorName() }; app.state.messDuty = [...(app.state.messDuty || []), d]; }
-      return d;
-    }
-    /** Fill the empty places with the fairest cadets. */
-    function fillMessDay(dayId, pid) {
-      if (!app?.canEdit?.()) return;
-      const d = messDayById(dayId) || (pid ? ensureMessDay(pid) : null); if (!d) return;
-      const need = messConfig().perDay - d.cadetIds.length;
-      if (need <= 0) { app.showToast('Already full.'); return; }
-      const ids = messPick(d, need, messCounts(), new Set(d.cadetIds));
-      if (!ids.length) { app.showToast('Nobody else can do this duty.'); return; }
-      d.cadetIds = [...d.cadetIds, ...ids];
-      app.logHistory('mess-picked', null, `Mess duty ${messTitle(d)}: picked ${ids.map(cadetLabel).join(', ')}`);
-      app.saveStorage();
-      MESS.flash = new Set(ids.map(id => d.id + ':' + id));
-      messRedraw();
-      app.showToast(`Picked ${ids.map(cadetLabel).join(', ')}.`);
-    }
-    function setMessCadet(dayId, out, inId) {
-      if (!app?.canEdit?.()) return false;
-      const d = messDayById(dayId); if (!d || d.cadetIds.includes(inId)) return false;
-      d.cadetIds = out && d.cadetIds.includes(out) ? d.cadetIds.map(id => id === out ? inId : id) : [...d.cadetIds, inId];
-      if (out && Array.isArray(d.volunteers)) d.volunteers = d.volunteers.filter(x => x !== out);
-      app.logHistory('mess-picked', null, `Mess duty ${messTitle(d)}: ${out ? `${cadetLabel(inId)} instead of ${cadetLabel(out)}` : `picked ${cadetLabel(inId)}`}`);
-      app.saveStorage();
-      MESS.flash = new Set([d.id + ':' + inId]);
-      messRedraw();
-      return true;
-    }
-    /** Give a cadet's duty to the next fairest cadet. */
-    function swapMess(dayId, cadetId) {
-      if (!app?.canEdit?.()) return;
-      const d = messDayById(dayId); if (!d) return;
-      const [next] = messPick(d, 1, messCounts(), new Set(d.cadetIds));
-      if (!next) { app.showToast('Nobody else is free to take this duty.'); return; }
-      setMessCadet(dayId, cadetId, next);
-      app.showToast(`${cadetLabel(next)} takes it instead.`);
-    }
-    function removeFromMess(dayId, cadetId) {
-      if (!app?.canEdit?.()) return;
-      const d = messDayById(dayId); if (!d) return;
-      const at = d.cadetIds.indexOf(cadetId); if (at < 0) return;
-      const wasVol = (d.volunteers || []).includes(cadetId);
-      d.cadetIds = d.cadetIds.filter(id => id !== cadetId);
-      if (wasVol) d.volunteers = d.volunteers.filter(x => x !== cadetId);
-      app.logHistory('mess-removed', cadetId, `Mess duty ${messTitle(d)}: took off ${cadetLabel(cadetId)}`);
-      app.saveStorage(); messRedraw();
-      app.showToast(`${cadetLabel(cadetId)} is off mess duty.`, { undo: () => {
-        const x = messDayById(dayId); if (!x || x.cadetIds.includes(cadetId)) return;
-        x.cadetIds = putBack(x.cadetIds, cadetId, at);
-        if (wasVol) x.volunteers = [...(x.volunteers || []), cadetId];
-        app.saveStorage(); messRedraw();
-      } });
-    }
-    function removeMessDay(dayId) {
-      if (!app?.canEdit?.()) return;
-      const list = app.state.messDuty || [], at = list.findIndex(x => x.id === dayId);
-      if (at < 0) return;
-      const x = list[at], title = messTitle(x);
-      app.state.messDuty = list.filter(y => y.id !== dayId);
-      app.logHistory('mess-removed', null, `Cleared mess duty: ${title}`);
-      app.saveStorage();
-      messRedraw();
-      app.showToast(`Mess duty cleared: ${title}.`, { undo: () => {
-        if ((app.state.messDuty || []).some(y => y.id === dayId)) return;
-        app.state.messDuty = putBack(app.state.messDuty || [], x, at);
-        app.logHistory('mess-restored', null, `Brought back mess duty: ${title}`);
-        app.saveStorage(); messRedraw();
-      } });
-    }
+    /** The administrator's settings: cadets at each parade and which years do it. */
     function setMessConfig(change) {
-      if (!app?.canEdit?.()) return;
-      const cfg = messConfig(), before = cfg.exempt.slice();
+      if (!app?.isAdmin?.()) return;
+      const cfg = messConfig();
       change(cfg);
-      if (!app.isAdmin()) cfg.exempt = before; // only the administrator changes who is a local
       app.state.messConfig = { perDay: cfg.perDay, years: cfg.years, exempt: cfg.exempt };
       app.saveStorage();
       renderMessCard();
     }
     function toggleMessList(key, value) {
-      if (key === 'exempt' && !app.isAdmin()) { app.showToast('Only the administrator changes who is a local.'); return; }
+      if (!app.isAdmin() || key !== 'years') return;
       setMessConfig(cfg => {
-        const list = cfg[key];
-        cfg[key] = list.includes(value) ? list.filter(x => x !== value) : [...list, value];
-        if (!cfg[key].length && key !== 'exempt') { cfg[key] = list; app.showToast('Keep at least one ticked.'); }
+        const list = cfg.years;
+        cfg.years = list.includes(value) ? list.filter(x => x !== value) : [...list, value];
+        if (!cfg.years.length) { cfg.years = list; app.showToast('Keep at least one ticked.'); }
       });
     }
     function copyMessDuty() {
-      const up = messDays().filter(d => d.date >= ymd(new Date()) && d.cadetIds.length);
-      if (!up.length) { app.showToast('Nothing planned yet.'); return; }
-      const msg = '*Mess duty* (return the refreshments to the mess)\n' + up.map(d => `\n*${messTitle(d)}*\n${d.cadetIds.map((id, i) => `${i + 1}. ${cadetLabel(id)}`).join('\n')}`).join('\n');
-      app.copyToClipboard(msg, 'Copied mess duty list');
-    }
-    function toggleMessManage() { MESS.manage = !MESS.manage; if (!MESS.manage) MESS.settings = false; renderMessCard(); }
-
-    // ---- Volunteering (through the server: cadets cannot save the shared data themselves)
-    async function messVolunteer(pid) {
-      try {
-        await api('messVolunteer', { paradeId: pid });
-        await app.refreshFromRemote();
-        app.showToast('Thank you. You are on mess duty for this parade.');
-      } catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
-      messRedraw();
+      const up = messDays().filter(d => d.date >= ymd(new Date()) && d.cadetIds.length && messSeesDay(d));
+      if (!up.length) { app.showToast('Nobody is on it yet.'); return; }
+      const msg = `*${MESS_NAME}* (return the refreshment items to Apoorva mess after the parade)\n` + up.map(d => `\n*${messTitle(d)}*\n${d.cadetIds.map((id, i) => `${i + 1}. ${cadetLabel(id)}`).join('\n')}`).join('\n');
+      app.copyToClipboard(msg, 'Copied the list');
     }
 
-    // ---- Picking a cadet by hand (lance corporals, corporals, sergeants and above, the administrator)
-    const MPICK = { dayId: null, out: null, q: '' };
-    function openMessPick(dayId, out = null) {
-      if (!app?.canEdit?.()) return;
-      const d = messDayById(dayId); if (!d) return;
-      MPICK.dayId = dayId; MPICK.out = out || null; MPICK.q = '';
-      document.getElementById('messPickHeading').textContent = out ? `Instead of ${cadetLabel(out)}` : `Pick for ${messTitle(d)}`;
+    // ---- Through the server (cadets cannot save the shared data themselves; the picked cadet is told at once)
+    async function messCall(action, body, done) {
+      try { await app.flushRemoteSave?.(); await api(action, body); await app.refreshFromRemote(); if (done) app.showToast(done); }
+      catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
+      messRedraw(); rerenderParadeDialogs?.();
+    }
+    function messVolunteer(pid) { return messCall('messVolunteer', { paradeId: pid }, `Thank you. You are on ${MESS_NAME.toLowerCase()} for this parade.`); }
+    function removeFromMess(dayId, cadetId) {
+      const d = messDayById(dayId); if (!d || !d.paradeId) return;
+      return messCall('messDrop', { paradeId: d.paradeId, cadetId }, `${cadetLabel(cadetId)} is off it. They were told.`);
+    }
+
+    // ---- Picking a cadet by hand (when there are not enough volunteers)
+    const MPICK = { pid: null, q: '' };
+    function openMessPickParade(pid) {
+      const pd = findParade(pid); if (!messCanPick(pd)) return;
+      MPICK.pid = pid; MPICK.q = '';
+      document.getElementById('messPickHeading').textContent = `Pick for ${pd.title}, ${dayLabel(ymd(new Date(pd.reportAt)))}`;
       renderMessPick();
       document.getElementById('messPickModal').classList.remove('hidden');
       setTimeout(() => document.getElementById('messPickSearch')?.focus(), 50);
     }
-    function openMessPickParade(pid) { const d = ensureMessDay(pid); if (d) openMessPick(d.id); }
+    function openMessPick(dayId) { const d = messDayById(dayId); if (d?.paradeId) openMessPickParade(d.paradeId); }
     function renderMessPick() {
-      const d = messDayById(MPICK.dayId); if (!d) { app.closeModal('messPickModal'); return; }
+      const pd = findParade(MPICK.pid); if (!pd) { app.closeModal('messPickModal'); return; }
+      const d = messList().find(x => x.paradeId === pd.id) || messVirtual(pd);
       const esc = escapeHtml, counts = messCounts(), q = MPICK.q.trim().toLowerCase();
       const pool = messPool(d, new Set(d.cadetIds)).filter(c => !q || c.name.toLowerCase().includes(q))
         .map(c => ({ c, n: counts.get(c.id)?.n || 0 })).sort((a, b) => a.n - b.n || a.c.name.localeCompare(b.c.name)).slice(0, 60);
       document.getElementById('messPickBody').innerHTML = `<div class="space-y-3">
-        <p class="text-xs text-slate-400">Cadets expected at this parade who can do it. Locals, rank holders and anyone on leave are not listed. Fewest duties first.</p>
+        <p class="text-xs text-slate-400">Cadets coming to this parade who can do it. Locals, rank holders, anyone on leave or on medical exemption are not listed. The cadet you pick is told at once and can send a reason if they cannot.</p>
         <input type="search" id="messPickSearch" value="${esc(MPICK.q)}" oninput="MPICK.q = this.value; renderMessPick(); const b = document.getElementById('messPickSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
-        <ul class="max-h-72 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800">${pool.map(({ c, n }) => `<li><button type="button" data-id="${esc(c.id)}" onclick="pickMessCadet(this.dataset.id)" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-800/60"><span class="text-sm text-slate-100">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span>${medicalOn(c.id, d.date) ? ' <span class="text-[11px] font-bold text-violet-300">Medical exemption</span>' : ''}</span><span class="text-[11px] text-slate-400 font-mono-num">${n}×</span></button></li>`).join('') || '<li class="p-3 text-xs text-slate-500">Nobody matches.</li>'}</ul>
-        <div class="flex flex-wrap justify-end gap-2">
-          ${MPICK.out ? `<button type="button" onclick="app.closeModal('messPickModal'); swapMess(MPICK.dayId, MPICK.out)" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-200 rounded-xl">Pick the fairest for me</button>` : ''}
-          <button type="button" onclick="app.closeModal('messPickModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Close</button></div></div>`;
+        <ul class="max-h-72 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800">${pool.map(({ c, n }) => `<li><button type="button" data-id="${esc(c.id)}" onclick="pickMessCadet(this.dataset.id)" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-800/60"><span class="text-sm text-slate-100">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span></span><span class="text-[11px] text-slate-400 font-mono-num">${n}×</span></button></li>`).join('') || '<li class="p-3 text-xs text-slate-500">Nobody matches.</li>'}</ul>
+        <div class="flex justify-end"><button type="button" onclick="app.closeModal('messPickModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Close</button></div></div>`;
     }
-    function pickMessCadet(id) {
-      const out = MPICK.out;
-      if (!setMessCadet(MPICK.dayId, out, id)) return;
+    async function pickMessCadet(id) {
+      const pid = MPICK.pid;
       app.closeModal('messPickModal');
-      app.showToast(`${cadetLabel(id)} is on mess duty${out ? ` instead of ${cadetLabel(out)}` : ''}.`);
+      await messCall('messPick', { paradeId: pid, cadetId: id }, `${cadetLabel(id)} is on it. They were told.`);
     }
 
-    /** One parade's mess duty: who is on it (volunteers marked), Volunteer / Step back / Swap for cadets,
-     *  pick and replace for those who manage it. */
-    function messDayHtml(d, { manage = false, isPast = false, flash = new Set(), compact = false } = {}) {
+    /** One parade's duty: who is on it (volunteers and picked marked), Volunteer, Can't do it?, pick for those who may. */
+    function messDayHtml(d, { isPast = false, compact = false } = {}) {
       const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), per = messConfig().perDay;
       const vols = new Set(messVolunteers(d)), pd = findParade(d.paradeId), left = Math.max(0, per - d.cadetIds.length);
-      const icon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>';
       const cross = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-      const live = manage && !isPast && !d.virtual;
-      const chip = id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''} ${flash.has(d.id + ':' + id) ? 'fx-flash' : ''}">${esc(cadetLabel(id))}${vols.has(id) ? '<i class="mess-vol" title="Volunteered">volunteer</i>' : ''}${live ? `<button type="button" data-day="${esc(d.id)}" data-id="${esc(id)}" onclick="openMessPick(this.dataset.day, this.dataset.id)" title="Someone else instead" aria-label="Someone else instead of ${esc(cadetLabel(id))}">${icon}</button><button type="button" data-day="${esc(d.id)}" data-id="${esc(id)}" onclick="removeFromMess(this.dataset.day, this.dataset.id)" title="Take off" aria-label="Take ${esc(cadetLabel(id))} off">${cross}</button>` : ''}</span>`;
+      const pick = !isPast && !d.virtual && messCanPick(pd);
+      const chip = id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''}">${esc(cadetLabel(id))}${vols.has(id) ? '<i class="mess-vol" title="Volunteered">volunteer</i>' : d.picked?.[id] ? `<i class="mess-vol" title="Picked by ${esc(d.picked[id].by || '')}">picked</i>` : ''}${pick ? `<button type="button" data-day="${esc(d.id)}" data-id="${esc(id)}" onclick="removeFromMess(this.dataset.day, this.dataset.id)" title="Take off" aria-label="Take ${esc(cadetLabel(id))} off">${cross}</button>` : ''}</span>`;
       const mine = !isPast && me && d.cadetIds.includes(me.id);
       const canJoin = !isPast && me && pd && !mine && left > 0 && pd.reportAt > Date.now() && messPool(d).some(c => c.id === me.id);
       const btn = 'px-3 py-1.5 text-[11px] font-bold rounded-lg border';
-      const pickBtn = !manage || isPast ? '' : d.virtual
-        ? `<button type="button" data-id="${esc(d.paradeId)}" onclick="openMessPickParade(this.dataset.id)" class="mess-add">+ Pick</button>${left ? `<button type="button" data-id="${esc(d.paradeId)}" onclick="fillMessDay('', this.dataset.id)" class="mess-add">Fill the rest fairly (${left})</button>` : ''}`
-        : `<button type="button" data-day="${esc(d.id)}" onclick="openMessPick(this.dataset.day)" class="mess-add">+ Pick</button>${left ? `<button type="button" data-day="${esc(d.id)}" onclick="fillMessDay(this.dataset.day)" class="mess-add">Fill the rest fairly (${left})</button>` : ''}`;
-      const asked = d.asked || {}, calls = [asked.standby && 'advance volunteers asked', asked.all && 'all cadets asked', asked.leads && 'LCPLs and CPLs asked to pick'].filter(Boolean);
+      const pickBtn = !isPast && left && messCanPick(pd) ? `<button type="button" data-id="${esc(d.paradeId)}" onclick="openMessPickParade(this.dataset.id)" class="mess-add">+ Pick a cadet</button>` : '';
+      const asked = d.asked || {}, calls = [asked.all && 'cadets asked to volunteer', asked.leads && 'LCPLs and CPLs asked to pick'].filter(Boolean);
       if (compact) return `<li class="mess-day" data-mess-parade="${esc(d.paradeId || '')}"><div class="flex items-center justify-between gap-2"><p class="text-sm font-bold text-white">${esc(messTitle(d))}</p><span class="text-[11px] font-mono-num ${left ? 'text-amber-300' : 'text-emerald-300'}">${d.cadetIds.length}/${per}</span></div></li>`;
-      return `<li class="mess-day ${flash.has(d.id) ? 'fx-flash' : ''} ${d.date === today ? 'mess-today' : ''} ${MESS.focus && MESS.focus === d.paradeId ? 'mess-focus' : ''}" data-mess-parade="${esc(d.paradeId || '')}">
+      return `<li class="mess-day ${d.date === today ? 'mess-today' : ''} ${MESS.focus && MESS.focus === d.paradeId ? 'mess-focus' : ''}" data-mess-parade="${esc(d.paradeId || '')}">
         <div class="flex items-center justify-between gap-2">
           <p class="text-sm font-bold ${isPast ? 'text-slate-400' : 'text-white'}">${d.date === today ? 'Today · ' : ''}${esc(messTitle(d))}</p>
-          <span class="flex items-center gap-2">${isPast ? '' : `<span class="text-[11px] font-mono-num ${left ? 'text-amber-300' : 'text-emerald-300'}">${d.cadetIds.length}/${per}</span>`}${live ? `<button type="button" data-day="${esc(d.id)}" onclick="removeMessDay(this.dataset.day)" class="text-[11px] text-slate-500 hover:text-rose-300">Clear</button>` : ''}</span>
+          ${isPast ? '' : `<span class="text-[11px] font-mono-num ${left ? 'text-amber-300' : 'text-emerald-300'}">${d.cadetIds.length}/${per}</span>`}
         </div>
         <div class="mt-1.5 flex flex-wrap gap-1.5">${d.cadetIds.map(chip).join('') || `<span class="text-[11px] text-slate-500">${isPast ? 'Nobody.' : 'No volunteers yet.'}</span>`}${pickBtn}</div>
-        ${!isPast && left && !manage ? `<p class="mt-1.5 text-[11px] text-slate-400">${left} place${left === 1 ? '' : 's'} left for volunteers. If nobody takes them, the LCPLs and CPLs pick.</p>` : ''}
-        ${!isPast && calls.length && (manage || app.canEdit()) ? `<p class="mt-1 text-[11px] text-slate-500 mess-calls">${esc(calls.join(' · '))}</p>` : ''}
+        ${!isPast && left ? `<p class="mt-1.5 text-[11px] text-slate-400">${left} place${left === 1 ? '' : 's'} left for volunteers. If nobody takes them, the LCPLs and CPLs coming to it pick.</p>` : ''}
+        ${!isPast && calls.length && app.canEdit() ? `<p class="mt-1 text-[11px] text-slate-500 mess-calls">${esc(calls.join(' · '))}</p>` : ''}
         ${canJoin ? `<div class="mt-2"><button type="button" data-id="${esc(pd.id)}" onclick="messVolunteer(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Volunteer</button></div>` : ''}
         ${mine && !d.virtual && (!pd || pd.reportAt > Date.now()) ? `<div class="mt-2 flex flex-wrap gap-1.5"><button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="${btn} border-sky-700/60 text-sky-200 hover:bg-sky-950/40">${messOutMine(d) ? 'Waiting for a senior' : "Can't do it?"}</button></div>` : ''}
       </li>`;
     }
     function renderMessCard() {
       const host = document.getElementById('messCard'); if (!host || !cfState()) return;
-      const esc = escapeHtml, edit = app.canEdit(), admin = app.isAdmin(), lead = messLead(), cq = canRefreshments(), cfg = messConfig(), today = ymd(new Date());
-      const manage = edit && (MESS.manage || admin);
-      const upcoming = messUpcoming(), past = messDays().filter(d => d.date < today).reverse();
+      const esc = escapeHtml, admin = app.isAdmin(), cfg = messConfig(), today = ymd(new Date());
+      const upcoming = messUpcoming().filter(d => messSeesDay(d)), past = admin ? messDays().filter(d => d.date < today).reverse() : [];
       const me = app.myCadet(), mine = me ? upcoming.find(d => d.cadetIds.includes(me.id)) : null;
-      const counts = messCounts();
-      const flash = MESS.flash || new Set(); MESS.flash = null;
-      const swaps = messSwapsHtml(manage);
-      const open = upcoming.filter(d => d.cadetIds.length < cfg.perDay).length;
-      // A cadet who cannot volunteer anywhere and is on nothing (a local, a rank holder): keep it out of the way.
-      const relevant = upcoming.filter(d => d.cadetIds.length || messPool(d).some(c => c.id === me?.id));
-      const standbyOk = !!me && messStandbyOk(me);
-      if (!edit && !cq && !relevant.length && !swaps && !standbyOk) { host.innerHTML = '<p class="text-sm text-slate-400">Mess duty is for cadets (no rank holders) from the years on the list. Nothing for you here.</p>'; return; }
-      host.classList.remove('hidden');
-      const senior = edit && !lead && !admin;
-      const head = `<div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0"><h3 id="messHeading" class="font-extrabold text-white">Mess duty</h3>
-          ${senior && !manage ? `<p class="text-xs text-slate-500 mt-0.5">Looked after by the lance corporals and corporals.${upcoming.length ? ` ${upcoming.length} parade${upcoming.length === 1 ? '' : 's'} with refreshments coming up.` : ''}</p>`
-            : `<p class="text-xs text-slate-400 mt-0.5">At parades with refreshments, ${cfg.perDay} cadet${cfg.perDay === 1 ? '' : 's'} return them to the mess. Cadets on the volunteers list are asked first, then every cadet at that parade; places still empty go to the LCPLs and CPLs to pick. Only cadets (no rank holders) from ${esc(cfg.years.join(' & '))} years who are expected at that parade, never the locals.</p>`}</div>
-          ${lead ? `<button type="button" onclick="toggleMessManage()" aria-expanded="${manage}" class="mess-lead-btn">${manage ? 'Done' : 'Pick mess duty'}${!manage && open ? ` <span class="mess-badge">${open} to fill</span>` : ''}</button>`
-            : senior ? `<button type="button" onclick="toggleMessManage()" aria-expanded="${manage}" class="text-[11px] font-semibold text-slate-500 hover:text-slate-200 underline underline-offset-2">${manage ? 'Close' : 'Manage'}</button>` : ''}
-        </div>`;
-      if (senior && !manage) { host.innerHTML = head + (upcoming.length ? `<ul class="mess-list">${upcoming.map(d => messDayHtml(d, { compact: true })).join('')}</ul>` : ''); return; }
-      const ranked = messEligible(cfg).map(c => ({ c, n: counts.get(c.id)?.n || 0 })).sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name));
-      const max = Math.max(1, ...ranked.map(r => r.n));
-      const exempt = cfg.exempt.map(id => cadetById(id)).filter(Boolean);
-      const q = MESS.q.trim().toLowerCase();
-      const addable = q ? (app.state.cadets || []).filter(c => !cfg.exempt.includes(c.id) && c.name.toLowerCase().includes(q)).slice(0, 6) : [];
-      const rows = manage ? upcoming : relevant;
-      const standby = standbyOk ? `<div class="cf-switch" id="messStandby"><span><span class="block text-sm font-bold text-white">Ask me first</span><span class="block text-[11px] text-slate-400">${messOnStandby(me.id) ? 'You are on the volunteers list: when a parade gets refreshments you hear first and can take a place.' : 'Join the volunteers list: when a parade gets refreshments you hear first and can take a place.'}</span></span><input type="checkbox" role="switch" aria-label="On the mess duty volunteers list" ${messOnStandby(me.id) ? 'checked' : ''} onchange="toggleMessStandby()"></div>` : '';
+      const swaps = messSwapsHtml();
+      const head = `<div class="min-w-0"><h3 id="messHeading" class="font-extrabold text-white">${MESS_NAME}</h3>
+          <p class="text-xs text-slate-400 mt-0.5">At a parade with refreshments, ${cfg.perDay} cadet${cfg.perDay === 1 ? '' : 's'} return the items to Apoorva mess after the parade. Cadets coming to it volunteer; if places are still empty, the lance corporals and corporals coming to it pick. Only cadets (rank CDT) coming to that parade, never locals or anyone on medical exemption.</p></div>`;
+      const locals = admin ? (cfState()?.cadets || []).filter(c => isLocalCadet(c, cfg)) : [];
       host.innerHTML = head + `
-        ${standby}
-        ${manage ? `<div class="flex flex-wrap gap-2">
-            ${messParadesToPlan().length ? `<button type="button" onclick="planMessParades()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Fill all the rest fairly (${messParadesToPlan().length})</button>` : ''}
+        ${admin ? `<div class="flex flex-wrap gap-2">
             <button type="button" onclick="copyMessDuty()" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy for WhatsApp</button>
             <button type="button" onclick="MESS.settings = !MESS.settings; renderMessCard()" aria-expanded="${MESS.settings}" class="px-3 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Settings</button>
           </div>` : ''}
-        ${mine ? `<p class="mess-mine-note">Your next mess duty: <b>${mine.date === today ? 'today' : esc(dayLabel(mine.date))}</b></p>` : ''}
+        ${mine ? `<p class="mess-mine-note">You are on it: <b>${mine.date === today ? 'today' : esc(dayLabel(mine.date))}</b></p>` : ''}
         ${swaps}
-        ${manage && MESS.settings ? `<div class="mess-settings fx-enter">
+        ${admin && MESS.settings ? `<div class="mess-settings fx-enter">
           <label class="text-xs font-bold text-slate-300">Cadets at each parade
             <input type="number" id="messPerDay" min="1" max="30" value="${cfg.perDay}" onchange="setMessConfig(c => { c.perDay = Math.min(30, Math.max(1, Math.round(Number(this.value)) || 1)); })" class="ml-2 w-20 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-sm">
           </label>
           <div class="flex flex-wrap items-center gap-1.5"><span class="text-xs font-bold text-slate-300 w-12">Years</span>${YEARS.map(y => `<button type="button" class="af-chip text-[11px]" aria-pressed="${cfg.years.includes(y)}" onclick="toggleMessList('years', '${y}')">${y}</button>`).join('')}</div>
-          <div id="messLocals"><p class="text-xs font-bold text-slate-300">Locals (never on mess duty, not in the pick list)${app.isAdmin() ? '' : ' <span class="font-normal text-slate-500">· the administrator changes this list</span>'}</p>
-            <div class="mt-1 flex flex-wrap gap-1.5">${exempt.map(c => app.isAdmin() ? `<button type="button" class="af-chip text-[11px]" aria-pressed="true" title="Not a local any more" onclick="toggleMessList('exempt', '${esc(c.id)}')">${esc(c.rank || 'CDT')} ${esc(c.name)}</button>` : `<span class="af-chip text-[11px]" aria-pressed="true">${esc(c.rank || 'CDT')} ${esc(c.name)}</span>`).join('') || '<span class="text-[11px] text-slate-500">Nobody.</span>'}</div>
-            ${app.isAdmin() ? `<input type="search" id="messExemptSearch" value="${esc(MESS.q)}" oninput="MESS.q = this.value; renderMessCard(); const b = document.getElementById('messExemptSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Add a local: type a name…" autocomplete="off" class="mt-2 w-full sm:w-72 px-3 py-1.5 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-lg text-xs">
-            ${addable.length ? `<div class="mt-1 flex flex-wrap gap-1.5">${addable.map(c => `<button type="button" class="af-chip text-[11px]" onclick="MESS.q = ''; toggleMessList('exempt', '${esc(c.id)}')">+ ${esc(c.rank || 'CDT')} ${esc(c.name)}</button>`).join('')}</div>` : ''}` : ''}
+          <div id="messLocals"><p class="text-xs font-bold text-slate-300">Locals (never on it) <span class="font-normal text-slate-500">· tick Local on the Cadet Roster</span></p>
+            <div class="mt-1 flex flex-wrap gap-1.5">${locals.map(c => `<span class="af-chip text-[11px]" aria-pressed="true">${esc(c.rank || 'CDT')} ${esc(c.name)}</span>`).join('') || '<span class="text-[11px] text-slate-500">Nobody.</span>'}</div>
           </div>
         </div>` : ''}
-        ${rows.length ? `<ul class="mess-list">${rows.map(d => messDayHtml(d, { manage, flash })).join('')}</ul>` : `<p class="text-xs text-slate-500">${cq ? 'No parade with refreshments coming up. Turn refreshments on in the parade (Edit, or the switch on its page).' : 'No parade with refreshments coming up.'}</p>`}
-        ${manage ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Times on mess duty (${ranked.length} cadets)</summary>
-          <ul class="mt-2 space-y-1 max-h-72 overflow-y-auto pr-1">${ranked.map(r => `<li class="mess-count"><span class="truncate">${esc(r.c.rank || 'CDT')} ${esc(r.c.name)}</span><span class="mess-bar"><i class="bar-fill" style="width:${Math.round(r.n / max * 100)}%"></i></span><b class="font-mono-num">${r.n}</b></li>`).join('')}</ul>
-        </details>
-        ${past.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Past (${past.length})</summary><ul class="mess-list mt-2">${past.slice(0, 14).map(d => messDayHtml(d, { isPast: true })).join('')}</ul></details>` : ''}` : ''}`;
+        ${upcoming.length ? `<ul class="mess-list">${upcoming.map(d => messDayHtml(d)).join('')}</ul>` : `<p class="text-xs text-slate-500">No parade with refreshments that you are coming to.</p>`}
+        ${past.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Past (${past.length})</summary><ul class="mess-list mt-2">${past.slice(0, 14).map(d => messDayHtml(d, { isPast: true })).join('')}</ul></details>` : ''}`;
     }
     function cadetMessHtml(c) {
       const list = messDays().filter(d => (d.cadetIds || []).includes(c.id));
       const today = ymd(new Date()), next = list.find(d => d.date >= today), done = list.filter(d => d.date < today).length;
       return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-        <div class="flex items-center justify-between gap-3"><h4 class="font-extrabold text-white">Mess duty</h4><span class="text-sm font-black text-amber-300 font-mono-num">${done}×</span></div>
-        <p class="text-xs text-slate-400 mt-1">${next ? `Next: <b class="text-slate-200">${escapeHtml(next.date === today ? 'today' : dayLabel(next.date))}</b>` : 'No mess duty planned.'}</p>
+        <div class="flex items-center justify-between gap-3"><h4 class="font-extrabold text-white">Refreshments returning duty</h4><span class="text-sm font-black text-amber-300 font-mono-num">${done}×</span></div>
+        <p class="text-xs text-slate-400 mt-1">${next ? `Next: <b class="text-slate-200">${escapeHtml(next.date === today ? 'today' : dayLabel(next.date))}</b>` : 'Not on it for any coming parade.'}</p>
       </section>`;
     }
 
@@ -10715,6 +10744,7 @@
         }).join('') || '<li class="py-3 text-xs text-slate-500">No one matches.</li>'}</ul>`);
 
       html += notOnAppHtml(card);
+      html += notifyStatusHtml(card);
       // 5. Not approved
       const rejected = ACC.list.filter(a => a.status === 'rejected');
       if (rejected.length) html += `<details class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5"><summary class="cursor-pointer font-extrabold text-white">Not approved (${rejected.length})</summary>
@@ -11441,7 +11471,7 @@
         else if (toCollect.length) cards.push(card('Uniform', `${toCollect.length} item${toCollect.length === 1 ? '' : 's'} ready to collect`, esc(toCollect.map(uniformFullLabel).join(', ')), { go: "switchCadetFlowPage('uniform')" }));
         // Mess duty.
         const mess = messDays().find(d => d.date >= today && (d.cadetIds || []).includes(me.id));
-        if (mess) cards.push(card('Mess duty', mess.date === today ? 'Today' : esc(dayLabel(mess.date)), esc(messTitle(mess)), { go: "switchCadetFlowPage('parades'); openMessDialog()", warn: mess.date === today }));
+        if (mess) cards.push(card(MESS_NAME, mess.date === today ? 'Today' : esc(dayLabel(mess.date)), esc(messTitle(mess)), { go: `switchCadetFlowPage('parades'); openParadeDetail('${esc(mess.paradeId || '')}')`, warn: mess.date === today }));
       }
       // Questions on the notice board not answered yet.
       const open = activeNotices().filter(n => Array.isArray(n.options) && n.options.length >= 2 && ANS.data[n.id] && ANS.data[n.id].mine == null);
@@ -11851,6 +11881,23 @@
           <ul class="mt-2 flex flex-wrap gap-1.5">${noDevice.map(a => `<li class="text-[11px] text-slate-300 px-2 py-0.5 border border-slate-700 rounded-full">${esc(accountLabel(a))}</li>`).join('')}</ul></details>` : ''}`);
     }
     const NOTAPP = { noAccount: '', noDevice: '' };
+    /** Administrator: who has notifications on (a device saved) and who has them off, by company, year and wing.
+     *  Nobody chooses kinds: each notification goes to everyone it is about who has them on. */
+    const NOTIF = { coy: 'all', year: 'all', wing: 'all', show: 'off' };
+    function notifyStatusHtml(card) {
+      if (!ACC.list.some(a => typeof a.devices === 'number')) return '';
+      const esc = escapeHtml, cadets = app.state.cadets || [];
+      const rows = ACC.list.filter(a => a.status === 'approved').map(a => ({ a, c: a.cadetId ? cadets.find(x => x.id === String(a.cadetId)) : null }))
+        .filter(({ c }) => (NOTIF.coy === 'all' || c?.company === NOTIF.coy) && (NOTIF.year === 'all' || c?.year === NOTIF.year) && (NOTIF.wing === 'all' || (c && (c.wing === 'SW' ? 'SW' : 'SD') === NOTIF.wing)));
+      const on = rows.filter(r => r.a.devices > 0), off = rows.filter(r => !(r.a.devices > 0));
+      const list = NOTIF.show === 'on' ? on : off;
+      const sel = (key, opts) => `<select onchange="NOTIF.${key} = this.value; renderAccountsPageNow()" class="px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs" aria-label="${key}">${opts.map(([v, t]) => `<option value="${v}" ${NOTIF[key] === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+      return card('Notifications on and off', `<div id="notifyStatus" class="space-y-2">
+        <p class="text-xs text-slate-400">Nobody picks which notifications they get: each one goes to everyone it is about (their company, year and wing) who has notifications on. Here is who has them on.</p>
+        <div class="flex flex-wrap gap-2">${sel('coy', [['all', 'All companies'], ...COMPANY_CHOICES.map(c => [c, c])])}${sel('year', [['all', 'All years'], ...YEARS.map(y => [y, y + ' year'])])}${sel('wing', [['all', 'SD and SW'], ['SD', 'SD'], ['SW', 'SW']])}</div>
+        <div class="flex flex-wrap gap-2 text-xs"><button type="button" onclick="NOTIF.show = 'on'; renderAccountsPageNow()" aria-pressed="${NOTIF.show === 'on'}" class="af-chip">On: ${on.length}</button><button type="button" onclick="NOTIF.show = 'off'; renderAccountsPageNow()" aria-pressed="${NOTIF.show === 'off'}" class="af-chip">Off: ${off.length}</button></div>
+        <ul class="flex flex-wrap gap-1.5">${list.map(({ a }) => `<li class="text-[11px] text-slate-300 px-2 py-0.5 border border-slate-700 rounded-full">${esc(accountLabel(a))}${a.devices > 1 ? ` <span class="text-slate-500">${a.devices} devices</span>` : ''}</li>`).join('') || '<li class="text-[11px] text-slate-500">Nobody.</li>'}</ul></div>`);
+    }
     function prefillInvite(cadetId) {
       const c = (app.state.cadets || []).find(x => x.id === cadetId); if (!c) return;
       ACC.one = { cadetId: c.id, email: '', regNo: c.regNo || '' };
@@ -11873,19 +11920,15 @@
     function messTileInfo() {
       if (!cfState()) return null;
       const me = app.myCadet(), per = messConfig().perDay, today = ymd(new Date());
-      const up = messUpcoming().filter(d => !d.paradeId || (findParade(d.paradeId)?.reportAt || 0) > Date.now());
+      const up = messUpcoming().filter(d => (!d.paradeId || (findParade(d.paradeId)?.reportAt || 0) > Date.now()) && messSeesDay(d));
+      if (!up.length) return null; // only those coming to a parade with refreshments see it
       const open = up.filter(d => d.cadetIds.length < per);
       const mine = me ? up.find(d => d.cadetIds.includes(me.id)) : null;
       if (mine) return { main: mine.date === today ? 'You: today' : `You: ${dayLabel(mine.date)}`, sub: messTitle(mine), warn: mine.date === today };
-      if (messLead() || app.isAdmin() || canRefreshments()) {
-        const soon = open.filter(d => d.date <= ymd(new Date(Date.now() + 3 * 86400000)));
-        return { main: open.length ? `${open.length} to fill` : up.length ? 'All filled' : 'Nothing coming up', sub: up.length ? `${up.length} parade${up.length === 1 ? '' : 's'} with refreshments` : 'No parade with refreshments', warn: soon.length > 0 && messLead() };
-      }
-      if (app.canEdit()) return { main: up.length ? `${up.length} coming up` : 'Nothing coming up', sub: 'Looked after by the LCPLs and CPLs' };
-      if (!me || !messStandbyOk(me)) return null;
-      const wanted = open.filter(d => d.paradeId && messPool(d).some(c => c.id === me.id));
+      if (app.isAdmin() || messLead()) return { main: open.length ? `${open.length} to fill` : 'All filled', sub: `${up.length} parade${up.length === 1 ? '' : 's'} with refreshments`, warn: open.length > 0 && messLead() && up.some(d => d.asked?.leads) };
+      const wanted = open.filter(d => d.paradeId && me && messPool(d).some(c => c.id === me.id));
       if (wanted.length) return { main: 'Volunteers wanted', sub: `${wanted.length} parade${wanted.length === 1 ? '' : 's'} need${wanted.length === 1 ? 's' : ''} help`, warn: true };
-      return { main: messOnStandby(me.id) ? 'On the volunteers list' : 'Offer to help', sub: messOnStandby(me.id) ? 'You are asked first' : 'Get asked first when there are refreshments' };
+      return { main: open.length ? `${open.length} with places` : 'All filled', sub: `${up.length} parade${up.length === 1 ? '' : 's'} with refreshments` };
     }
     function renderParadeTiles() {
       const host = document.getElementById('paradeTiles'); if (!host || !cfState() || !app.isApproved?.()) return;
@@ -11894,7 +11937,7 @@
           <span class="par-tile-label">${label}</span><b class="par-tile-main">${esc(main)}</b><span class="par-tile-sub">${esc(sub)}</span></button>`;
       if (app.can('requests')) {
         const n = requestsWaiting().length + messOutWaiting().length;
-        tiles.push(tile('requests', 'Requests', n ? `${n} waiting` : 'None waiting', n ? 'Late, absence, leave and mess duty to decide' : 'Everything is decided', 'openRequestsDialog()', n > 0));
+        tiles.push(tile('requests', 'Requests', n ? `${n} waiting` : 'None waiting', n ? 'Late, absence, leave and refreshments duty to decide' : 'Everything is decided', 'openRequestsDialog()', n > 0));
       }
       if (me) {
         const mine = leaveList().filter(l => l.cadetId === me.id && l.to >= today).sort((a, b) => a.from.localeCompare(b.from))[0];
@@ -11903,7 +11946,7 @@
           mine ? (mine.from <= today ? 'You are on leave now' : 'Approved') : asked.length ? `${asked.length} request${asked.length === 1 ? '' : 's'} waiting for approval` : 'Away for several days', 'openLeaveList()', false));
       }
       const m = messTileInfo();
-      if (m) tiles.push(tile('mess', 'Mess duty', m.main, m.sub, 'openMessDialog()', !!m.warn));
+      if (m) tiles.push(tile('mess', 'Refreshments returning duty', m.main, m.sub, 'openMessDialog()', !!m.warn));
       host.innerHTML = tiles.join('');
       host.classList.toggle('hidden', !tiles.length);
     }
@@ -12009,7 +12052,7 @@
     }
     function signupList() { return (cfState()?.signups || []).filter(x => x && safeId(x.id) && x.title); }
     function signupIsOpen(x) { return !x.closed && Date.now() < Number(x.closesAt); }
-    function signupFor(x, c) { return !!c && cadetInEvent(c, { type: 'task', scope: x.scope, years: x.years, cadetIds: x.cadetIds }); }
+    function signupFor(x, c) { return !!c && cadetInEvent(c, { type: 'task', scope: x.scope, years: x.years, wings: x.wings, cadetIds: x.cadetIds }); }
     function signupApplicants(x) { return (Array.isArray(x.applicants) ? x.applicants : []).filter(a => a && a.cadetId).slice().sort((a, b) => (a.at || 0) - (b.at || 0)); }
     /** Applied, in order; those past the number of places are the waiting list. */
     function signupPlace(x, cadetId) {
@@ -12055,7 +12098,7 @@
         return `<li class="rounded-xl border ${open ? 'border-slate-700' : 'border-slate-800'} bg-slate-950/50 p-3 sm:p-4 space-y-2" data-signup="${id}">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0"><p class="text-sm font-extrabold text-white break-words">${esc(x.title)}</p>
-              <p class="text-[11px] ${open ? 'text-amber-300' : 'text-slate-500'}">${open ? `Apply by ${esc(fmtWhen(Number(x.closesAt)))}` : 'Closed'}${seats ? ` · ${seats} vacanc${seats === 1 ? 'y' : 'ies'}` : ''} · ${apps.length} applied${chosen ? ` · ${chosen} selected` : ''} · ${esc(eventAudienceText({ type: 'task', scope: x.scope, years: x.years }))}</p></div>
+              <p class="text-[11px] ${open ? 'text-amber-300' : 'text-slate-500'}">${open ? `Apply by ${esc(fmtWhen(Number(x.closesAt)))}` : 'Closed'}${seats ? ` · ${seats} vacanc${seats === 1 ? 'y' : 'ies'}` : ''} · ${apps.length} applied${chosen ? ` · ${chosen} selected` : ''} · ${esc(eventAudienceText({ type: 'task', scope: x.scope, years: x.years, wings: x.wings }))}</p></div>
           </div>
           ${x.place || whenText ? `<p class="text-xs text-slate-200">${whenText ? `<b class="text-slate-400 font-semibold">When</b> ${esc(whenText)}` : ''}${x.place && whenText ? ' · ' : ''}${x.place ? `<b class="text-slate-400 font-semibold">Where</b> ${esc(x.place)}` : ''}</p>` : ''}
           ${x.details ? `<p class="text-xs text-slate-300 whitespace-pre-wrap break-words">${esc(x.details)}</p>` : ''}
@@ -12161,6 +12204,7 @@
           <label class="block text-xs font-bold text-slate-300">Company<select id="suScope" class="${inp}"><option value="All">All companies</option>${COMPANY_CHOICES.map(co => `<option ${x?.scope === co ? 'selected' : ''}>${esc(co)}</option>`).join('')}</select></label>
           <div><span class="block text-xs font-bold text-slate-300">Years <span class="font-normal text-slate-500">(none = all)</span></span><div class="mt-1 flex gap-1.5" id="suYears">${YEARS.map(y => `<button type="button" class="af-chip text-xs" aria-pressed="${SIGN.years.includes(y)}" onclick="SIGN.years = SIGN.years.includes('${y}') ? SIGN.years.filter(v => v !== '${y}') : [...SIGN.years, '${y}']; this.setAttribute('aria-pressed', SIGN.years.includes('${y}'))">${y}</button>`).join('')}</div></div>
         </div>
+        <label class="block text-xs font-bold text-slate-300">Wing<select id="suWing" class="${inp}"><option value="">SD and SW</option>${WINGS.map(w => `<option value="${w}" ${normalizeWings(x?.wings)[0] === w ? 'selected' : ''}>${w} only</option>`).join('')}</select></label>
         ${x ? '' : '<label class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="suNotify" checked> Send a notification to the cadets who can apply</label>'}
         <p id="suError" class="hidden text-xs text-rose-300" role="alert"></p>
         <div class="flex justify-end gap-2"><button type="button" onclick="app.closeModal('signupModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
@@ -12176,7 +12220,7 @@
       const details = document.getElementById('suDetails').value.trim();
       const seats = Math.min(500, Math.max(0, Math.round(Number(document.getElementById('suSeats').value) || 0)));
       const closesAt = new Date(`${document.getElementById('suDate').value}T${document.getElementById('suTime').value || '20:00'}`).getTime();
-      const scope = document.getElementById('suScope').value, years = normalizeYears(SIGN.years);
+      const scope = document.getElementById('suScope').value, years = normalizeYears(SIGN.years), wv = document.getElementById('suWing')?.value, wings = WINGS.includes(wv) ? [wv] : [];
       if (title.length < 3) return fail('Write what the sign-up is for.');
       if (!Number.isFinite(closesAt)) return fail('Pick when it closes.');
       if (!SIGN.editId && closesAt <= Date.now()) return fail('The closing time has already passed.');
@@ -12184,14 +12228,14 @@
       let id = SIGN.editId;
       if (id) {
         const x = findSignup(id); if (!x) return fail('This sign-up was removed meanwhile.');
-        Object.assign(x, { title, details, seats, closesAt, scope }); if (years.length) x.years = years; else delete x.years;
+        Object.assign(x, { title, details, seats, closesAt, scope }); if (years.length) x.years = years; else delete x.years; if (wings.length) x.wings = wings; else delete x.wings;
         const place = document.getElementById('suPlace').value.trim().replace(/\s+/g, ' ').slice(0, 100), onDate = document.getElementById('suOnDate').value, onTime = document.getElementById('suOnTime').value;
         if (place) x.place = place; else delete x.place;
         if (/^\d{4}-\d{2}-\d{2}$/.test(onDate)) { x.date = onDate; if (onTime) x.time = onTime; else delete x.time; } else { delete x.date; delete x.time; }
         app.logHistory('signup-edited', null, `Edited sign-up: ${title}`);
       } else {
         id = newId('signup');
-        app.state.signups.push({ id, title, details, seats, closesAt, scope, ...(years.length ? { years } : {}), createdBy: app.authorName(), createdAt: Date.now(), applicants: [] });
+        app.state.signups.push({ id, title, details, seats, closesAt, scope, ...(years.length ? { years } : {}), ...(wings.length ? { wings } : {}), createdBy: app.authorName(), createdAt: Date.now(), applicants: [] });
         app.logHistory('signup-created', null, `Opened sign-up: ${title} (closes ${fmtWhen(closesAt)})`);
       }
       const notify = !SIGN.editId && document.getElementById('suNotify')?.checked;
@@ -12204,9 +12248,9 @@
       }
     }
 
-    // ---- "Can't do it?": a cadet on mess duty asks one cadet to take their place (optionally taking one of
-    // their duties in return; done when that cadet agrees), puts it up for anyone (done when someone takes it),
-    // or asks a senior to let them off with a reason (kind 'out': sergeants and above decide). All through the server.
+    // ---- "Can't do it?": a cadet on refreshments returning duty asks one cadet to swap (optionally taking one of
+    // their duties in return; done when that cadet agrees), or sends a reason to a senior (kind 'out': sergeants
+    // and above decide; refused = they must do it). All through the server.
     // state.messSwaps = [{ id, kind?: 'out', dayId, date, from, to (null while open), takeDayId?, takeDate?, reason?,
     //   status: open|asked|done|declined|withdrawn|approved|refused, at, answeredAt?, decidedBy? }]
     const SWAP = { dayId: null, to: null, q: '', busy: false, mode: 'ask', reason: '' };
@@ -12220,12 +12264,6 @@
       const today = ymd(new Date()), me = app.myCadet();
       return swapList().filter(x => x.kind === 'out' && x.status === 'asked' && x.date >= today && x.from !== me?.id && requestsForCadet(x.from) && (!pid || messDayById(x.dayId)?.paradeId === pid));
     }
-    /** Can I take this open swap? Same rules as picking: a cadet expected at that parade, not a local, not on leave. */
-    function canTakeSwap(x, me = app.myCadet()) {
-      if (!me || x.kind === 'out' || x.status !== 'open' || x.from === me.id) return false;
-      const d = messDayById(x.dayId);
-      return !!d && d.date >= ymd(new Date()) && d.cadetIds.includes(x.from) && !d.cadetIds.includes(me.id) && messShown(d) && messPool(d).some(c => c.id === me.id);
-    }
     function swapRowHtml(x) {
       const me = app.myCadet(), esc = escapeHtml, btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
       const where = () => { const d = messDayById(x.dayId); return esc(d ? messTitle(d) : dayLabel(x.date)); };
@@ -12234,11 +12272,10 @@
         : x.status === 'open' ? `${esc(cadetLabel(x.from))} needs someone for ${where()}`
         : x.status === 'done' ? `${esc(cadetLabel(x.to))} took ${esc(cadetLabel(x.from))}'s duty at ${where()}${x.takeDate ? `; ${esc(cadetLabel(x.from))} took ${esc(dayLabel(x.takeDate))}` : ''}`
         : `${esc(cadetLabel(x.from))} asks ${esc(cadetLabel(x.to))} to take ${where()}${x.takeDate ? `; in return ${esc(cadetLabel(x.from))} takes ${esc(dayLabel(x.takeDate))}` : ''}`;
-      const label = out ? { asked: 'Waiting for a sergeant or above', approved: `Let off${x.decidedBy ? ` by ${x.decidedBy}` : ''}`, refused: `Kept on duty${x.decidedBy ? ` by ${x.decidedBy}` : ''}`, withdrawn: 'Withdrawn' }
+      const label = out ? { asked: 'Waiting for a sergeant or above', approved: `Let off${x.decidedBy ? ` by ${x.decidedBy}` : ''}`, refused: `Reason not accepted${x.decidedBy ? ` by ${x.decidedBy}` : ''}: must do it`, withdrawn: 'Withdrawn' }
         : { open: 'Up for anyone to take', asked: 'Waiting for an answer', done: 'Swapped', declined: 'Said no', withdrawn: 'Withdrawn', accepted: 'Agreed', approved: 'Swapped', refused: 'Not approved' };
       let acts = '';
-      if (out && x.status === 'asked' && app.can('requests') && x.from !== me?.id) acts = `<button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Let off</button><button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Keep on duty</button>`;
-      else if (canTakeSwap(x, me)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="takeSwap(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">I'll take it</button>`;
+      if (out && x.status === 'asked' && app.can('requests') && x.from !== me?.id) acts = `<button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Let off</button><button type="button" data-id="${esc(x.id)}" onclick="decideMessOut(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Must do it</button>`;
       else if (me && x.to === me.id && x.status === 'asked') acts = `<button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Agree</button><button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Say no</button>`;
       else if (me && x.from === me.id && swapLive(x)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="withdrawSwap(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw</button>`;
       const good = ['done', 'approved'].includes(x.status), quiet = ['declined', 'refused', 'withdrawn'].includes(x.status);
@@ -12249,7 +12286,7 @@
     function messSwapsHtml(manage = false) {
       const me = app.myCadet(), recent = Date.now() - 7 * 86400000, today = ymd(new Date()), senior = app.can('requests');
       const list = swapList().filter(x => x.date >= today || Number(x.answeredAt || 0) > recent).filter(x =>
-        (me && (x.from === me.id || x.to === me.id) && (swapLive(x) || Number(x.answeredAt || x.at || 0) > recent)) || canTakeSwap(x, me) || (manage && swapLive(x)) || (senior && x.kind === 'out' && swapLive(x)));
+        (me && (x.from === me.id || x.to === me.id) && (swapLive(x) || Number(x.answeredAt || x.at || 0) > recent)) || (manage && swapLive(x)) || (senior && x.kind === 'out' && swapLive(x) && requestsForCadet(x.from)));
       if (!list.length) return '';
       return `<div class="space-y-2" id="messSwaps"><h4 class="text-xs font-extrabold text-white">Swaps and requests</h4><ul class="space-y-1.5">${list.map(swapRowHtml).join('')}</ul></div>`;
     }
@@ -12257,8 +12294,8 @@
     function messOutHtml(pid = null) {
       const list = messOutWaiting(pid);
       if (!list.length) return '';
-      return `<div class="space-y-2" id="rqWaitingMess"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">Let off mess duty</h4>
-        <p class="text-xs text-slate-500">Letting a cadet off opens their place again for volunteers, or for the LCPLs and CPLs to pick.</p>
+      return `<div class="space-y-2" id="rqWaitingMess"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">Let off refreshments returning duty</h4>
+        <p class="text-xs text-slate-500">Letting a cadet off opens their place again for volunteers, or for the LCPLs and CPLs to pick. If you do not accept the reason, they are told they must do it.</p>
         <ul class="space-y-1.5">${list.map(swapRowHtml).join('')}</ul></div>`;
     }
     function openSwapModal(dayId) {
@@ -12269,7 +12306,7 @@
       renderSwapModal();
       document.getElementById('swapModal').classList.remove('hidden');
     }
-    function setSwapMode(m) { SWAP.mode = ['ask', 'anyone', 'senior'].includes(m) ? m : 'ask'; renderSwapModal(); if (SWAP.mode === 'senior') setTimeout(() => document.getElementById('swapReason')?.focus(), 30); }
+    function setSwapMode(m) { SWAP.mode = ['ask', 'senior'].includes(m) ? m : 'ask'; renderSwapModal(); if (SWAP.mode === 'senior') setTimeout(() => document.getElementById('swapReason')?.focus(), 30); }
     function renderSwapModal() {
       const d = messDayById(SWAP.dayId); if (!d) return;
       const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), q = SWAP.q.trim().toLowerCase();
@@ -12282,12 +12319,8 @@
         return;
       }
       let part;
-      if (SWAP.mode === 'anyone') {
-        part = `<p class="text-xs text-slate-300">Any cadet who can do it may take it. You are off it as soon as someone does, and you are told.</p>
-          <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
-          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapOpen" onclick="sendSwap(true)" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Put it up for anyone</button></div>`;
-      } else if (SWAP.mode === 'senior') {
-        part = `<p class="text-xs text-slate-300">Tell a sergeant or above why you cannot do it. If they let you off, your place opens for someone else; if not, you stay on it.</p>
+      if (SWAP.mode === 'senior') {
+        part = `<p class="text-xs text-slate-300">Send your reason to a sergeant or above, as you would for missing a parade. If they let you off, your place opens for someone else; if they do not accept it, you are told you must still do it.</p>
           <textarea id="swapReason" rows="3" maxlength="300" oninput="SWAP.reason = this.value" placeholder="Why you cannot do it" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">${esc(SWAP.reason)}</textarea>
           <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
           <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapSenior" onclick="sendMessOut()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Send to seniors</button></div>`;
@@ -12296,28 +12329,28 @@
           .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40);
         const theirDays = SWAP.to ? messDays().filter(x => x.date >= today && x.cadetIds.includes(SWAP.to) && !x.cadetIds.includes(me.id)) : [];
         const was = document.getElementById('swapTake')?.value || '';
-        part = `<p class="text-xs text-slate-300">Pick the cadet who takes your place. They are asked, and when they agree they are on it and you are off.</p>
+        part = `<p class="text-xs text-slate-300">Pick a cadet coming to this parade to take your place. They are asked; when they agree, they are on it and you are off.</p>
           <input type="search" id="swapSearch" value="${esc(SWAP.q)}" oninput="SWAP.q = this.value; renderSwapModal(); const b = document.getElementById('swapSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
           <div class="max-h-56 overflow-y-auto border border-slate-800 rounded-xl p-1">${pool.map(c => `<button type="button" data-id="${esc(c.id)}" onclick="SWAP.to = this.dataset.id; renderSwapModal()" aria-pressed="${SWAP.to === c.id}" class="af-chip text-xs m-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="opacity-60">${esc(c.company)}</span></button>`).join('') || '<p class="p-2 text-xs text-slate-500">Nobody matches.</p>'}</div>
           ${SWAP.to ? `<label class="block text-xs font-bold text-slate-300">In return <span class="font-normal text-slate-500">(optional)</span>
             <select id="swapTake" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">Nothing: they just take mine</option>${theirDays.map(x => `<option value="${esc(x.id)}" ${was === x.id ? 'selected' : ''}>I take their duty at ${esc(messTitle(x))}</option>`).join('')}</select></label>` : ''}
           <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
-          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapSend" onclick="sendSwap(false)" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div>`;
+          <div class="flex justify-end gap-2">${cancel}<button type="button" id="swapSend" onclick="sendSwap()" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div>`;
       }
       document.getElementById('swapBody').innerHTML = `<div class="space-y-3">
-        <div class="flex flex-wrap gap-1.5" role="group" aria-label="How">${choice('ask', 'Ask a cadet')}${choice('anyone', 'Anyone can take it')}${choice('senior', 'Ask a senior')}</div>
+        <div class="flex flex-wrap gap-1.5" role="group" aria-label="How">${choice('ask', 'Swap with a cadet')}${choice('senior', 'Give a reason')}</div>
         ${part}</div>`;
     }
     function swapError(text) { const el = document.getElementById('swapError'); if (el) { el.textContent = text; el.classList.remove('hidden'); } }
-    async function sendSwap(open) {
-      if (SWAP.busy || (!open && !SWAP.to)) return;
-      const take = open ? '' : (document.getElementById('swapTake')?.value || '');
+    async function sendSwap() {
+      if (SWAP.busy || !SWAP.to) return;
+      const take = document.getElementById('swapTake')?.value || '';
       SWAP.busy = true;
       try {
-        await api('swapAsk', open ? { dayId: SWAP.dayId } : { dayId: SWAP.dayId, to: SWAP.to, ...(take ? { takeDayId: take } : {}) });
+        await api('swapAsk', { dayId: SWAP.dayId, to: SWAP.to, ...(take ? { takeDayId: take } : {}) });
         app.closeModal('swapModal');
         await app.refreshFromRemote();
-        app.showToast(open ? 'Put up. You are told when someone takes it.' : `Asked ${cadetLabel(SWAP.to)}. When they agree, they are on it and you are off.`);
+        app.showToast(`Asked ${cadetLabel(SWAP.to)}. When they agree, they are on it and you are off.`);
       } catch (e) { swapError(e.message || 'Could not send it.'); }
       finally { SWAP.busy = false; messRedraw(); }
     }
@@ -12330,7 +12363,7 @@
         await api('messOut', { dayId: SWAP.dayId, reason });
         app.closeModal('swapModal');
         await app.refreshFromRemote();
-        app.showToast('Sent. You stay on the duty until a sergeant or above lets you off; you are told.');
+        app.showToast('Sent. You stay on the duty until a sergeant or above lets you off; you are told either way.');
       } catch (e) { swapError(e.message || 'Could not send it.'); }
       finally { SWAP.busy = false; messRedraw(); }
     }
@@ -12339,10 +12372,9 @@
       catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
       messRedraw(); rerenderParadeDialogs(); renderParadeTiles();
     }
-    function takeSwap(id) { return swapCall('swapTake', { id }, 'Done: the duty is yours now.'); }
     function answerSwap(id, accept) { return swapCall('swapAnswer', { id, accept }, accept ? 'Done: the duty is yours now.' : 'Told them no.'); }
     function withdrawSwap(id) { return swapCall('swapWithdraw', { id }, 'Withdrawn.'); }
-    function decideMessOut(id, approve) { return swapCall('messOutDecide', { id, approve }, approve ? 'Let off. Their place is open again; they were told.' : 'Kept on duty. They were told.'); }
+    function decideMessOut(id, approve) { return swapCall('messOutDecide', { id, approve }, approve ? 'Let off. Their place is open again; they were told.' : 'Not accepted. They were told they must do it.'); }
 
     // ---- Learn: practice questions (server tables, SGT and above keep the bank) and the study library
     // (links only: files stay on Google Drive, YouTube or websites, so nothing is stored here).
@@ -13074,7 +13106,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ${signups.length ? `<h2>Selected for</h2><ul>${signups.map(x => `<li>${esc(x.title)}</li>`).join('')}</ul>` : ''}
         ${serviceRecordHtml(c.id)}
         <h2>Other</h2><table><tbody>
-          <tr><td>Mess duty done</td><td>${mess} day${mess === 1 ? '' : 's'}</td></tr>
+          <tr><td>Refreshments returning duty done</td><td>${mess} day${mess === 1 ? '' : 's'}</td></tr>
           <tr><td>Called for work</td><td>${availDuties().filter(d => (d.cadetIds || []).includes(c.id)).length} time(s)</td></tr>
           <tr><td>Leave</td><td>${leaves.length ? leaves.map(l => esc(leaveRange(l))).join(', ') : 'None'}</td></tr>
           <tr><td>Equipment with them</td><td>${equip.length ? equip.map(x => esc(equipLine(x))).join(', ') : 'None'}</td></tr>
@@ -13095,19 +13127,17 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         if (chosen.length) out.push(card('Selected', esc(chosen[0].title), chosen.length > 1 ? `and ${chosen.length - 1} more` : 'Watch the notice board for what comes next', { go: "document.getElementById('signupsCard')?.scrollIntoView({ behavior: 'smooth' })" }));
         if (openSign.length) out.push(card('Sign-ups', `${openSign.length} open`, `${esc(openSign[0].title)} · closes ${esc(fmtWhen(Number(openSign[0].closesAt)))}`, { go: "document.getElementById('signupsCard')?.scrollIntoView({ behavior: 'smooth' })" }));
         const asked = swapList().filter(x => x.to === me.id && x.status === 'asked');
-        if (asked.length) out.push(card('Mess duty swap', `${esc(cadetLabel(asked[0].from))} asks`, `Take their duty on ${esc(dayLabel(asked[0].date))}?`, { go: "switchCadetFlowPage('parades'); openMessDialog()", warn: true }));
+        if (asked.length) out.push(card('Refreshments duty swap', `${esc(cadetLabel(asked[0].from))} asks`, `Take their duty on ${esc(dayLabel(asked[0].date))}?`, { go: "switchCadetFlowPage('parades'); openMessDialog()", warn: true }));
         const wanted = messUpcoming().filter(d => { const pd = findParade(d.paradeId); return pd && pd.reportAt > Date.now() && pd.reportAt < Date.now() + 7 * 86400000 && !d.cadetIds.includes(me.id) && d.cadetIds.length < messConfig().perDay && messPool(d).some(c => c.id === me.id); });
-        if (wanted.length && !messUpcoming().some(d => d.cadetIds.includes(me.id))) out.push(card('Mess duty', 'Volunteers wanted', `${esc(messTitle(wanted[0]))} · ${messConfig().perDay - wanted[0].cadetIds.length} place${messConfig().perDay - wanted[0].cadetIds.length === 1 ? '' : 's'} left`, { go: `switchCadetFlowPage('parades'); openParadeDetail('${esc(wanted[0].paradeId)}')` }));
-        const takeable = swapList().filter(x => canTakeSwap(x, me));
-        if (takeable.length) out.push(card('Mess duty', `${takeable.length} up for swap`, `${esc(cadetLabel(takeable[0].from))} needs someone on ${esc(dayLabel(takeable[0].date))}`, { go: "switchCadetFlowPage('parades'); openMessDialog()" }));
+        if (wanted.length && !messUpcoming().some(d => d.cadetIds.includes(me.id))) out.push(card(MESS_NAME, 'Volunteers wanted', `${esc(messTitle(wanted[0]))} · ${messConfig().perDay - wanted[0].cadetIds.length} place${messConfig().perDay - wanted[0].cadetIds.length === 1 ? '' : 's'} left`, { go: `switchCadetFlowPage('parades'); openParadeDetail('${esc(wanted[0].paradeId)}')` }));
         const late = equipmentList().filter(x => x.cadetId === me.id && equipOverdue(x));
         if (late.length) out.push(card('Equipment', `${late.length} to return`, esc(late.map(equipLine).join(', ')), { go: "switchCadetFlowPage('uniform')", warn: true }));
       }
       if (app.canEdit()) {
         if (messLead()) {
-          const soon = Date.now() + 3 * 86400000, per = messConfig().perDay;
-          const short = messUpcoming().filter(d => (findParade(d.paradeId)?.reportAt || 0) <= soon && d.cadetIds.length < per);
-          if (short.length) out.push(card('Mess duty', `${short.length} parade${short.length === 1 ? '' : 's'} to fill`, `${esc(messTitle(short[0]))}: ${short[0].cadetIds.length} of ${per}`, { go: "MESS.manage = true; switchCadetFlowPage('parades'); openMessDialog()", warn: true }));
+          const per = messConfig().perDay;
+          const short = messUpcoming().filter(d => d.asked?.leads && d.cadetIds.length < per && messCanPick(findParade(d.paradeId)));
+          if (short.length) out.push(card(MESS_NAME, `${short.length} parade${short.length === 1 ? '' : 's'} to pick for`, `${esc(messTitle(short[0]))}: ${short[0].cadetIds.length} of ${per}`, { go: `switchCadetFlowPage('parades'); openMessDialog('${esc(short[0].paradeId)}')`, warn: true }));
         }
         const links = libraryList().filter(x => x.status === 'suggested');
         if (links.length) out.push(card('Study links', `${links.length} suggested`, 'Check them and add them to the library', { go: "switchCadetFlowPage('learn'); setLearnView('library')" }));
@@ -13414,25 +13444,6 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         <ul class="mt-3 grid sm:grid-cols-2 gap-x-6 gap-y-1">${rows.map(r => `<li class="flex justify-between gap-3 text-sm ${r.n ? 'text-slate-200' : 'text-slate-500'}"><span>${esc(r.t)}</span><span class="text-[11px] ${r.n ? 'text-slate-400' : 'text-amber-300'}">${r.n ? `${r.n} parade${r.n === 1 ? '' : 's'}, last ${esc(new Date(r.last).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : 'Not yet'}</span></li>`).join('')}</ul></div>`;
     }
 
-    // ---- Notification choices (server myPrefs / setPrefs; NOTIFY_KINDS in rules.mjs)
-    const NOTIFY_CHOICES = [['parades', 'New parades for you'], ['reminders', 'Parade reminders 2 hours before'], ['notices', 'Notices'], ['signups', 'Sign-ups (camps, selections)'],
-      ['messCalls', 'Mess duty volunteer calls'], ['weekly', 'Weekly summary (administrator)']];
-    async function openNotifyPrefs() {
-      document.getElementById('prefsModal').classList.remove('hidden');
-      const host = document.getElementById('prefsBody');
-      host.innerHTML = '<p class="text-sm text-slate-400">Loading…</p>';
-      let off = [];
-      try { off = (await api('myPrefs')).off || []; } catch (e) { host.innerHTML = `<p class="text-sm text-rose-300">${escapeHtml(e.message || 'Could not load them.')}</p>`; return; }
-      host.innerHTML = `<ul class="space-y-2">${NOTIFY_CHOICES.filter(([k]) => k !== 'weekly' || app.isAdmin()).map(([k, label]) => `<li><label class="flex items-center gap-3 text-sm text-slate-200"><input type="checkbox" data-kind="${k}" ${off.includes(k) ? '' : 'checked'} class="w-4 h-4 accent-amber-500"> ${escapeHtml(label)}</label></li>`).join('')}</ul>
-        <p class="text-[11px] text-slate-500 mt-3">Always sent: decisions on your requests, your mess duty, parade changes and cancellations, uniform and payments, attendance warnings and equipment reminders. These choices are for this account on every device.</p>
-        <button type="button" onclick="saveNotifyPrefs()" class="mt-3 px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>`;
-    }
-    async function saveNotifyPrefs() {
-      const off = [...document.querySelectorAll('#prefsBody input[data-kind]')].filter(b => !b.checked).map(b => b.dataset.kind);
-      try { await api('setPrefs', { off }); app.closeModal('prefsModal'); app.showToast('Notification choices saved.'); }
-      catch (e) { app.showToast(e.message || 'Could not save them.'); }
-    }
-
     // ---- See the site as a cadet sees it (administrator): only what is shown changes; the server still treats
     // every action as the administrator's.
     function openPreviewPicker() {
@@ -13680,7 +13691,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
     const HELP = [
       { id: 'start', title: 'Getting started', who: 'Everyone', items: [
         ['Install the app', 'Android: open the site in Chrome, tap the menu (three dots), then Install app or Add to Home screen. iPhone: open it in Safari, tap Share, then Add to Home Screen, and open CadetFlow from that icon. Laptop: use the install icon at the right of the address bar. The Get the app box on Home shows the steps for your device.'],
-        ['Turn on notifications', 'Use the Parade notifications box on Home or on the Parades page. You then hear about your parades, reminders 2 hours before, mess duty, requests and decisions. On iPhone, add the app to the Home Screen first and turn notifications on from inside it (iOS 16.4 or newer). Do this on every phone or laptop you use.'],
+        ['Turn on notifications', 'Use the Parade notifications box on Home or on the Parades page. Everything meant for you then comes to that device: your parades (by company, year and wing), reminders 2 hours before, notices for you, sign-ups and volunteer tasks open to you, refreshments returning duty, your requests and decisions, and Your week on Sunday evening. There are no kinds to turn off. On iPhone, add the app to the Home Screen first and turn notifications on from there.'],
         ['Add your regimental number', 'If the roster has no regimental number for you, open My profile from the account menu and use Add mine. You can add it once. To change it later, ask the administrator.'],
         ['Forgot or change password', 'Signed in: account menu, Change password. Forgot it: tap Forgot password on the sign-in page. The administrator is told and sends you a link to set a new one.'],
         ['Find anything', 'Use Find in the header, or press Ctrl+K (Cmd+K on a Mac). It finds cadets, parades, tasks, camps and pages. On a phone, pull down at the top of a page to refresh.'],
@@ -13692,11 +13703,12 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['Attendance percentage', 'Your day and your profile show your attendance and, below 75%, how many parades in a row you need to get back to 75%. Excused parades and leave do not count against you. You are told if a parade takes you below 75%.'],
         ['Add parades to your calendar', 'Parades page, My parades (calendar file), or on one parade, More, Add to calendar. The file works with Google Calendar and the phone\'s calendar and reminds you an hour before.'],
       ] },
-      { id: 'mess', title: 'Mess duty', who: 'Cadets (rank CDT)', items: [
-        ['Who does it', 'Cadets with rank CDT who are expected at a parade with refreshments, except locals and anyone excused or on leave. 4 cadets a parade unless the administrator changed it.'],
-        ['Volunteer', 'Turn on Ask me first in the Mess duty dialog to be asked first whenever a parade gets refreshments. Or volunteer for one parade from its Mess duty box while there are places.'],
-        ['How places are filled', 'First the cadets on the Ask me first list are asked, then every cadet who can do it, and if places are still empty the lance corporals and corporals pick cadets fairly. You get a reminder the evening before your duty.'],
-        ['Can\'t do it?', 'Tap Can\'t do it? on your duty. Ask a cadet by name (they must accept, then it is theirs), put it up so anyone can take it, or ask a senior with a reason (a sergeant or above lets you off or keeps you on it). You cannot just step back on your own.'],
+      { id: 'mess', title: 'Refreshments returning duty', who: 'Cadets (rank CDT)', items: [
+        ['What it is', 'At a parade with refreshments, a few cadets return the items to Apoorva mess after the parade. Only the cadets coming to that parade see it: its box on the parade page, the Refreshments returning duty box at the top of the Parades page and the dialog.'],
+        ['Who does it', 'Cadets of rank CDT coming to that parade. Never locals (they go home after parades; the administrator ticks Local on the roster), nor anyone on leave, excused or on medical exemption. Nobody is put on it automatically.'],
+        ['Volunteer', 'When refreshments are turned on for your parade you are told. Tap Volunteer on the parade page while there are places. Once on it you cannot step off alone.'],
+        ['Picked by a senior', 'If places are still empty, the lance corporals and corporals coming to that parade are told and pick cadets by hand. A cadet who is picked is told at once.'],
+        ['Can\'t do it?', 'Tap Can\'t do it? on your duty. Swap with a cadet: pick a cadet coming to that parade; when they agree, it is theirs (you can offer to take one of theirs in return). Give a reason: like a late or absence request, a sergeant or above decides; if they do not accept it, you are told you must still do it.']
       ] },
       { id: 'uniform', title: 'Uniform and equipment', who: 'Everyone', items: [
         ['Ask for uniform items', 'Uniform page: pick the items (beret size if you need one). The CQMS adds them to the next order. You can withdraw an item until the order is placed.'],
@@ -13706,7 +13718,9 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
       { id: 'notices', title: 'Notices, questions and sign-ups', who: 'Everyone', items: [
         ['Notice board', 'Notices are on Home. Some ask a question: tap your answer (you can change it). The poster can see who has seen a notice.'],
         ['Sign-ups', 'For camps, selections and drives: tap Apply before the closing time. You can withdraw until you are selected. Selected cadets are told.'],
-        ['Notification choices', 'Account menu, Notification choices: turn off the kinds you do not want (new parades, reminders, notices, sign-ups, mess duty calls). Decisions on your own requests and your own duties always come.'],
+        ['Who gets a notification', 'Each notification goes to everyone it is about who has notifications on: a parade or notice for 1st years of one company goes only to them; one for SD only goes only to SD cadets. Nobody picks kinds. The administrator sees on the Accounts page who has notifications on and who has them off.'],
+        ['Your week', 'On Sunday evening you get one notification with your parades, your refreshments returning duty and sign-ups closing in the coming week.'],
+        ['Who to ask', 'Your day on Home shows who to go to: your company\'s sergeant first for anything; the CQMS for uniform and admin; the CSM for drill and parade discipline; JUOs and SUOs only in an emergency or when a senior sends you.'],
         ['Rolling trophy', 'Home shows the rolling trophy: the points tally between Jessami, Kohima and Naushera for the tenure, and each event\'s result, winners and MVPs. All results lists every event and the top performers.'],
         ['Birthday', 'Open your profile and add your birthday (day and month only). Home shows birthdays on the day.'],
         ['Photo albums', 'Account menu, Photo albums: the photos of parades, camps, social service and rolling trophy events, as links to Google Drive or Google Photos.'],
@@ -13719,15 +13733,16 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
       ] },
       { id: 'writers', title: 'Tasks, notices and call-outs', who: 'Lance corporals and above, and POCs', items: [
         ['Tasks', 'Task Master: New task, pick cadets, track who did what. Special events and updates are there too. Only the administrator can delete tasks.'],
-        ['Post a notice', 'Home, Post a notice. Tick Notify everyone to send a notification. Tick Ask a question to add 2 to 6 answers and see who answered what. Choose Sign-up to open applications with places and a closing time.'],
+        ['Volunteer tasks', 'New task, tick Ask for volunteers on the notice board and write how many people are needed. It goes on the notice board for the companies, years and wing you chose, with a notification to them. Cadets tap Volunteer until it is full; nobody steps out alone. You take a volunteer off with the cross by their name, and they are told. The task tracks only the volunteers.'],
+        ['Post a notice', 'Home, Post a notice. Choose who it is for (company, years, wing); only they see it and get the notification. Tick Send a notification, Ask a question (2 to 6 answers, see who answered what), or Post later with a date and time: it goes up and notifies then. Choose Sign-up to open applications with places and a closing time.'],
         ['Call-outs', 'Cadet Availability: +1 call-outs for work done.'],
         ['Timetables (POCs)', 'POCs and the administrator fill in any cadet\'s free periods from Cadet Availability, so availability searches work.'],
-        ['Mess duty picks', 'Lance corporals and corporals: the Pick mess duty button in the Mess duty dialog picks by hand or fills the rest fairly. Fill the rest fairly never picks a cadet on medical exemption; the hand-pick list marks them.'],
+        ['Picking for refreshments returning duty', 'Lance corporals and corporals coming to a parade with refreshments are told when places are still empty. Open the parade and tap Pick a cadet: the list has only cadets who can do it (no locals, rank holders, anyone on leave or on medical exemption). The cadet is told at once. The cross by a name takes them off, and they are told.'],
         ['Social service', 'Cadet Roster page, Social service, Add activity: what it was (blood donation, tree plantation, cleanliness drive and so on), the date, the hours for each cadet and who took part. Tick all shown ticks every cadet the search shows. The hours show on each profile, the printed record, the unit report and the Excel download.'],
         ['Photos of a parade', 'Under a parade\'s minutes, Add album link: paste the link of a Google Drive or Google Photos album shared with anyone who has the link.'],
       ] },
       { id: 'seniors', title: 'Requests, attendance and the register', who: 'Sergeants and above (attendance also POCs)', items: [
-        ['Decide requests', 'Parades page, Requests box: late and absence requests, leave and mess duty let-off requests, with filters. Approve or not. For leave you can excuse a cadet from one parade while the leave itself still waits.'],
+        ['Decide requests', 'Parades page, Requests box: late and absence requests, leave, and reasons for not doing refreshments returning duty, with filters. Approve or not. For leave you can excuse a cadet from one parade while the leave itself still waits. Requests still waiting near the cutoff are reminded to the company sergeant, then to the CSM.'],
         ['Mark attendance', 'Open the parade once it starts: P, L or A for each cadet. Copy attendance gives a text for WhatsApp. Write the minutes after the parade and tick the syllabus subjects it covered; the Learn page shows what has been covered and what not yet.'],
         ['Attendance register', 'Data menu, Attendance register: by company, year and dates, with Excel download and Print. Trends shows attendance by company over 12 weeks and cadets who are slipping.'],
         ['Who sees which request', 'A sergeant sees and decides the requests of cadets in their own company only. The CSM, CQMS, JUOs, SUOs and the administrator see all of them.'],
@@ -13740,7 +13755,8 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
       { id: 'parade-power', title: 'Creating parades and camps', who: 'JUO, SUO and the administrator', items: [
         ['New parade', 'Parades page, New parade: kind, date and reporting time, venue, turnout (required), what to bring, and who it is for (company, years or picked cadets). Repeat makes weekly copies. Cadets it is for are notified.'],
         ['Change or cancel', 'Changing the time or venue of an upcoming parade offers to tell its cadets. Deleting one offers to tell them it is cancelled first.'],
-        ['Refreshments', 'Switch Refreshments on in the parade (JUO, SUO, CQMS, administrator) to start the mess duty calls for it.'],
+        ['Refreshments', 'Switch Refreshments on in the parade (JUO, SUO, CQMS, administrator): the cadets coming to it are asked to volunteer for refreshments returning duty.'],
+        ['Holidays and exams', 'Parades page, Holidays and exams: mark holidays and exam weeks once. The parade dialog warns when you pick such a day, repeating parades skip them, and the calendar shows them.'],
         ['Camps', 'Cadet Roster page, Camps: record who went where. Vacancy open to limits the list to some years or one wing (SD or SW) when the vacancy is only for them. Add a link to the photos if there is an album. Camps count towards certificates.'],
       ] },
       { id: 'cqms', title: 'Uniform orders and payments', who: 'CQMS and the administrator', items: [
@@ -13749,8 +13765,8 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['Equipment', 'Issue equipment to a cadet with a return date, and mark it Returned.'],
       ] },
       { id: 'admin', title: 'Running the site', who: 'Administrator', items: [
-        ['Accounts', 'Account menu, Accounts: approve or reject registrations (check that the regimental number matches), link an account to its cadet, change the role, send or copy a password link, set a password, remove. Invite one cadet or Import list from Excel (name, email, regimental number). Not on the app yet lists cadets with no account.'],
-        ['Roster', 'Cadet Roster page: add and edit cadets, ranks, the POC tick, regimental numbers and timetables, or import cadets from a sheet. Powers follow the rank on the roster at once.'],
+        ['Accounts', 'Account menu, Accounts: approve or reject registrations (check that the regimental number matches), link an account to its cadet, change the role, send or copy a password link, set a password. Notifications on and off shows who has them on, by company, year and wing.'],
+        ['Roster', 'Cadet Roster page: add and edit cadets, ranks, the POC tick, the Local tick (goes home after parades, never on refreshments returning duty), regimental numbers and timetables, or import cadets from a sheet. Filter by Local on the roster. Powers follow the rank on the roster at once.'],
         ['New academic year', 'Cadet Roster page, New academic year: 1st years become 2nd, 2nd become 3rd, and 3rd years move to Past cadets (Bring back undoes one). Then add the new 1st years.'],
         ['Backups and records', 'Data menu, Backups: make one before a big change; restore keeps a copy of the data as it was first. Download everything (Excel) saves every record in one workbook.'],
         ['System check', 'Data menu, System check: whether reminders are running, how big the data is, accounts and devices, the last backup, problems pages ran into (with Clear), and this device.'],
@@ -14178,7 +14194,26 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
           const now = medicalList().filter(m => m.from <= today && today <= m.to && m.cadetId !== me?.id && requestsForCadet(m.cadetId));
           if (now.length) out.push(card('On medical exemption', `${now.length} today`, esc(now.slice(0, 6).map(m => cadetLabel(m.cadetId)).join(', ') + (now.length > 6 ? ` and ${now.length - 6} more` : ''))));
         }
+        const ask = whoToAsk(me);
+        if (ask) out.push(card('Who to ask', ask.main, ask.sub));
         return out;
+      };
+    }
+    /** "Who to ask" on Your day, in the order of the chain: your company's sergeant first; the CQMS for uniform and
+     *  admin; the CSM for drill and parade discipline; JUOs and SUOs only in an emergency, or when a senior sends you. */
+    function whoToAsk(me) {
+      if (!me || !['CDT', 'LCPL', 'CPL'].includes(me.rank || 'CDT')) return null;
+      const esc = escapeHtml, all = cfState()?.cadets || [];
+      const names = rank => all.filter(c => c.rank === rank).map(c => c.name);
+      const sgts = all.filter(c => c.rank === 'SGT' && c.company === me.company && c.company !== NO_COMPANY).map(c => c.name);
+      const cqms = names('CQMS'), csm = names('CSM'), uo = [...names('JUO').map(n => 'JUO ' + n), ...names('SUO').map(n => 'SUO ' + n)];
+      const line = (what, who) => `<span class="block"><b class="text-slate-200">${what}:</b> ${who}</span>`;
+      return {
+        main: sgts.length ? esc(`SGT ${sgts.join(', SGT ')}`) : 'Your sergeant',
+        sub: `<span class="block mb-1">First, for anything: your company's sergeant${sgts.length ? '' : ' (none on the roster yet)'}.</span>` +
+          line('Uniform and admin', cqms.length ? esc(`CQMS ${cqms.join(', ')}`) : 'the CQMS') +
+          line('Drill and parade discipline', csm.length ? esc(`CSM ${csm.join(', ')}`) : 'the CSM') +
+          line('Only in an emergency, or when a senior sends you', uo.length ? esc(uo.join(', ')) : 'the JUOs and SUOs'),
       };
     }
 

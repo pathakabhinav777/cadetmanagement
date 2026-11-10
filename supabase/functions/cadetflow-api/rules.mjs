@@ -42,8 +42,14 @@ export function requestsFor(who, cadet) {
 }
 export const SCOPE_DENIED = "Only a sergeant of that cadet's company, or the CSM, CQMS, JUOs and SUOs, can do this.";
 
-// Notifications each person can switch off (account menu, Notification choices). Everything else always goes.
-export const NOTIFY_KINDS = ['parades', 'reminders', 'notices', 'signups', 'messCalls', 'weekly'];
+// Notifications cannot be switched off one kind at a time: each goes exactly to the people it is about (a parade's
+// company, years and wing; a notice's audience), on every device where they turned notifications on.
+export const WINGS = ['SD', 'SW'];
+/** Wing a parade, notice, sign-up or task is limited to; [] = both. */
+export function audienceWings(x) {
+  const list = WINGS.filter(w => Array.isArray(x?.wings) && x.wings.includes(w));
+  return list.length === WINGS.length ? [] : list;
+}
 
 /** Years a parade is limited to; [] = every year (same as the site's normalizeYears). */
 export function paradeYears(pd) {
@@ -56,6 +62,8 @@ export function inParade(cadet, pd) {
   if (!cadet || !pd) return false;
   if (Array.isArray(pd.cadetIds) && pd.cadetIds.length) return pd.cadetIds.map(String).includes(String(cadet.id));
   if (pd.scope && pd.scope !== 'All' && cadet.company !== pd.scope) return false;
+  const wings = audienceWings(pd);
+  if (wings.length && !wings.includes(cadet.wing === 'SW' ? 'SW' : 'SD')) return false;
   const years = paradeYears(pd);
   return !years.length || years.includes(cadet.year);
 }
@@ -64,8 +72,8 @@ export function inParade(cadet, pd) {
 export function audienceText(pd) {
   if (Array.isArray(pd.cadetIds) && pd.cadetIds.length) return `${pd.cadetIds.length} picked cadet${pd.cadetIds.length === 1 ? '' : 's'}`;
   const scope = !pd.scope || pd.scope === 'All' ? 'All companies' : String(pd.scope);
-  const years = paradeYears(pd);
-  return scope + (years.length ? ` (${years.join(' & ')} year)` : '');
+  const years = paradeYears(pd), wings = audienceWings(pd);
+  return scope + (years.length ? ` (${years.join(' & ')} year)` : '') + (wings.length ? ` · ${wings[0]} only` : '');
 }
 
 /**
@@ -237,51 +245,52 @@ export function hasRefreshments(pd, days) {
   if (pd.refreshments === false) return false;
   return (Array.isArray(days) ? days : []).some(d => d && d.paradeId === pd.id);
 }
+/** A local goes home after the parade: never on refreshments returning duty (roster tick; older saves: messConfig.exempt). */
+export function isLocal(cadet, config) {
+  return !!cadet && (cadet.local === true || (Array.isArray(config?.exempt) ? config.exempt : []).map(String).includes(String(cadet.id)));
+}
+/** The medical exemption covering this cadet on this day ('YYYY-MM-DD'), or null. */
+export function medicalOn(medical, cadetId, date) {
+  const day = String(date || '');
+  return (Array.isArray(medical) ? medical : []).find(m => m && String(m.cadetId) === String(cadetId) && DAY.test(m.from) && DAY.test(m.to) && m.from <= day && day <= m.to) || null;
+}
 /**
- * Can this cadet do mess duty at this parade? Only cadets (rank CDT, no rank holders), from the years
- * in the mess settings (1st and 2nd by default), not the locals, expected at the parade, not on leave.
+ * Can this cadet do refreshments returning duty at this parade? Only cadets (rank CDT, no rank holders), from the
+ * years in the settings (1st and 2nd by default), not the locals, coming to that parade (expected, not excused,
+ * not on leave) and not on medical exemption that day.
  */
-export function messCanDo(cadet, pd, date, config, leaves) {
+export function messCanDo(cadet, pd, date, config, leaves, medical) {
   if (!cadet) return false;
   if (cadet.rank && cadet.rank !== 'CDT') return false;
   const years = (Array.isArray(config?.years) ? config.years : []).filter(y => YEARS.includes(y));
   if (!(years.length ? years : ['1st', '2nd']).includes(cadet.year)) return false;
-  if ((Array.isArray(config?.exempt) ? config.exempt : []).map(String).includes(String(cadet.id))) return false;
-  if (pd && !inParade(cadet, pd)) return false;
+  if (isLocal(cadet, config)) return false;
+  if (pd && (!inParade(cadet, pd) || excusedFrom(pd, cadet.id))) return false;
   const day = String(date || '');
+  if (medicalOn(medical, cadet.id, day)) return false;
   return !(Array.isArray(leaves) ? leaves : []).some(l => l && String(l.cadetId) === String(cadet.id) && DAY.test(l.from) && DAY.test(l.to) && l.from <= day && day <= l.to);
 }
 
 /** Cadets at each parade's mess duty (messConfig.perDay, 4 when not set). */
 export function messPerDay(config) { return Math.min(30, Math.max(1, Math.round(Number(config?.perDay)) || 4)); }
-/** Cadets who said they will do mess duty: they are asked first when a parade gets refreshments. */
-export function messStandbyIds(state) {
-  return (Array.isArray(state?.messStandby) ? state.messStandby : []).filter(x => x && x.cadetId != null).map(x => String(x.cadetId));
-}
 /** 6 pm (India time) the evening before the day of a parade, in ms. */
 export function messEveningBefore(reportAt) {
   const day = istDay(Number(reportAt)).date;
   return Date.parse(`${day}T${String(MESS_REMIND_HOUR).padStart(2, '0')}:00:00+05:30`) - 86400000;
 }
 /**
- * Mess duty at a parade with refreshments fills in three calls, each made once (day.asked records them):
- *   'standby'  at once: the cadets who volunteered in advance (state.messStandby) are asked first;
- *   'all'      if places are still empty: every cadet who can do it at that parade (12 hours later, or
- *              sooner for a parade within 2 days; at once when nobody was on the advance list);
- *   'leads'    if still not full: the lance corporals and corporals are told to pick (from 6 pm the
- *              evening before, at least 2 hours after 'all', at the latest 1 hour before reporting).
- * Returns the call due now, or null.
+ * Refreshments returning duty at a parade with refreshments: nobody is picked automatically.
+ *   'all'    at once: the cadets who can do it at that parade hear that volunteers are wanted;
+ *   'leads'  if places are still empty: the lance corporals and corporals coming to it are told to pick by hand
+ *            (from 6 pm the evening before, at least 2 hours after 'all', at the latest 1 hour before reporting).
+ * Each call is made once (day.asked records them). Returns the call due now, or null.
  */
 export function messCallDue(pd, day, perDay, now = Date.now()) {
   if (!pd || !(Number(pd.reportAt) > now)) return null;
   if ((Array.isArray(day?.cadetIds) ? day.cadetIds.length : 0) >= perDay) return null;
   const asked = day && day.asked && typeof day.asked === 'object' ? day.asked : {};
   const H = 3600000, at = Number(pd.reportAt);
-  if (!asked.standby) return 'standby';
-  if (!asked.all) {
-    const due = asked.standbyN === 0 ? asked.standby : Math.max(asked.standby + 15 * 60000, Math.min(Math.max(asked.standby + H, Math.min(asked.standby + 12 * H, at - 48 * H)), at - 2 * H));
-    return now >= due ? 'all' : null;
-  }
+  if (!asked.all) return 'all';
   if (!asked.leads) {
     const due = Math.max(asked.all + 15 * 60000, Math.min(Math.max(asked.all + 2 * H, messEveningBefore(at)), at - H));
     return now >= due ? 'leads' : null;
@@ -418,3 +427,88 @@ export function cleanLink(url) {
   if (s.length > 500 || !/^https:\/\/[^\s/$.?#][^\s]*$/i.test(s)) return '';
   try { const u = new URL(s); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
 }
+
+// ---- Requests waiting for a decision: the company sergeant is reminded, then the CSM ---------------------
+/**
+ * Late/absence requests still waiting: the sergeants of the cadet's company 3 hours before the request
+ * cutoff, the CSM 1 hour before it. Leave still waiting: the sergeants after a day, the CSM after two.
+ * rows: request rows ({ id, parade_id, cadet_id, kind, status, created_at, from_date, to_date }).
+ * Returns [{ row, stage: 'sgt' | 'csm' }] due now (the caller sends each once).
+ */
+export function requestNudgesDue(rows, parades, now = Date.now()) {
+  const H = 3600000, out = [];
+  const byId = new Map((parades || []).filter(p => p && p.id).map(p => [p.id, p]));
+  for (const r of rows || []) {
+    if (!r || r.status !== 'pending') continue;
+    if (isLeaveRequest(r)) {
+      const waited = now - Date.parse(r.created_at || '');
+      if (!(waited > 0)) continue;
+      if (r.to_date && Date.parse(String(r.to_date).slice(0, 10) + 'T23:59:59+05:30') < now) continue;
+      if (waited >= 48 * H) out.push({ row: r, stage: 'csm' });
+      else if (waited >= 24 * H) out.push({ row: r, stage: 'sgt' });
+      continue;
+    }
+    const pd = byId.get(r.parade_id);
+    if (!pd) continue;
+    const left = Number(pd.reportAt) - CUTOFF_MIN * 60000 - now;
+    if (left <= 0) continue;
+    if (left <= H) out.push({ row: r, stage: 'csm' });
+    else if (left <= 3 * H) out.push({ row: r, stage: 'sgt' });
+  }
+  return out;
+}
+/** Who is reminded: 'sgt' = sergeants of the cadet's company (none: the CSM); 'csm' = the CSM (none: nobody, the caller tells the administrator). */
+export function nudgeTargets(cadets, cadet, stage) {
+  const list = (cadets || []).filter(c => c && c.id != null);
+  const csm = list.filter(c => String(c.rank || '').toUpperCase() === 'CSM');
+  if (stage === 'sgt') {
+    const sgts = list.filter(c => String(c.rank || '').toUpperCase() === 'SGT' && cadet && c.company === cadet.company && String(c.id) !== String(cadet.id));
+    if (sgts.length) return sgts.map(c => String(c.id));
+  }
+  return csm.map(c => String(c.id));
+}
+
+// ---- Notices: a notice can be for some companies, years or one wing, and can be posted later --------
+/** Is this notice for this cadet? (Accounts not linked to a cadet see every notice.) */
+export function noticeFor(cadet, n) {
+  if (!n) return false;
+  if (!cadet) return true;
+  return inParade(cadet, { scope: n.scope || 'All', years: n.years, wings: n.wings, cadetIds: n.cadetIds });
+}
+/** Notices to announce now: posted later with Notify ticked, whose time has come. */
+export function scheduledNoticesDue(notices, now = Date.now()) {
+  return (Array.isArray(notices) ? notices : []).filter(n => n && n.id && n.notify === true && Number(n.postAt) > 0 && Number(n.postAt) <= now && now - Number(n.postAt) < 3 * 86400000);
+}
+
+// ---- Your week: Sunday evening, each cadet hears what is coming in the next 7 days ------------------------
+/**
+ * The cadet's week: parades they are expected at (not on leave), their refreshments returning duty, open sign-ups
+ * and volunteer tasks for them closing in the week that they have not joined. Lines of text; [] when nothing.
+ */
+export function weekAhead(state, cadetId, now = Date.now()) {
+  const cadet = (Array.isArray(state?.cadets) ? state.cadets : []).find(c => c && String(c.id) === String(cadetId));
+  if (!cadet) return [];
+  const end = now + 7 * 86400000, leaves = state.leaves || [];
+  const fmt = ms => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
+  const parades = (Array.isArray(state.parades) ? state.parades : []).filter(p => p && Number(p.reportAt) > now && Number(p.reportAt) <= end && inParade(cadet, p) && !onLeave(leaves, cadet.id, Number(p.reportAt)))
+    .sort((a, b) => Number(a.reportAt) - Number(b.reportAt));
+  const lines = [];
+  if (parades.length) lines.push(`Parades: ${parades.map(p => `${fmt(Number(p.reportAt))} ${String(p.title || 'Parade')}`).join(', ')}`);
+  const duty = (Array.isArray(state.messDuty) ? state.messDuty : []).filter(d => d && Array.isArray(d.cadetIds) && d.cadetIds.map(String).includes(String(cadet.id)))
+    .map(d => (Array.isArray(state.parades) ? state.parades : []).find(p => p && p.id === d.paradeId)).filter(p => p && Number(p.reportAt) > now && Number(p.reportAt) <= end && hasRefreshments(p, state.messDuty));
+  if (duty.length) lines.push(`Refreshments returning duty: ${duty.map(p => fmt(Number(p.reportAt))).join(', ')}`);
+  const signups = (Array.isArray(state.signups) ? state.signups : []).filter(x => signupOpen(x, now) && Number(x.closesAt) <= end && inParade(cadet, x) && !(Array.isArray(x.applicants) ? x.applicants : []).some(a => a && String(a.cadetId) === String(cadet.id)));
+  if (signups.length) lines.push(`Sign-ups closing: ${signups.map(x => String(x.title || 'Sign-up')).join(', ')}`);
+  return lines;
+}
+
+// ---- Volunteer tasks: a task posted on the notice board; anyone it is for can join until it is full ------
+/** ev.volunteer = { seats, cadetIds, noticeId, closed? }; the task is for ev.scope / ev.years / ev.wings. */
+export function volunteerOpen(ev) {
+  const v = ev?.volunteer;
+  return !!v && !ev.archived && !v.closed && (Array.isArray(v.cadetIds) ? v.cadetIds.length : 0) < Math.max(1, Number(v.seats) || 1);
+}
+export function volunteerFor(cadet, ev) {
+  return !!cadet && !!ev && inParade(cadet, { scope: ev.scope || 'All', years: ev.years, wings: ev.wings });
+}
+

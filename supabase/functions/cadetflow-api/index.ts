@@ -10,12 +10,13 @@
 //   register  { cadetId, email, regNo, password } -> { ok }   account that waits for approval
 //   forgot    { email }                    -> { ok }             asks the administrator for a reset link
 //   unsubscribe { endpoint } / test { endpoint }
-//   remind                                 -> { parades, mess, calls } sends what is due (each once):
+//   remind                                 -> { parades, mess, calls, notices, nudges, week, ... } sends what is due (each once):
 //                                             parades 2 hours before (again if the parade's time changed),
-//                                             mess duty calls (advance volunteers, then every cadet who can
-//                                             do it, then the LCPLs and CPLs to pick), mess duty the evening
-//                                             before. Called by a
-//                                             scheduled job every 10 minutes (supabase/launch/reminders_cron.sql).
+//                                             refreshments returning duty calls (the cadets who can do it, then
+//                                             the LCPLs and CPLs coming to it to pick by hand), the duty the evening
+//                                             before, notices posted for later, waiting requests (company sergeant,
+//                                             then the CSM), and "your week" to every cadet on Sunday evening.
+//                                             Called by a scheduled job every 10 minutes (supabase/launch/reminders_cron.sql).
 // Approved accounts:
 //   subscribe { subscription }             -> { ok }             this device, for this person
 //   report    { paradeId, kind, reason, image?, removeImage? } -> { request }   own late/absence request
@@ -28,19 +29,17 @@
 //   reportError { message, place, page }   -> { ok }             a problem the page ran into (System check)
 //   myBirthday { md: 'MM-DD' | '' }        -> { ok }             own birthday (no year), shown on Home on the day
 //   setTimetable { cadetId, free: ['MON1', ...], detail? } -> { ok }   POCs and the administrator
-//   myPrefs / setPrefs { off: [kinds] }    -> { off }            notifications switched off (NOTIFY_KINDS in rules.mjs)
 //   leave     { from, to, reason, image? } -> { request }        own leave for several days (SGT and above decide it)
 //   answer    { noticeId, choice }         -> { mine, counts, total }   own answer to a notice's question
 //   answers   { ids: [noticeId] }          -> { answers: { id: { mine, counts, total } } }
 //   signup    { id, join }                 -> { ok }             apply for (or withdraw from) a sign-up
-//   swapAsk   { dayId, to?, takeDayId? }   -> { ok }             put your mess duty up for anyone (no `to`), or ask one
-//                                             cadet (optionally taking one of their duties in return)
-//   swapTake  { id }                       -> { ok, done }       take a duty someone put up (done at once)
+//   swapAsk   { dayId, to, takeDayId? }    -> { ok }             ask one cadet to take your refreshments returning duty
+//                                             (optionally taking one of theirs in return)
 //   swapAnswer { id, accept } / swapWithdraw { id } -> { ok }    agreeing makes the swap at once; no senior needed
-//   messOut   { dayId, reason }            -> { ok }             ask a senior to let you off your mess duty (with a reason)
+//   messOut   { dayId, reason }            -> { ok }             ask a senior to let you off the duty (with a reason)
 //   messOutDecide { id, approve }          -> { ok }             SGT and above: let the cadet off, or keep them on it
-//   messVolunteer { paradeId }             -> { ok }             volunteer for mess duty at a parade with refreshments
-//   messStandby { on }                     -> { ok, on }         on the advance volunteers list (asked first)
+//   messVolunteer { paradeId }             -> { ok }             volunteer for the duty at a parade you are coming to
+//   taskVolunteer { eventId }              -> { ok }             join a volunteer task (no stepping out: a senior removes you)
 //   suggestLink { title, url, subject, cert } -> { ok }          suggest a link for the study library
 //   suggest   { text, anonymous }          -> { ok }             suggestion box (anonymous ones keep no account)
 //   mySuggestions                          -> { suggestions }    own named suggestions and the replies
@@ -50,7 +49,11 @@
 //   seenBy    { item }                     -> { seen: [{ name, at }], notSeen: [{ name }], total }
 //   answersBy { noticeId }                 -> { options: [{ label, people: [{ name, company }] }], notAnswered: [...] }
 //   announce  { id }                       -> { sent, devices, people }   notification for a new notice (once)
-//   messCall  { paradeId }                 -> { calls }          make the mess duty call due now for that parade
+//   messCall  { paradeId }                 -> { calls }          make the refreshments duty call due now for that parade
+//   messPick  { paradeId, cadetId, out? }  -> { ok }             put a cadet on the duty by hand (they are told at once)
+//   messDrop  { paradeId, cadetId }        -> { ok }             take a cadet off the duty (they are told)
+//   taskAnnounce { eventId }               -> { sent }           tell everyone a volunteer task is for (once)
+//   taskVolunteerRemove { eventId, cadetId } -> { ok }           take a volunteer off a task (they are told)
 //   signupAnnounce { id } (once), signupTell { id } (tells the selected cadets): sign-ups are opened from the notice form
 //   uniformRequest  { items: [{ item, custom?, size? }], qty?, note? } -> { added, skipped }   own items
 //   uniformCancel   { id }  /  uniformReceived { id }  /  uniformPay { ids, image } -> { ok }
@@ -84,12 +87,13 @@ import webpush from "npm:web-push@3.6.7";
 // @ts-ignore plain JavaScript module shared with the tests
 import * as rules from "./rules.mjs";
 
-const { approvedReport, attendanceDrops, audienceText, can, cleanLink, NOTIFY_KINDS, requestsFor, SCOPE_DENIED, cleanQuestion, CUTOFF_MIN, equipmentOverdue, hasRefreshments, inParade, isLeaveRequest, istDay, istWeekday,
-  excusedFrom, messCallsDue, messCanDo, messLeadRank, messPerDay, messStandbyIds, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
+const { approvedReport, attendanceDrops, audienceText, can, cleanLink, requestsFor, SCOPE_DENIED, cleanQuestion, CUTOFF_MIN, equipmentOverdue, hasRefreshments, inParade, isLeaveRequest, istDay, istWeekday,
+  noticeFor, nudgeTargets, requestNudgesDue, scheduledNoticesDue, volunteerFor, volunteerOpen, weekAhead,
+  excusedFrom, messCallsDue, messCanDo, messLeadRank, messPerDay, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
   uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS, weekSummary, WEEKLY_HOUR } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
-const BUILD = "2026-11-13"; // shown in the administrator's System check
+const BUILD = "2026-11-14"; // shown in the administrator's System check
 const BUCKET = "cadetflow-report-files";
 const ROLES = ["admin", "viewer"];
 
@@ -148,7 +152,8 @@ const rid = (p: string) => `${p}-${Date.now().toString(36)}-${crypto.randomUUID(
 function addHistory(s: Obj, action: string, cadetId: string | null, details: string) {
   s.history = [{ id: rid("hist"), at: Date.now(), action, cadetId, eventId: null, details }, ...(Array.isArray(s.history) ? s.history : [])].slice(0, 3000);
 }
-const IST = "Asia/Kolkata"; // the units are in Nagaland
+const IST = "Asia/Kolkata"; // India time
+const MESS_WHO = "Refreshments returning duty is only for cadets of rank CDT who are coming to that parade: not locals, not on leave, not excused and not on medical exemption.";
 function when(ms: number) {
   const d = new Date(ms);
   const day = new Intl.DateTimeFormat("en-IN", { timeZone: IST, weekday: "short", day: "numeric", month: "short" }).format(d);
@@ -230,13 +235,8 @@ async function sendTo(subs: Sub[], payload: Obj) {
   if (gone.length) await db.from("cadetflow_push_subscriptions").delete().in("endpoint", gone);
   return { sent, failed, removed: gone.length };
 }
-/** Devices of these people. kind: a notification people can switch off (NOTIFY_KINDS); those who did are left out. */
-async function devicesOf(userIds: string[], kind?: string): Promise<Sub[]> {
-  if (kind && userIds.length) {
-    const { data: prefs } = await db.from("cadetflow_settings").select("key, value").in("key", userIds.map((u) => "prefs:" + u));
-    const off = new Set(((prefs || []) as Obj[]).filter((p) => Array.isArray(p.value?.off) && p.value.off.includes(kind)).map((p) => String(p.key).slice(6)));
-    userIds = userIds.filter((u) => !off.has(u));
-  }
+/** Devices of these people (every device where they turned notifications on). */
+async function devicesOf(userIds: string[]): Promise<Sub[]> {
   if (!userIds.length) return [];
   const { data, error } = await db.from("cadetflow_push_subscriptions").select("endpoint, p256dh, auth").in("user_id", userIds);
   if (error) throw new Error("could not read devices: " + error.message);
@@ -249,42 +249,49 @@ async function claimOnce(key: string) {
   if (error) throw new Error("could not record the notification: " + error.message);
   return true;
 }
+/** Cadets who can do the refreshments returning duty at this parade and are not on it yet. */
+function messFree(state: Obj, pd: Obj) {
+  const day = (Array.isArray(state.messDuty) ? state.messDuty : []).find((d: Obj) => d && d.paradeId === pd.id);
+  const on = new Set((Array.isArray(day?.cadetIds) ? day.cadetIds : []).map(String));
+  const date = istDay(Number(pd.reportAt)).date;
+  return cadetsOf(state).filter((c) => !on.has(String(c.id)) && messCanDo(c, pd, date, state.messConfig, state.leaves, state.medical));
+}
+/** Who picks by hand: the LCPLs and CPLs (and POCs below sergeant) coming to it; else the sergeants and above coming; else nobody (the administrator). */
+function messPickers(state: Obj, pd: Obj) {
+  const coming = (c: Obj) => inParade(c, pd) && !excusedFrom(pd, c.id);
+  const leads = cadetsOf(state).filter((c) => messLeadRank(c) && coming(c));
+  if (leads.length) return leads.map((c) => String(c.id));
+  return cadetsOf(state).filter((c) => can({ admin: false, rank: String(c.rank || "").toUpperCase(), poc: false }, "requests") && coming(c)).map((c) => String(c.id));
+}
 /**
- * Mess duty calls (rules messCallsDue): the advance volunteers first, then every cadet who can do it at that
- * parade, then the lance corporals and corporals to pick. Each call goes once per parade (cadetflow_push_sent
- * "messcall:<parade>:<stage>") and is recorded on the day as asked[stage] (+ asked[stage + "N"], how many).
- * only: one parade id (when the CQMS just turned refreshments on). Returns how many calls were made.
+ * Refreshments returning duty calls (rules messCallsDue): first the cadets who can do it hear that volunteers are
+ * wanted, then, if places are still empty, those who pick by hand. Each goes once per parade (cadetflow_push_sent
+ * "messcall:<parade>:<stage>") and is recorded on the day as asked[stage] (+ asked[stage + "N"]).
+ * only: one parade id (refreshments were just turned on). Returns how many calls were made.
  */
 async function runMessCalls(only: string | null) {
   const now = Date.now();
   let { state } = await readState();
   let made = 0, profiles: Obj[] | null = null;
-  for (let round = 0; round < 3; round++) { // a call with nobody to ask lets the next one go at once
+  for (let round = 0; round < 2; round++) {
     const due = messCallsDue(state, now).filter((x: Obj) => !only || x.pd.id === only);
     if (!due.length) break;
     profiles = profiles || await approvedProfiles();
     for (const { pd, stage } of due as { pd: Obj; stage: string }[]) {
       const day = (Array.isArray(state.messDuty) ? state.messDuty : []).find((d: Obj) => d && d.paradeId === pd.id);
-      const on = new Set((Array.isArray(day?.cadetIds) ? day.cadetIds : []).map(String));
-      const date = istDay(Number(pd.reportAt)).date, left = messPerDay(state.messConfig) - on.size;
-      const free = cadetsOf(state).filter((c) => !on.has(String(c.id)) && !excusedFrom(pd, c.id) && messCanDo(c, pd, date, state.messConfig, state.leaves));
+      const left = messPerDay(state.messConfig) - (Array.isArray(day?.cadetIds) ? day.cadetIds.length : 0);
       const title = String(pd.title || "the parade"), places = `${left} place${left === 1 ? "" : "s"}`;
-      let ids: string[], payload: Obj;
-      if (stage === "standby") {
-        const sb = new Set(messStandbyIds(state));
-        ids = free.filter((c) => sb.has(String(c.id))).map((c) => String(c.id));
-        payload = { title: `Mess duty: ${title}`, body: `You offered to help. ${places} at ${when(Number(pd.reportAt))}. Open it to take one.` };
-      } else if (stage === "all") {
-        ids = free.map((c) => String(c.id));
-        payload = { title: `Volunteers wanted: mess duty`, body: `${title}, ${when(Number(pd.reportAt))}: ${places} left. Open it to volunteer.` };
+      let ids: string[], payload: Obj, admins = false;
+      if (stage === "all") {
+        ids = messFree(state, pd).map((c) => String(c.id));
+        payload = { title: "Volunteers wanted: refreshments returning duty", body: `${title}, ${when(Number(pd.reportAt))}: ${places} to return the refreshment items to Apoorva mess after the parade. Open it to volunteer.` };
       } else {
-        const leads = cadetsOf(state).filter((c) => messLeadRank(c));
-        const there = leads.filter((c) => inParade(c, pd));
-        ids = (there.length ? there : leads).map((c) => String(c.id));
-        payload = { title: `Pick mess duty: ${title}`, body: `${places} still empty at ${when(Number(pd.reportAt))}. Pick cadets on the Parades page.` };
+        ids = messPickers(state, pd);
+        admins = !ids.length;
+        payload = { title: `Pick for refreshments returning duty: ${title}`, body: `${places} still empty at ${when(Number(pd.reportAt))}. Pick cadets in the Refreshments returning duty box of the parade.` };
       }
-      const people = profiles.filter((p) => p.cadet_id && ids.includes(String(p.cadet_id))).map((p) => p.user_id);
-      if (await claimOnce(`messcall:${pd.id}:${stage}`) && people.length) await tell(people, { ...payload, tag: `messcall-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` }, stage === "leads" ? undefined : "messCalls");
+      const people = admins ? profiles.filter((p) => p.role === "admin").map((p) => p.user_id) : profiles.filter((p) => p.cadet_id && ids.includes(String(p.cadet_id))).map((p) => p.user_id);
+      if (await claimOnce(`messcall:${pd.id}:${stage}`) && people.length) await tell(people, { ...payload, tag: `messcall-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
       state = await changeState(null, (s) => {
         const p = findParade(s, pd.id); if (!p) return false;
         if (!Array.isArray(s.messDuty)) s.messDuty = [];
@@ -293,7 +300,7 @@ async function runMessCalls(only: string | null) {
         const asked = d.asked && typeof d.asked === "object" ? d.asked : {};
         if (asked[stage]) return false;
         d.asked = { ...asked, [stage]: now, [stage + "N"]: ids.length };
-        addHistory(s, "mess-call", null, `Mess duty at ${title}: ${stage === "standby" ? "asked the advance volunteers" : stage === "all" ? "asked every cadet who can do it" : "asked the lance corporals and corporals to pick"} (${ids.length})`);
+        addHistory(s, "mess-call", null, `Refreshments returning duty at ${title}: ${stage === "all" ? "asked the cadets who can do it to volunteer" : "asked the lance corporals and corporals to pick"} (${ids.length})`);
         return true;
       });
       made++;
@@ -314,8 +321,8 @@ async function cqmsPeople(state: Obj) {
 }
 async function adminPeople() { return (await approvedProfiles()).filter((p) => p.role === "admin").map((p) => p.user_id); }
 /** Send without failing the action that triggered it. */
-async function tell(userIds: string[], payload: Obj, kind?: string) {
-  try { return await sendTo(await devicesOf(userIds, kind), payload); } catch (e) { console.error("notify", e); return { sent: 0, failed: 0, removed: 0 }; }
+async function tell(userIds: string[], payload: Obj) {
+  try { return await sendTo(await devicesOf(userIds), payload); } catch (e) { console.error("notify", e); return { sent: 0, failed: 0, removed: 0 }; }
 }
 
 // ---- files ---------------------------------------------------------------------------------------
@@ -526,7 +533,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     let { state } = await readState();
     const now = Date.now();
     let parades = 0, mess = 0;
-    // Mess duty: ask the advance volunteers, then every cadet who can do it, then the lance corporals and corporals.
+    // Refreshments returning duty: ask the cadets who can do it, then the lance corporals and corporals to pick.
     const calls = await runMessCalls(null);
     if (calls) state = (await readState()).state;
     const claim = claimOnce;
@@ -542,7 +549,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const people = paradeRecipients(profiles, cadetsOf(state), pd, state.leaves || []); // not those on leave
       const mins = Math.round((Number(pd.reportAt) - now) / 60000);
       const left = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min` : `${mins} min`;
-      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", pd.kit ? `Bring: ${String(pd.kit)}` : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` }, "reminders");
+      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", pd.kit ? `Bring: ${String(pd.kit)}` : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
       parades++;
     }
     for (const d of days) {
@@ -559,7 +566,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         if (!(await claim(`mess:${d.id}@${id}`))) continue;
         const people = profiles.filter((p) => p.cadet_id && String(p.cadet_id) === id).map((p) => p.user_id);
         const picked = !(Array.isArray(d.volunteers) ? d.volunteers.map(String) : []).includes(id);
-        await tell(people, { title: "Mess duty", body: pd ? `You are on mess duty at ${String(pd.title || "the parade")} on ${day}${picked ? " (picked: not enough volunteers)" : ""}: return the refreshments to the mess.` : `You are on mess duty on ${day}.`, tag: `mess-${d.id}`, url: "./?page=parades" });
+        await tell(people, { title: "Refreshments returning duty", body: pd ? `You are on refreshments returning duty at ${String(pd.title || "the parade")} on ${day}${picked ? " (picked by a senior)" : ""}: return the refreshment items to Apoorva mess after the parade.` : `You are on refreshments returning duty on ${day}.`, tag: `mess-${d.id}`, url: pd ? `./?parade=${encodeURIComponent(pd.id)}` : "./?page=parades" });
         told++;
       }
       if (told) mess++;
@@ -597,11 +604,52 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         w.owed ? `${rupees(w.owed)} uniform money owed` : "",
         waitingAccounts ? `${waitingAccounts} account${waitingAccounts === 1 ? "" : "s"} to approve` : "",
       ].filter(Boolean);
-      await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" }, "weekly");
+      await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" });
       weekly = 1;
     }
+    // Notices posted for later, with Notify ticked: their time has come.
+    let notices = 0;
+    for (const n of scheduledNoticesDue(state.notices, now) as Obj[]) {
+      if (!(await claim("notice:" + n.id))) continue;
+      const all = await approvedProfiles();
+      const people = all.filter((p) => noticeFor(findCadet(state, p.cadet_id), n)).map((p) => p.user_id);
+      const text = String(n.text || "");
+      await tell(people, { title: `Notice from ${String(n.by || "CadetFlow")}`, body: text.length > 180 ? text.slice(0, 177) + "…" : text, tag: `notice-${n.id}`, url: "./?page=home" });
+      notices++;
+    }
+    // Requests still waiting: the company sergeant is reminded, then the CSM (the administrator when there is none).
+    let nudges = 0;
+    {
+      const { data: waiting } = await db.from("cadetflow_requests").select("id, parade_id, cadet_id, kind, status, created_at, from_date, to_date").eq("status", "pending").limit(500);
+      const due = requestNudgesDue(waiting || [], Array.isArray(state.parades) ? state.parades : [], now) as { row: Obj; stage: string }[];
+      if (due.length) {
+        const all = await approvedProfiles();
+        for (const { row, stage } of due) {
+          if (!(await claim(`nudge:${row.id}:${stage}`))) continue;
+          const cadet = findCadet(state, row.cadet_id), pd = findParade(state, row.parade_id);
+          const ids = nudgeTargets(cadetsOf(state), cadet, stage);
+          const people = ids.length ? all.filter((p) => p.cadet_id && ids.includes(String(p.cadet_id))).map((p) => p.user_id) : all.filter((p) => p.role === "admin").map((p) => p.user_id);
+          const what = isLeaveRequest(row) ? `leave from ${String(row.from_date || "").slice(0, 10)} to ${String(row.to_date || "").slice(0, 10)}` : `${row.kind === "late" ? "coming late to" : "not coming to"} ${pd ? String(pd.title || "the parade") + ", " + when(Number(pd.reportAt)) : "a parade"}`;
+          await tell(people, { title: "Request waiting for you", body: `${rankName(cadet) || "A cadet"} asked: ${what}. Decide it in the Requests box on the Parades page.`, tag: `nudge-${row.id}`, url: pd ? `./?parade=${encodeURIComponent(pd.id)}` : "./?page=parades" });
+          nudges++;
+        }
+      }
+    }
+    // Sunday evening: each cadet hears their week (parades, duty, sign-ups closing), once a week.
+    let week = 0;
+    if (istWeekday(now) === 0 && istDay(now).hour >= WEEKLY_HOUR) {
+      const all = profiles.length ? profiles : await approvedProfiles();
+      for (const p of all) {
+        if (!p.cadet_id) continue;
+        const lines = weekAhead(state, String(p.cadet_id), now) as string[];
+        if (!lines.length) continue;
+        if (!(await claim(`yourweek:${istDay(now).date}@${p.user_id}`))) continue;
+        await tell([p.user_id], { title: "Your week", body: lines.join(" · ").slice(0, 300), tag: "yourweek", url: "./?page=home" });
+        week++;
+      }
+    }
     // Kept for the administrator's System check: when the reminders last ran (the job runs every 10 minutes).
-    const result = { parades, mess, calls, weekly, drops, overdue };
+    const result = { parades, mess, calls, weekly, drops, overdue, notices, nudges, week };
     const { error: recErr } = await db.from("cadetflow_settings").upsert({ key: "remind", value: { at: new Date().toISOString(), ...result }, updated_at: new Date().toISOString() }, { onConflict: "key" });
     if (recErr) console.error("remind record", recErr.message);
     return json(result);
@@ -855,20 +903,6 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     return json({ ok: true });
   }
 
-  // ---- notification choices: { off: [kinds] } in cadetflow_settings "prefs:<user>"
-  if (action === "myPrefs" || action === "setPrefs") {
-    const a = await access(me, null);
-    const key = "prefs:" + a.me.id;
-    if (action === "setPrefs") {
-      const off = [...new Set((Array.isArray(body.off) ? body.off : []).map(String).filter((k) => NOTIFY_KINDS.includes(k)))];
-      const { error } = await db.from("cadetflow_settings").upsert({ key, value: { off }, updated_at: new Date().toISOString(), updated_by: a.me.id }, { onConflict: "key" });
-      if (error) throw new Error("could not save: " + error.message);
-      return json({ off });
-    }
-    const { data } = await db.from("cadetflow_settings").select("value").eq("key", key).maybeSingle();
-    return json({ off: Array.isArray((data?.value as Obj)?.off) ? (data!.value as Obj).off : [] });
-  }
-
   // ---- parades
   if (action === "seen") {
     const a = await access(me, null);
@@ -892,7 +926,11 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       if (!pd) fail(404, "That parade is not saved yet.");
       const ids = new Set(paradeRecipients(people, cadetsOf(a.state), pd));
       people = people.filter((p) => ids.has(p.user_id));
-    } else if (!(Array.isArray(a.state.notices) ? a.state.notices : []).some((n: Obj) => n && n.id === id)) fail(404, "That notice is not saved yet.");
+    } else {
+      const n = (Array.isArray(a.state.notices) ? a.state.notices : []).find((x: Obj) => x && x.id === id);
+      if (!n) fail(404, "That notice is not saved yet.");
+      people = people.filter((p) => noticeFor(findCadet(a.state, p.cadet_id), n));
+    }
     const { data: rows, error } = await db.from("cadetflow_seen").select("user_id, seen_at").eq("item", item);
     if (error) throw new Error("could not read who has seen it: " + error.message);
     const at = new Map((rows || []).map((r) => [r.user_id, r.seen_at]));
@@ -944,7 +982,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const person = (p: Obj) => { const c = findCadet(a.state, p.cadet_id); return { name: rankName(c) || p.display_name || String(p.email || "").split("@")[0] || "Someone", company: c?.company || "" }; };
     const byName = (x: Obj, y: Obj) => String(x.name).localeCompare(String(y.name));
     const options = n.options.map((label: string, i: number) => ({ label: String(label), people: (profs || []).filter((p) => picked.get(p.user_id) === i).map(person).sort(byName) }));
-    const notAnswered = (profs || []).filter((p) => !picked.has(p.user_id)).map(person).sort(byName);
+    const notAnswered = (profs || []).filter((p) => !picked.has(p.user_id) && noticeFor(findCadet(a.state, p.cadet_id), n)).map(person).sort(byName);
     return json({ options, notAnswered });
   }
 
@@ -953,11 +991,12 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const id = String(body.id || "");
     const n = (Array.isArray(a.state.notices) ? a.state.notices : []).find((x: Obj) => x && x.id === id);
     if (!n) fail(404, "That notice is not saved yet. Try again in a moment.");
+    if (Number(n.postAt) > Date.now()) return json({ scheduled: true, sent: 0, devices: 0, people: 0 }); // the reminders job sends it at its time
     const { error: claim } = await db.from("cadetflow_push_sent").insert({ parade_id: "notice:" + id, sent_by: a.me.id });
     if (claim?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
     if (claim) throw new Error("could not record the send: " + claim.message);
-    const people = (await approvedProfiles()).map((p) => p.user_id).filter((u) => u !== a.me.id);
-    const subs = await devicesOf(people, "notices");
+    const people = (await approvedProfiles()).filter((p) => noticeFor(findCadet(a.state, p.cadet_id), n)).map((p) => p.user_id).filter((u) => u !== a.me.id);
+    const subs = await devicesOf(people);
     const text = String(n.text || "");
     const r = await sendTo(subs, { title: `Notice from ${String(n.by || nameOf(a))}`, body: text.length > 180 ? text.slice(0, 177) + "…" : text, tag: `notice-${id}`, url: "./?page=home" });
     return json({ ...r, devices: subs.length, people: people.length });
@@ -983,7 +1022,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     let people: string[] = [], subs: Sub[] = [], r: { sent: number; failed: number; removed: number };
     try {
       people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd, a.state.leaves || []); // not those on leave
-      subs = await devicesOf(people, "parades");
+      subs = await devicesOf(people);
       const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", `For: ${audienceText(pd)}`].filter(Boolean);
       r = await sendTo(subs, { title: `New parade: ${String(pd.title || "Parade")}`, body: lines.join(" · "), tag: `parade-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` });
     } catch (e) {
@@ -1111,17 +1150,16 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const { error: claimErr } = await db.from("cadetflow_push_sent").insert({ parade_id: key, sent_by: a.me.id });
     if (claimErr?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
     if (claimErr) throw new Error("could not record the send: " + claimErr.message);
-    const subs = await devicesOf(people, action === "signupAnnounce" ? "signups" : undefined);
+    const subs = await devicesOf(people);
     const r = await sendTo(subs, payload);
     return json({ ...r, devices: subs.length, people: people.length });
   }
 
-  // ---- mess duty swaps: a cadet on duty puts their duty up for anyone to take, or asks one cadet
-  // (optionally taking one of their duties in return). Taking it, or agreeing, makes the change at once:
-  // both cadets agreed, so no senior needs to approve it.
+  // ---- refreshments returning duty swaps: a cadet on duty asks one cadet to take it (optionally taking one of
+  // their duties in return). Agreeing makes the change at once: both cadets agreed, so no senior needs to approve it.
   // A cadet on duty who cannot do it either finds someone (above) or asks a senior to let them off with a
   // reason (messOut, kind 'out' in the same list); sergeants and above decide it (messOutDecide).
-  if (action === "swapAsk" || action === "swapAnswer" || action === "swapWithdraw" || action === "swapTake" || action === "messOut" || action === "messOutDecide") {
+  if (action === "swapAsk" || action === "swapAnswer" || action === "swapWithdraw" || action === "messOut" || action === "messOutDecide") {
     const deciding = action === "messOutDecide";
     const a = await access(me, deciding ? "requests" : null);
     const myId = a.who.cadet ? String(a.who.cadet.id) : "";
@@ -1138,15 +1176,15 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const name = (id: string) => rankName(findCadet(s, id)) || "A cadet";
       const ids = (d: Obj | null) => (Array.isArray(d?.cadetIds) ? d!.cadetIds : []).map(String);
       const where = (d: Obj) => { const pd = d.paradeId ? findParade(s, d.paradeId) : null; return `${pd ? String(pd.title || "the parade") + ", " : ""}${dayLabel(d.date)}`; };
-      const canDo = (id: string, d: Obj) => messCanDo(findCadet(s, id), d.paradeId ? findParade(s, d.paradeId) : null, d.date, s.messConfig, s.leaves);
+      const canDo = (id: string, d: Obj) => messCanDo(findCadet(s, id), d.paradeId ? findParade(s, d.paradeId) : null, d.date, s.messConfig, s.leaves, s.medical);
       const live = (x: Obj) => x && (x.status === "open" || x.status === "asked");
       const tidy = () => { s.messSwaps = swaps.filter((x) => x && (live(x) || Number(x.answeredAt || x.decidedAt || x.at) > Date.now() - 30 * 86400000)); };
       /** Give `from`'s duty on day d to `to` (and, for a two-way swap, `to`'s duty on t to `from`). */
       const apply = (sw: Obj, to: string) => {
         const d = days.find((x) => x && x.id === sw.dayId) || null;
-        if (!d || d.date < today || !ids(d).includes(String(sw.from))) fail(409, "That mess duty changed meanwhile, so this swap no longer fits.");
+        if (!d || d.date < today || !ids(d).includes(String(sw.from))) fail(409, "That duty changed meanwhile, so this swap no longer fits.");
         if (ids(d).includes(to)) fail(409, `${to === myId ? "You are" : "They are"} already on that mess duty.`);
-        if (!canDo(to, d!)) fail(400, to === myId ? "You cannot take this duty: mess duty is only for cadets (no rank holders, no locals) who are expected at that parade and not on leave." : "They can no longer take this duty.");
+        if (!canDo(to, d!)) fail(400, to === myId ? `You cannot take this duty: ${MESS_WHO}` : "They can no longer take this duty.");
         let t: Obj | null = null;
         if (sw.takeDayId) {
           t = days.find((x) => x && x.id === sw.takeDayId) || null;
@@ -1163,7 +1201,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         sw.to = to; sw.status = "done"; sw.answeredAt = Date.now();
         // Other requests about the same duty are settled by this one.
         for (const x of swaps) if (x !== sw && live(x) && ((x.dayId === d!.id && x.from === sw.from) || (t && x.dayId === t.id && x.from === to))) { x.status = "withdrawn"; x.answeredAt = Date.now(); }
-        addHistory(s, "mess-swapped", null, `Mess duty ${where(d!)}: ${name(to)} took it from ${name(String(sw.from))}${t ? `, who took ${name(to)}'s on ${dayLabel(t.date)}` : ""}`);
+        addHistory(s, "mess-swapped", null, `Refreshments returning duty ${where(d!)}: ${name(to)} took it from ${name(String(sw.from))}${t ? `, who took ${name(to)}'s on ${dayLabel(t.date)}` : ""}`);
         return t;
       };
       if (action === "swapAsk") {
@@ -1172,14 +1210,11 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         if (!ids(d!).includes(myId)) fail(400, "You are not on that mess duty.");
         if (swaps.some((x) => live(x) && x.dayId === d!.id && x.from === myId)) fail(409, "You already asked about that duty. Withdraw it first.");
         const to = String(body.to || "");
-        if (!to) {
-          swaps.push({ id: rid("swap"), dayId: d!.id, date: d!.date, from: myId, to: null, status: "open", at: Date.now() });
-          return true;
-        }
+        if (!to) fail(400, "Pick the cadet you want to swap with.");
         const other = findCadet(s, to);
         if (!other || to === myId) fail(400, "Pick another cadet.");
         if (ids(d!).includes(to)) fail(400, "They are already on that mess duty.");
-        if (!canDo(to, d!)) fail(400, "Mess duty is only for cadets (no rank holders, no locals) who are expected at that parade and not on leave. Pick someone else.");
+        if (!canDo(to, d!)) fail(400, `${MESS_WHO} Pick someone else.`);
         let t: Obj | null = null;
         if (body.takeDayId) {
           t = days.find((x) => x && x.id === String(body.takeDayId)) || null;
@@ -1188,7 +1223,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
           if (!canDo(myId, t)) fail(400, "You cannot do that other duty (you are not expected at that parade, or on leave).");
         }
         swaps.push({ id: rid("swap"), dayId: d!.id, date: d!.date, from: myId, to, ...(t ? { takeDayId: t.id, takeDate: t.date } : {}), status: "asked", at: Date.now() });
-        notify.push({ cadetIds: [to], title: "Mess duty swap", body: `${name(myId)} asks you to take their mess duty at ${where(d!)}${t ? `, and they take yours on ${dayLabel(t.date)}` : ""}. Answer on the Parades page.` });
+        notify.push({ cadetIds: [to], title: "Refreshments returning duty: swap", body: `${name(myId)} asks you to take their refreshments returning duty at ${where(d!)}${t ? `, and they take yours on ${dayLabel(t.date)}` : ""}. Answer on the parade's page.` });
         return true;
       }
       if (action === "messOut") {
@@ -1205,8 +1240,8 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         const there = pd ? seniors.filter((c) => inParade(c, pd)) : [];
         const to = (there.length ? there : seniors).map((c) => String(c.id));
         if (!to.length) tellAdmins = true;
-        notify.push({ cadetIds: to, title: "Mess duty: asks to be let off", body: `${name(myId)}, ${where(d!)}: ${reason}. Decide on the Parades page.` });
-        addHistory(s, "mess-out-asked", myId, `${name(myId)} asked to be let off mess duty at ${where(d!)}: ${reason}`);
+        notify.push({ cadetIds: to, title: "Refreshments returning duty: asks to be let off", body: `${name(myId)}, ${where(d!)}: ${reason}. Decide in the Requests box on the Parades page.` });
+        addHistory(s, "mess-out-asked", myId, `${name(myId)} asked to be let off refreshments returning duty at ${where(d!)}: ${reason}`);
         return true;
       }
       const sw = swaps.find((x) => x && x.id === String(body.id || ""));
@@ -1219,8 +1254,8 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         sw!.decidedBy = nameOf(a); sw!.answeredAt = Date.now();
         if (body.approve !== true) {
           sw!.status = "refused";
-          notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty: stay on it", body: `${nameOf(a)} did not let you off mess duty at ${d ? where(d) : dayLabel(sw!.date)}. You can still ask a cadet to take your place.` });
-          addHistory(s, "mess-out-refused", String(sw!.from), `${nameOf(a)} kept ${name(String(sw!.from))} on mess duty at ${d ? where(d) : dayLabel(sw!.date)}`);
+          notify.push({ cadetIds: [String(sw!.from)], title: "Refreshments returning duty: you must come", body: `${nameOf(a)} did not accept your reason. You must do refreshments returning duty at ${d ? where(d) : dayLabel(sw!.date)}: return the items to Apoorva mess after the parade.` });
+          addHistory(s, "mess-out-refused", String(sw!.from), `${nameOf(a)} kept ${name(String(sw!.from))} on refreshments returning duty at ${d ? where(d) : dayLabel(sw!.date)}`);
           tidy();
           return true;
         }
@@ -1229,39 +1264,29 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         if (Array.isArray(d!.volunteers)) d!.volunteers = d!.volunteers.filter((x: unknown) => String(x) !== String(sw!.from));
         sw!.status = "approved";
         for (const x of swaps) if (x !== sw && live(x) && x.dayId === d!.id && x.from === sw!.from) { x.status = "withdrawn"; x.answeredAt = Date.now(); }
-        notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty: you are off it", body: `${nameOf(a)} let you off mess duty at ${where(d!)}.` });
+        notify.push({ cadetIds: [String(sw!.from)], title: "Refreshments returning duty: you are off it", body: `${nameOf(a)} let you off refreshments returning duty at ${where(d!)}.` });
         // The call to the lance corporals has gone already: tell them a place opened again.
         if (d!.asked && d!.asked.leads) {
           const pd = d!.paradeId ? findParade(s, d!.paradeId) : null;
-          const leads = cadetsOf(s).filter((c) => messLeadRank(c)), there = pd ? leads.filter((c) => inParade(c, pd)) : [];
-          notify.push({ cadetIds: (there.length ? there : leads).map((c) => String(c.id)), title: "Pick mess duty", body: `${name(String(sw!.from))} was let off mess duty at ${where(d!)}. Pick someone on the Parades page.` });
+          const ids = pd ? messPickers(s, pd) : [];
+          if (ids.length) notify.push({ cadetIds: ids, title: "Pick for refreshments returning duty", body: `${name(String(sw!.from))} was let off at ${where(d!)}. Pick someone in the parade's Refreshments returning duty box.` });
         }
-        addHistory(s, "mess-out-approved", String(sw!.from), `${nameOf(a)} let ${name(String(sw!.from))} off mess duty at ${where(d!)}`);
+        addHistory(s, "mess-out-approved", String(sw!.from), `${nameOf(a)} let ${name(String(sw!.from))} off refreshments returning duty at ${where(d!)}`);
         done = "off";
         tidy();
         return true;
       }
       if (sw!.kind === "out" && action !== "swapWithdraw") fail(400, "That request is for a senior to decide.");
-      if (action === "swapTake") {
-        if (sw!.status !== "open") fail(409, sw!.status === "done" ? "Someone already took it." : "That request was withdrawn.");
-        if (sw!.from === myId) fail(400, "That is your own duty.");
-        const d = days.find((x) => x && x.id === sw!.dayId);
-        apply(sw!, myId);
-        notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty taken", body: `${name(myId)} takes your mess duty at ${d ? where(d) : dayLabel(sw!.date)}. You are off it.` });
-        done = "taken";
-        tidy();
-        return true;
-      }
       if (action === "swapAnswer") {
         if (sw!.to !== myId) fail(403, "That request is for someone else.");
         if (sw!.status !== "asked") fail(409, "That request was already answered.");
         if (body.accept === true) {
           const t = apply(sw!, myId);
-          notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty swap done", body: `${name(myId)} agreed: they do ${dayLabel(sw!.date)}${t ? `, you do ${dayLabel(t.date)}` : ""}.` });
+          notify.push({ cadetIds: [String(sw!.from)], title: "Refreshments returning duty: swap done", body: `${name(myId)} agreed: they do ${dayLabel(sw!.date)}${t ? `, you do ${dayLabel(t.date)}` : ""}.` });
           done = "swapped";
         } else {
           sw!.status = "declined"; sw!.answeredAt = Date.now();
-          notify.push({ cadetIds: [String(sw!.from)], title: "Mess duty swap", body: `${name(myId)} said no. Your duty on ${dayLabel(sw!.date)} stays.` });
+          notify.push({ cadetIds: [String(sw!.from)], title: "Refreshments returning duty: swap", body: `${name(myId)} said no. Your duty on ${dayLabel(sw!.date)} stays.` });
         }
         tidy();
         return true;
@@ -1296,8 +1321,8 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const date = istDay(Number(pd.reportAt)).date;
       let d = s.messDuty.find((x: Obj) => x && x.paradeId === pd.id);
       const ids = () => (Array.isArray(d?.cadetIds) ? d!.cadetIds : []).map(String);
-      if (undo) fail(400, "To get off mess duty, ask a senior with a reason, or ask a cadet to take your place.");
-      if (!messCanDo(a.who.cadet, pd, date, s.messConfig, s.leaves)) fail(400, "Mess duty is only for cadets (no rank holders, no locals) who are expected at that parade and not on leave.");
+      if (undo) fail(400, "To get off the duty, ask a senior with a reason, or ask a cadet to swap with you.");
+      if (!messCanDo(a.who.cadet, pd, date, s.messConfig, s.leaves, s.medical)) fail(400, MESS_WHO);
       if ((Array.isArray(pd.reports) ? pd.reports : []).some((r: Obj) => r && String(r.cadetId) === myId && r.kind === "absent")) fail(400, "You are excused from that parade.");
       if (d && ids().includes(myId)) fail(409, "You are already on it.");
       const per = messPerDay(s.messConfig);
@@ -1305,40 +1330,107 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       if (!d) { d = { id: `mess-${pd.id}`, paradeId: pd.id, date, cadetIds: [], volunteers: [], at: Date.now(), by: nameOf(a) }; s.messDuty.push(d); }
       d.cadetIds = [...(Array.isArray(d.cadetIds) ? d.cadetIds : []), myId];
       d.volunteers = [...(Array.isArray(d.volunteers) ? d.volunteers : []), myId];
-      addHistory(s, "mess-volunteer", myId, `${nameOf(a)} volunteered for mess duty at ${String(pd.title || "the parade")} (${date})`);
+      addHistory(s, "mess-volunteer", myId, `${nameOf(a)} volunteered for refreshments returning duty at ${String(pd.title || "the parade")} (${date})`);
       return true;
     });
     return json({ ok: true });
   }
 
-  // ---- mess duty: { on } puts the caller on (or off) the advance volunteers list: asked first when a parade
-  // gets refreshments. messCall { paradeId } makes the call that is due now for that parade (the site asks right
-  // after refreshments are turned on, so the advance volunteers hear at once; the reminders job does the rest).
-  if (action === "messStandby") {
-    const a = await access(me, null);
-    const c = a.who.cadet;
-    if (!c) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
-    const on = body.on !== false, myId = String(c.id);
+  // ---- refreshments returning duty by hand: when there are not enough volunteers, lance corporals and above pick
+  // a cadet who can do it (messPick); the cadet is told at once and can send a reason (messOut). messDrop takes a
+  // cadet off. messCall { paradeId } makes the call that is due now (the site asks right after refreshments go on).
+  if (action === "messPick" || action === "messDrop") {
+    const a = await access(me, "write");
+    const cadetId = String(body.cadetId || ""), pick = action === "messPick";
+    let pdTitle = "", pdId = "", pdAt = 0;
     await changeState(a.me.id, (s) => {
-      const list: Obj[] = Array.isArray(s.messStandby) ? s.messStandby : (s.messStandby = []);
-      const has = list.some((x) => x && String(x.cadetId) === myId);
-      if (on) {
-        if (has) return false;
-        if (!messCanDo(c, null, "", s.messConfig, [])) fail(400, "Mess duty is only for cadets (no rank holders, no locals) from the years on the mess duty list.");
-        list.push({ id: `sb-${myId}`, cadetId: myId, at: Date.now() });
-        addHistory(s, "mess-standby", myId, `${nameOf(a)} offered to do mess duty`);
+      const pd = findParade(s, String(body.paradeId || ""));
+      if (!pd || Number(pd.reportAt) <= Date.now()) fail(404, "That parade is over or was removed.");
+      if (!hasRefreshments(pd, s.messDuty)) fail(400, "There are no refreshments at that parade.");
+      const c = findCadet(s, cadetId);
+      if (!c) fail(404, "That cadet is not on the roster.");
+      pdTitle = String(pd.title || "the parade"); pdId = String(pd.id); pdAt = Number(pd.reportAt);
+      if (!Array.isArray(s.messDuty)) s.messDuty = [];
+      const date = istDay(Number(pd.reportAt)).date;
+      let d = s.messDuty.find((x: Obj) => x && x.paradeId === pd.id);
+      const ids = (Array.isArray(d?.cadetIds) ? d!.cadetIds : []).map(String);
+      if (pick) {
+        if (ids.includes(cadetId)) fail(409, "They are already on it.");
+        if (!messCanDo(c, pd, date, s.messConfig, s.leaves, s.medical)) fail(400, MESS_WHO);
+        const per = messPerDay(s.messConfig);
+        if (ids.length >= per) fail(409, `It is full: ${per} cadets are already on it.`);
+        if (!d) { d = { id: `mess-${pd.id}`, paradeId: pd.id, date, cadetIds: [], volunteers: [], at: Date.now(), by: nameOf(a) }; s.messDuty.push(d); }
+        d.cadetIds = [...(Array.isArray(d.cadetIds) ? d.cadetIds : []), cadetId];
+        d.picked = { ...(d.picked && typeof d.picked === "object" ? d.picked : {}), [cadetId]: { by: nameOf(a), at: Date.now() } };
+        addHistory(s, "mess-picked", cadetId, `${nameOf(a)} picked ${rankName(c)} for refreshments returning duty at ${pdTitle} (${date})`);
       } else {
-        if (!has) return false;
-        s.messStandby = list.filter((x) => x && String(x.cadetId) !== myId);
-        addHistory(s, "mess-standby", myId, `${nameOf(a)} is off the mess duty volunteers list`);
+        if (!d || !ids.includes(cadetId)) return false;
+        d.cadetIds = d.cadetIds.filter((x: unknown) => String(x) !== cadetId);
+        if (Array.isArray(d.volunteers)) d.volunteers = d.volunteers.filter((x: unknown) => String(x) !== cadetId);
+        if (d.picked && d.picked[cadetId]) { const { [cadetId]: _, ...rest } = d.picked; d.picked = rest; }
+        // Their open swaps or let-off requests for this duty are settled.
+        for (const x of Array.isArray(s.messSwaps) ? s.messSwaps : []) if (x && x.dayId === d.id && String(x.from) === cadetId && (x.status === "asked" || x.status === "open")) { x.status = "withdrawn"; x.answeredAt = Date.now(); }
+        addHistory(s, "mess-dropped", cadetId, `${nameOf(a)} took ${rankName(c)} off refreshments returning duty at ${pdTitle} (${date})`);
       }
       return true;
     });
-    return json({ ok: true, on });
+    const p = (await approvedProfiles()).filter((x) => x.cadet_id && String(x.cadet_id) === cadetId).map((x) => x.user_id);
+    if (p.length) await tell(p, pick
+      ? { title: "Picked: refreshments returning duty", body: `${nameOf(a)} picked you to return the refreshment items to Apoorva mess after ${pdTitle}, ${when(pdAt)}. If you cannot, send your reason from the parade's page.`, tag: `mess-${pdId}`, url: `./?parade=${encodeURIComponent(pdId)}` }
+      : { title: "Refreshments returning duty: you are off it", body: `${nameOf(a)} took you off the duty at ${pdTitle}, ${when(pdAt)}.`, tag: `mess-${pdId}`, url: `./?parade=${encodeURIComponent(pdId)}` });
+    return json({ ok: true });
   }
   if (action === "messCall") {
     await access(me, "write");
     return json({ ok: true, calls: await runMessCalls(String(body.paradeId || "") || null) });
+  }
+
+  // ---- volunteer tasks: a task posted on the notice board with a number of places. Anyone it is for joins; nobody
+  // steps out alone (a writer takes them off, and they are told). taskAnnounce tells everyone it is for, once.
+  if (action === "taskVolunteer" || action === "taskVolunteerRemove") {
+    const remove = action === "taskVolunteerRemove";
+    const a = await access(me, remove ? "write" : null);
+    const myId = a.who.cadet ? String(a.who.cadet.id) : "";
+    const cadetId = remove ? String(body.cadetId || "") : myId;
+    if (!cadetId) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    let title = "";
+    await changeState(a.me.id, (s) => {
+      const ev = (Array.isArray(s.events) ? s.events : []).find((x: Obj) => x && x.id === String(body.eventId || ""));
+      if (!ev || !ev.volunteer) fail(404, "That task was removed.");
+      title = String(ev.title || "the task");
+      const list: string[] = (Array.isArray(ev.volunteer.cadetIds) ? ev.volunteer.cadetIds : []).map(String);
+      const c = findCadet(s, cadetId);
+      if (remove) {
+        if (!list.includes(cadetId)) return false;
+        ev.volunteer = { ...ev.volunteer, cadetIds: list.filter((x) => x !== cadetId) };
+        addHistory(s, "task-volunteer-removed", cadetId, `${nameOf(a)} took ${rankName(c) || "a cadet"} off the volunteers for ${title}`);
+        return true;
+      }
+      if (list.includes(cadetId)) fail(409, "You are already in.");
+      if (!volunteerFor(c, ev)) fail(403, "This task is not open to you.");
+      if (!volunteerOpen(ev)) fail(409, "All places are taken.");
+      if (ev.deadline && Number(ev.deadline) < Date.now()) fail(409, "This task is past its deadline.");
+      ev.volunteer = { ...ev.volunteer, cadetIds: [...list, cadetId], at: { ...(ev.volunteer.at || {}), [cadetId]: Date.now() } };
+      addHistory(s, "task-volunteer", cadetId, `${nameOf(a)} volunteered for ${title}`);
+      return true;
+    });
+    if (remove) {
+      const p = (await approvedProfiles()).filter((x) => x.cadet_id && String(x.cadet_id) === cadetId).map((x) => x.user_id);
+      if (p.length) await tell(p, { title: `Off the task: ${title}`, body: `${nameOf(a)} took you off the volunteers for ${title}.`, tag: `task-${String(body.eventId)}`, url: "./?page=home" });
+    }
+    return json({ ok: true });
+  }
+  if (action === "taskAnnounce") {
+    const a = await access(me, "write");
+    const id = String(body.eventId || "");
+    const ev = (Array.isArray(a.state.events) ? a.state.events : []).find((x: Obj) => x && x.id === id);
+    if (!ev || !ev.volunteer) fail(404, "That task is not saved yet. Try again in a moment.");
+    if (!(await claimOnce("task:" + id))) return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
+    const people = (await approvedProfiles()).filter((p) => p.user_id !== a.me.id && (!p.cadet_id || volunteerFor(findCadet(a.state, p.cadet_id), ev))).map((p) => p.user_id);
+    const seats = Math.max(1, Number(ev.volunteer.seats) || 1);
+    const subs = await devicesOf(people);
+    const r = await sendTo(subs, { title: `Volunteers wanted: ${String(ev.title || "")}`.slice(0, 120), body: `${seats} place${seats === 1 ? "" : "s"}${ev.deadline ? ` · by ${when(Number(ev.deadline))}` : ""}. Volunteer on the notice board on Home.`, tag: `task-${id}`, url: "./?page=home" });
+    return json({ ...r, devices: subs.length, people: people.length });
   }
 
   // ---- study library: links only (files stay on Google Drive, YouTube or a website)

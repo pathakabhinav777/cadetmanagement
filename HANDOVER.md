@@ -27,7 +27,7 @@ These are what a new person in charge needs. Hand them over in person, never in 
   - Approve new registrations. Check that the regimental number matches the roster.
   - Link each account to its cadet. Powers come from that cadet's rank.
   - Send password links when someone forgets their password.
-- **Cadet Roster:** keep ranks, companies, POC ticks and regimental numbers right. A rank change gives or takes away powers at once.
+- **Cadet Roster:** keep ranks, companies, wings, POC and Local ticks and regimental numbers right (locals never do refreshments returning duty). A rank change gives or takes away powers at once.
 - **Backups:** make one before any big change (Data menu, Backups, Make a backup now). They are kept 30 days. There is no automatic backup.
 - **System check:** look at it now and then (Data menu, System check). It shows:
   - whether reminders are running
@@ -49,9 +49,9 @@ The rank of the cadet an account is linked to decides its powers.
 
 | Who | Powers |
 |-----|--------|
-| Lance corporal and above | Tasks, notices, call-outs, social service records, photo album links |
-| Sergeant and above | Late/absence requests, leave, mess duty let-offs, medical exemptions, attendance, the register, the rolling trophy and awards |
-| JUO and SUO | Create and change parades, record camps |
+| Lance corporal and above | Tasks (including volunteer tasks), notices, call-outs, social service records, photo album links, picking cadets for refreshments returning duty at a parade they are coming to |
+| Sergeant and above | Late/absence requests, leave, refreshments duty let-offs, medical exemptions, attendance, the register, the rolling trophy and awards |
+| JUO and SUO | Create and change parades, record camps, mark holidays and exam weeks |
 | CQMS | Uniform orders, payments, equipment |
 | POC (tick on the roster) | Tasks, notices, call-outs and attendance, whatever their rank, plus filling in anyone's timetable |
 | Administrator | Everything, plus the roster, accounts, deleting tasks and parades, and backups |
@@ -68,7 +68,7 @@ The Help page on the site (account menu, Help) explains every part in plain word
 - **No notifications:**
   - The person has to turn them on again on that device.
   - On iPhone, the site must be opened from the Home Screen icon.
-  - The person may have switched a kind off (account menu, Notification choices).
+  - Accounts page, Notifications on and off, shows who has notifications on and who does not. Nobody can switch off one kind: each goes to exactly the people it is about.
 - **Emails do not arrive (invites, password links):** Supabase's own email sender is very limited. Copy the link from the Accounts page and send it on WhatsApp.
 - **Wrong data after a mistake:** Data menu, Backups, Restore. A copy of the data as it was before the restore is made first.
 - **Going back to the old public site (before sign-in):** follow `supabase/launch/rollback_to_public_site.sql`. The git tag is `restore-before-signin`.
