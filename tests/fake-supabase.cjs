@@ -32,7 +32,7 @@ const DEFAULTS = {
   cadetflow_profiles: () => ({ role: 'viewer', status: 'pending', display_name: null, cadet_id: null, regimental_no: null, email: null,
     requested_at: null, decided_at: null, decided_by: null, invited_at: null, reset_requested_at: null }),
   cadetflow_requests: () => ({ status: 'pending', had_image: false, image_path: null, note: null, created_at: now(), updated_at: now(),
-    decided_at: null, decided_by: null, decided_by_name: null, from_date: null, to_date: null }),
+    decided_at: null, decided_by: null, decided_by_name: null, from_date: null, to_date: null, dismissed_at: null }),
   cadetflow_settings: () => ({ updated_at: now(), updated_by: null }),
   cadetflow_push_subscriptions: () => ({ created_at: now(), user_id: null }),
   cadetflow_push_sent: () => ({ sent_at: now(), sent_by: null, delivered: null, failed: null }),

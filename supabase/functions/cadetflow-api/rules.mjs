@@ -211,6 +211,89 @@ export function messToRemind(days, now = Date.now()) {
   return (days || []).filter(d => d && d.id && Array.isArray(d.cadetIds) && d.cadetIds.length)
     .filter(d => d.date === today ? hour < 20 : d.date === tomorrow && hour >= MESS_REMIND_HOUR);
 }
+/**
+ * Mess duty: does this parade have refreshments? The CQMS turns them on per parade (pd.refreshments).
+ * Parades from before the switch existed count as having them when mess duty was already planned.
+ */
+export function hasRefreshments(pd, days) {
+  if (!pd) return false;
+  if (pd.refreshments === true) return true;
+  if (pd.refreshments === false) return false;
+  return (Array.isArray(days) ? days : []).some(d => d && d.paradeId === pd.id);
+}
+/**
+ * Can this cadet do mess duty at this parade? Only cadets (rank CDT, no rank holders), from the years
+ * in the mess settings (1st and 2nd by default), not the locals, expected at the parade, not on leave.
+ */
+export function messCanDo(cadet, pd, date, config, leaves) {
+  if (!cadet) return false;
+  if (cadet.rank && cadet.rank !== 'CDT') return false;
+  const years = (Array.isArray(config?.years) ? config.years : []).filter(y => YEARS.includes(y));
+  if (!(years.length ? years : ['1st', '2nd']).includes(cadet.year)) return false;
+  if ((Array.isArray(config?.exempt) ? config.exempt : []).map(String).includes(String(cadet.id))) return false;
+  if (pd && !inParade(cadet, pd)) return false;
+  const day = String(date || '');
+  return !(Array.isArray(leaves) ? leaves : []).some(l => l && String(l.cadetId) === String(cadet.id) && DAY.test(l.from) && DAY.test(l.to) && l.from <= day && day <= l.to);
+}
+
+/** Cadets at each parade's mess duty (messConfig.perDay, 4 when not set). */
+export function messPerDay(config) { return Math.min(30, Math.max(1, Math.round(Number(config?.perDay)) || 4)); }
+/** Cadets who said they will do mess duty: they are asked first when a parade gets refreshments. */
+export function messStandbyIds(state) {
+  return (Array.isArray(state?.messStandby) ? state.messStandby : []).filter(x => x && x.cadetId != null).map(x => String(x.cadetId));
+}
+/** 6 pm (India time) the evening before the day of a parade, in ms. */
+export function messEveningBefore(reportAt) {
+  const day = istDay(Number(reportAt)).date;
+  return Date.parse(`${day}T${String(MESS_REMIND_HOUR).padStart(2, '0')}:00:00+05:30`) - 86400000;
+}
+/**
+ * Mess duty at a parade with refreshments fills in three calls, each made once (day.asked records them):
+ *   'standby'  at once: the cadets who volunteered in advance (state.messStandby) are asked first;
+ *   'all'      if places are still empty: every cadet who can do it at that parade (12 hours later, or
+ *              sooner for a parade within 2 days; at once when nobody was on the advance list);
+ *   'leads'    if still not full: the lance corporals and corporals are told to pick (from 6 pm the
+ *              evening before, at least 2 hours after 'all', at the latest 1 hour before reporting).
+ * Returns the call due now, or null.
+ */
+export function messCallDue(pd, day, perDay, now = Date.now()) {
+  if (!pd || !(Number(pd.reportAt) > now)) return null;
+  if ((Array.isArray(day?.cadetIds) ? day.cadetIds.length : 0) >= perDay) return null;
+  const asked = day && day.asked && typeof day.asked === 'object' ? day.asked : {};
+  const H = 3600000, at = Number(pd.reportAt);
+  if (!asked.standby) return 'standby';
+  if (!asked.all) {
+    const due = asked.standbyN === 0 ? asked.standby : Math.max(asked.standby + 15 * 60000, Math.min(Math.max(asked.standby + H, Math.min(asked.standby + 12 * H, at - 48 * H)), at - 2 * H));
+    return now >= due ? 'all' : null;
+  }
+  if (!asked.leads) {
+    const due = Math.max(asked.all + 15 * 60000, Math.min(Math.max(asked.all + 2 * H, messEveningBefore(at)), at - H));
+    return now >= due ? 'leads' : null;
+  }
+  return null;
+}
+/** Every parade with refreshments whose next mess duty call is due now: [{ pd, stage }]. */
+export function messCallsDue(state, now = Date.now()) {
+  const days = Array.isArray(state?.messDuty) ? state.messDuty : [], per = messPerDay(state?.messConfig);
+  return (Array.isArray(state?.parades) ? state.parades : []).filter(p => p && p.id && hasRefreshments(p, days))
+    .map(pd => ({ pd, stage: messCallDue(pd, days.find(d => d && d.paradeId === pd.id), per, now) })).filter(x => x.stage);
+}
+/** Is this cadet excused from the parade (an absent report)? */
+export function excusedFrom(pd, cadetId) {
+  return (Array.isArray(pd?.reports) ? pd.reports : []).some(r => r && String(r.cadetId) === String(cadetId) && r.kind === 'absent');
+}
+/** Who looks after mess duty: lance corporals and corporals, and POCs below sergeant. */
+export function messLeadRank(cadet) {
+  const rank = String(cadet?.rank || 'CDT').toUpperCase();
+  return rank === 'LCPL' || rank === 'CPL' || (cadet?.poc === true && rank === 'CDT');
+}
+/** May a volunteer still step back? Until 6 pm (India time) the evening before the duty. */
+export function messStepBackOpen(date, now = Date.now()) {
+  const { date: today, hour } = istDay(now);
+  const tomorrow = istDay(now + 86400000).date;
+  return String(date) > tomorrow || (String(date) === tomorrow && hour < MESS_REMIND_HOUR);
+}
+
 /** Item ids for "seen by": 'notice:<id>' or 'parade:<id>'. */
 export const SEEN_ITEM = /^(notice|parade):[A-Za-z0-9_.:-]{1,128}$/;
 

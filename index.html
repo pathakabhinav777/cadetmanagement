@@ -357,6 +357,49 @@
     .mess-chip svg { transition: transform .45s var(--spring); }
     .mess-me { border-color: var(--brass); color: var(--brass-hi); }
     .mess-mine-note { font-size: .85rem; color: #E8C9A0; padding: .55rem .8rem; border: 1px solid rgba(201,154,53,.45); border-radius: 10px; background: rgba(201,154,53,.07); }
+    .rq-row { padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(12,22,38,.45); display: grid; gap: .35rem; }
+    .rq-row-wait { border-color: rgba(201,154,53,.55); }
+    .rq-leave-part { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px dashed rgba(201,154,53,.35); }
+    .rq-kind, .rq-status { font-size: 10px; font-weight: 700; padding: .1rem .4rem; border-radius: 6px; border: 1px solid; }
+    .rq-late { color: #9CCBEF; border-color: rgba(108,180,228,.45); background: rgba(108,180,228,.08); }
+    .rq-absent { color: #F2A7B1; border-color: rgba(200,16,46,.5); background: rgba(200,16,46,.08); }
+    .rq-leave { color: #E8C9A0; border-color: rgba(201,154,53,.5); background: rgba(201,154,53,.08); }
+    .rq-wait { color: #E5C46C; border-color: rgba(201,154,53,.55); }
+    .rq-yes { color: #86D9B0; border-color: rgba(53,153,110,.55); }
+    .rq-no { color: #F2A7B1; border-color: rgba(200,16,46,.45); }
+    .mess-vol { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .02em; color: #86D9B0; padding: 0 .3rem; border: 1px solid rgba(53,153,110,.5); border-radius: 6px; }
+    .quiz-format { white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; color: #D5DEEA; padding: .7rem .8rem; border: 1px solid var(--line); border-radius: 10px; background: rgba(12,22,38,.6); }
+    /* Parades page: boxes that open dialogs, slim cards, facts */
+    .par-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
+    @media (max-width: 640px) { .par-tile { padding: .65rem .75rem; border-radius: 14px; } .par-tile-main { font-size: .95rem; } .par-strip { grid-template-columns: 1fr; } }
+    .par-tiles.hidden { display: none; }
+    .par-tile { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: .1rem; padding: .8rem .95rem; border: 1px solid var(--line); border-radius: 16px; background: rgba(12,22,38,.6); transition: border-color .15s, transform .15s; min-width: 0; }
+    button.par-tile:hover { border-color: rgba(201,154,53,.6); transform: translateY(-1px); }
+    .par-tile-warn { border-color: rgba(201,154,53,.75); background: rgba(201,154,53,.08); }
+    .par-tile-label { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8FA0B8; }
+    .par-tile-main { font-size: 1.02rem; font-weight: 800; color: #fff; line-height: 1.25; overflow-wrap: anywhere; }
+    .par-tile-warn .par-tile-main { color: var(--brass-hi); }
+    .par-tile-sub { font-size: .72rem; color: #A9B6C8; overflow-wrap: anywhere; }
+    .par-tag { font-size: .66rem; font-weight: 700; padding: .12rem .45rem; border-radius: 999px; border: 1px solid var(--line); color: #BCC8D8; }
+    .par-tag-warn { border-color: rgba(201,154,53,.7); color: var(--brass-hi); }
+    .par-fact { border-radius: 12px; background: rgba(2,6,23,.6); border: 1px solid rgba(51,65,85,.6); padding: .6rem .75rem; min-width: 0; }
+    .par-fact dt { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #64748B; }
+    .par-fact dd { color: #fff; font-weight: 700; margin-top: .1rem; overflow-wrap: anywhere; }
+    .cf-switch { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(12,22,38,.45); cursor: pointer; }
+    .cf-switch input { appearance: none; -webkit-appearance: none; width: 40px; height: 22px; border-radius: 999px; background: #334155; position: relative; flex-shrink: 0; cursor: pointer; transition: background .2s; }
+    .cf-switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+    .cf-switch input:checked { background: var(--brass); }
+    .cf-switch input:checked::after { transform: translateX(18px); }
+    .cf-switch input:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+    .mess-focus { border-color: var(--brass) !important; box-shadow: 0 0 0 1px var(--brass); }
+    .turnout-btn { padding: .7rem .9rem; font-size: .85rem; font-weight: 700; text-align: left; color: #BCC8D8; border: 1px solid var(--line); border-radius: 12px; background: rgba(12,22,38,.45); }
+    .turnout-btn:hover { border-color: rgba(201,154,53,.6); color: #fff; }
+    .turnout-btn[aria-pressed="true"] { border-color: var(--brass); background: rgba(201,154,53,.14); color: var(--brass-hi); }
+    .mess-add { font-size: 11.5px; font-weight: 700; color: var(--brass-hi); padding: .2rem .6rem; border: 1px dashed rgba(201,154,53,.6); border-radius: 999px; }
+    .mess-add:hover { background: rgba(201,154,53,.12); }
+    .mess-lead-btn { display: inline-flex; align-items: center; gap: .45rem; padding: .7rem 1.1rem; font-size: .9rem; font-weight: 800; color: #0B1220; background: var(--brass); border-radius: 14px; box-shadow: 0 6px 18px -8px rgba(201,154,53,.7); }
+    .mess-lead-btn:hover { background: var(--brass-hi); }
+    .mess-badge { font-size: 11px; font-weight: 800; color: #fff; background: #C8102E; padding: .1rem .45rem; border-radius: 999px; }
     .mess-settings { display: grid; gap: .7rem; padding: .8rem; border: 1px dashed var(--line); border-radius: 12px; }
     .mess-count { display: grid; grid-template-columns: minmax(0, 1fr) 90px 24px; align-items: center; gap: .6rem; color: #BCC8D8; }
     .mess-count b { text-align: right; color: var(--ink); font-weight: 560; }
@@ -609,7 +652,7 @@
   </style>
   <!-- Tailwind classes, built from this page by tools/build_css.mjs (npm run build:css). After its
        own styles, as the Tailwind CDN used to put them. Settings: tools/tailwind.config.cjs. -->
-  <link rel="stylesheet" href="cadetflow.css?v=7596eaf334">
+  <link rel="stylesheet" href="cadetflow.css?v=10edd5a161">
 </head>
 <body class="locked bg-slate-950 text-slate-200 min-h-screen flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200">
   <!-- Sign-in screen (body.locked): sign in, register, or wait for approval. Drawn by renderGate(). -->
@@ -706,16 +749,39 @@
           <button type="button" id="noticeNewBtn" onclick="openNoticeComposer()" class="edit-only nb-btn">Post a notice</button>
         </div>
         <form id="noticeComposer" class="nb-composer hidden" onsubmit="event.preventDefault(); postNotice()">
+          <div class="nb-type grid grid-cols-2 gap-2 mb-2" role="group" aria-label="What to post">
+            <button type="button" data-ntype="notice" aria-pressed="true" onclick="setNoticeType('notice')" class="turnout-btn">Notice<span class="block text-[11px] font-normal text-slate-400">A message on everyone's Home page</span></button>
+            <button type="button" data-ntype="signup" aria-pressed="false" onclick="setNoticeType('signup')" class="turnout-btn">Sign-up<span class="block text-[11px] font-normal text-slate-400">Cadets apply for a few places</span></button>
+          </div>
+          <div id="noticeSignupFields" class="hidden space-y-2 mb-2">
+            <label class="block text-xs font-bold text-slate-300">Title<input id="nsTitle" maxlength="100" placeholder="e.g. Volunteers for the blood donation camp" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label class="block text-xs font-bold text-slate-300">Location<input id="nsPlace" maxlength="100" placeholder="e.g. College auditorium" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+              <label class="block text-xs font-bold text-slate-300">Date<input id="nsDate" type="date" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+              <label class="block text-xs font-bold text-slate-300">Time<input id="nsTime" type="time" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+            </div>
+            <label class="block text-xs font-bold text-slate-300">Description<textarea id="nsDetails" rows="3" maxlength="1000" placeholder="What it is, who can apply, what to bring" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></textarea></label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label class="block text-xs font-bold text-slate-300">Vacancies<input id="nsSeats" type="number" min="0" max="500" value="0" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"><span class="block text-[10px] font-normal text-slate-500 mt-0.5">0 = no limit</span></label>
+              <label class="block text-xs font-bold text-slate-300">Apply by (date)<input id="nsCloseDate" type="date" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+              <label class="block text-xs font-bold text-slate-300">Apply by (time)<input id="nsCloseTime" type="time" value="20:00" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="block text-xs font-bold text-slate-300">Open to<select id="nsScope" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="All">All companies</option><option>Jessami</option><option>Kohima</option><option>Naushera</option></select></label>
+              <div><span class="block text-xs font-bold text-slate-300">Years <span class="font-normal text-slate-500">(none = all)</span></span>
+                <div id="nsYears" class="mt-1 flex gap-1.5"><button type="button" class="af-chip text-xs" data-y="1st" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">1st</button><button type="button" class="af-chip text-xs" data-y="2nd" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">2nd</button><button type="button" class="af-chip text-xs" data-y="3rd" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">3rd</button></div></div>
+            </div>
+          </div>
           <label class="sr-only" for="noticeText">Notice</label>
           <textarea id="noticeText" rows="3" maxlength="600" placeholder="e.g. Drill is moved to the main ground tomorrow. Bring water bottles." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></textarea>
           <div class="nb-composer-row">
-            <label class="text-xs text-slate-300">Keep it up
+            <label id="noticeKeepWrap" class="text-xs text-slate-300">Keep it up
               <select id="noticeKeep" class="ml-1 bg-slate-950 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs">
                 <option value="1">1 day</option><option value="3" selected>3 days</option><option value="7">1 week</option><option value="30">1 month</option><option value="0">until removed</option>
               </select>
             </label>
             <label class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeNotify" checked> Send a notification</label>
-            <label class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeAsk" onchange="document.getElementById('noticeOptionsRow').classList.toggle('hidden', !this.checked)"> Ask a question</label>
+            <label id="noticeAskWrap" class="text-xs text-slate-300 inline-flex items-center gap-1.5"><input type="checkbox" id="noticeAsk" onchange="document.getElementById('noticeOptionsRow').classList.toggle('hidden', !this.checked)"> Ask a question</label>
           </div>
           <div id="noticeOptionsRow" class="hidden mt-2">
             <label class="block text-xs text-slate-300">Answers to pick from, separated by commas
@@ -1187,27 +1253,18 @@
 
     <section id="paradePage" class="hidden space-y-4" aria-labelledby="paradeHeading">
       <div id="paradeListView" class="space-y-4">
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div>
-            <p class="text-[10px] uppercase tracking-[.18em] font-black text-amber-400">Attendance</p>
-            <h2 id="paradeHeading" class="text-xl sm:text-2xl font-black text-white mt-1">Parades</h2>
-            <p class="text-sm text-slate-400 mt-1">Venue, time and agenda of each parade. Late and absence reports close 30 minutes before reporting time; attendance is marked company by company after the parade.</p>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h2 id="paradeHeading" class="text-xl sm:text-2xl font-black text-white">Parades</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Tap a parade for its details. Late and absence requests close 30 minutes before reporting.</p>
           </div>
-          <div class="flex flex-wrap gap-2 shrink-0 self-start">
-            <button type="button" onclick="openLeaveModal()" class="cadet-only px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Ask for leave</button>
+          <div class="flex flex-wrap gap-2">
             <button type="button" onclick="downloadMyParades()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl" title="A calendar file with the upcoming parades you are expected at">Add to calendar</button>
             <button type="button" onclick="switchCadetFlowPage('register')" class="attendance-only px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Register</button>
-            <button type="button" onclick="openParadeModal()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New parade</button>
+            <button type="button" onclick="openParadeModal()" class="parade-only px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New parade</button>
           </div>
         </div>
-        <div id="leaveArea" class="hidden"></div>
-        <div class="notify-box get-app" data-notify aria-label="Parade notifications">
-        <div class="min-w-0">
-          <span class="get-app-title">Parade notifications</span>
-          <span class="get-app-hint" data-notify-text>Checking…</span>
-        </div>
-        <div class="get-app-actions" data-notify-actions></div>
-      </div>
+        <div id="paradeTiles" class="par-tiles" aria-label="Requests, leave and mess duty"></div>
         <div class="seg-toggle" role="group" aria-label="Show parades as">
           <button type="button" data-pv="list" aria-pressed="true" onclick="setParadeView('list')">List</button>
           <button type="button" data-pv="calendar" aria-pressed="false" onclick="setParadeView('calendar')">Calendar</button>
@@ -1224,7 +1281,13 @@
           <div id="paradePast" class="space-y-2"></div>
         </div>
         </div>
-        <div id="messCard" class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="messHeading"></div>
+        <div class="notify-box get-app" data-notify aria-label="Parade notifications">
+          <div class="min-w-0">
+            <span class="get-app-title">Parade notifications</span>
+            <span class="get-app-hint" data-notify-text>Checking…</span>
+          </div>
+          <div class="get-app-actions" data-notify-actions></div>
+        </div>
       </div>
       <div id="paradeDetailView" class="hidden space-y-4"></div>
     </section>
@@ -1989,14 +2052,21 @@
         <label class="block text-xs font-bold text-slate-300">Agenda
           <textarea id="paradeAgenda" rows="3" maxlength="1500" placeholder="e.g. Drill practice, uniform check, briefing for camp" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></textarea>
         </label>
+        <div>
+          <span class="block text-xs font-bold text-slate-300 mb-1">Turnout</span>
+          <input type="hidden" id="paradeDress">
+          <div id="paradeTurnout" class="grid grid-cols-1 sm:grid-cols-2 gap-2" role="group" aria-label="Turnout">
+            <button type="button" data-turnout="Full turnout in uniform" onclick="setParadeTurnout(this.dataset.turnout)" aria-pressed="false" class="turnout-btn">Full turnout in uniform</button>
+            <button type="button" data-turnout="Turnout in tracks" onclick="setParadeTurnout(this.dataset.turnout)" aria-pressed="false" class="turnout-btn">Turnout in tracks</button>
+            <button type="button" data-turnout="custom" onclick="setParadeTurnout('custom')" aria-pressed="false" class="turnout-btn sm:col-span-2">Custom</button>
+          </div>
+          <input id="paradeTurnoutCustom" type="text" maxlength="80" autocomplete="off" placeholder="Write the turnout, e.g. Combat dress with water bottle" class="hidden mt-2 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        </div>
         <div class="grid sm:grid-cols-2 gap-3">
-          <label class="block text-xs font-bold text-slate-300">Dress <span class="font-normal text-slate-500">(optional)</span>
-            <input id="paradeDress" type="text" maxlength="80" list="paradeDressList" autocomplete="off" placeholder="e.g. Full uniform with beret" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
-          </label>
-          <label class="block text-xs font-bold text-slate-300">What to bring <span class="font-normal text-slate-500">(optional)</span>
+          <label class="block text-xs font-bold text-slate-300 sm:col-span-2">What to bring <span class="font-normal text-slate-500">(optional)</span>
             <input id="paradeKit" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Notebook, pen, water bottle" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
           </label>
-          <datalist id="paradeDressList"><option value="Full uniform with beret"><option value="Uniform (no beret)"><option value="PT dress"><option value="Civil dress"><option value="Combat dress"></datalist>
+          <label id="paradeRefreshWrap" class="hidden sm:col-span-2 cf-switch"><span><span class="block text-sm font-bold text-white">Refreshments</span><span class="block text-[11px] text-slate-400">On: cadets who offered are asked first, then everyone, then the LCPLs and CPLs pick</span></span><input type="checkbox" id="paradeRefresh" role="switch"></label>
           <p class="sm:col-span-2 text-[11px] text-slate-500 -mt-1">Shown on the parade, in Your day and in the reminder. A new parade starts with what the last one of the same type had.</p>
         </div>
         <div>
@@ -2251,6 +2321,30 @@
   </div>
 
   <!-- Modal: a cadet tells the seniors they will be late or can't come (needs approval) -->
+  <div id="requestsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400" id="requestsModalFor">Sergeants and above</p><h3 class="text-lg font-extrabold text-white mt-1">Requests</h3></div>
+        <button type="button" onclick="app.closeModal('requestsModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="requestsBody" class="space-y-4"></div>
+    </div>
+  </div>
+  <div id="leaveListModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="text-lg font-extrabold text-white">Leave</h3>
+        <button type="button" onclick="app.closeModal('leaveListModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="leaveArea" class="space-y-3"></div>
+    </div>
+  </div>
+  <div id="messModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl max-h-[94vh] overflow-y-auto">
+      <div class="flex justify-end -mb-2"><button type="button" onclick="app.closeModal('messModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+      <div id="messCard" class="space-y-3" aria-labelledby="messHeading"></div>
+    </div>
+  </div>
   <div id="selfReportModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
@@ -2343,6 +2437,15 @@
         <button type="button" onclick="app.closeModal('swapModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
       <div id="swapBody"></div>
+    </div>
+  </div>
+  <div id="messPickModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Mess duty</p><h3 id="messPickHeading" class="text-lg font-extrabold text-white mt-1">Pick a cadet</h3></div>
+        <button type="button" onclick="app.closeModal('messPickModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="messPickBody"></div>
     </div>
   </div>
   <div id="quizModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -5617,7 +5720,7 @@
     function cloneData(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
     function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
     // Newer parts of the shared data: lists of items with plain ids, plus the mess duty settings.
-    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'library', 'equipment'];
+    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment'];
     function extraLists(data) {
       const out = {};
       EXTRA_LISTS.forEach(k => { out[k] = (Array.isArray(data?.[k]) ? data[k] : []).filter(x => isPlainObject(x) && safeId(x.id)); });
@@ -6364,7 +6467,7 @@
     // Cadets send their own (with an optional screenshot) for a sergeant or above to approve; see REQUESTS.
     const PARADE_CUTOFF_MIN = 30;
     const INFORM_RANKS = ['SUO', 'JUO', 'CSM', 'CQMS', 'SGT'];
-    const PAR = { openId: null, coy: 'all', q: '', reportParadeId: null, editId: null, kind: null };
+    const PAR = { openId: null, coy: 'all', q: '', reportParadeId: null, editId: null, kind: null, more: false, showAttend: false, pastAll: false };
     const PARADE_KINDS = [{ key: 'shooting', label: 'Shooting' }, { key: 'drill', label: 'Drill' }, { key: 'classroom', label: 'Classroom' }, { key: 'custom', label: 'Custom' }];
     function normalizeParades(list) {
       if (!Array.isArray(list)) return [];
@@ -6427,7 +6530,7 @@
     /** This person's request for a parade: the open one, else the latest. */
     function myRequest(paradeId) {
       const me = app?.myCadet?.(); if (!me) return null;
-      const mine = REQ.list.filter(r => r.paradeId === paradeId && r.cadetId === me.id);
+      const mine = REQ.list.filter(r => r.paradeId === paradeId && r.cadetId === me.id && !r.dismissed);
       return mine.find(r => r.status === 'pending') || mine.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || null;
     }
     function putRequest(r) { REQ.list = REQ.list.filter(x => x.id !== r.id).concat(r); }
@@ -6474,7 +6577,7 @@
           ${open ? `<div class="flex flex-wrap gap-2 mt-2"><button type="button" onclick="openSelfReport('${id}')" class="${btn} bg-slate-800 border border-slate-700 text-slate-100">Change</button>
             <button type="button" onclick="withdrawSelfReport('${esc(req.id)}')" class="${btn} border border-rose-900/60 text-rose-300">Withdraw</button></div>` : ''}`;
       } else {
-        if (req?.status === 'rejected') body += `<p class="text-xs text-rose-300 mb-2">Your request (${esc(kindText(req.kind).toLowerCase())}) was not approved${req.note ? `: ${esc(req.note)}` : ''}${req.decidedBy ? ` · ${esc(req.decidedBy)}` : ''}</p>`;
+        if (req?.status === 'rejected') body += `<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><p class="text-xs text-rose-300">Your request (${esc(kindText(req.kind).toLowerCase())}) was not approved${req.note ? `: ${esc(req.note)}` : ''}${req.decidedBy ? ` · ${esc(req.decidedBy)}` : ''}</p><button type="button" data-id="${esc(req.id)}" onclick="dismissRequest(this.dataset.id)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300 hover:text-white">Delete</button></div>`;
         body += open
           ? `<p class="text-xs text-slate-400">Coming late or can't make it? Tell the seniors here until ${esc(paradeClock(paradeCutoff(pd)))} (${PARADE_CUTOFF_MIN} minutes before reporting).</p>
             <div class="flex flex-wrap gap-2 mt-2"><button type="button" onclick="openSelfReport('${id}', 'late')" class="${btn} bg-sky-900/40 border border-sky-700/60 text-sky-200">I'll be late</button>
@@ -6483,33 +6586,91 @@
       }
       return `<div class="bg-slate-900 rounded-2xl border border-sky-900/60 p-4 sm:p-5"><h3 class="font-extrabold text-white mb-2">${onLeave || rep?.fromLeave || askedLeave ? 'You and this parade' : 'Your report'}</h3>${body}</div>`;
     }
-    /** Sergeants and above: requests from cadets for this parade. */
-    function renderParadeRequestsCard(pd) {
-      const esc = escapeHtml, list = paradeRequests(pd.id);
-      const pending = list.filter(r => r.status === 'pending'), decided = list.filter(r => r.status !== 'pending');
-      const name = id => { const c = app.state.cadets.find(x => x.id === id); return c ? `${c.rank || 'CDT'} ${c.name}` : 'Removed cadet'; };
-      const coy = id => app.state.cadets.find(x => x.id === id)?.company || '';
-      const btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
-      const chip = k => `<span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${k === 'absent' ? 'bg-rose-950/40 border-rose-800/60 text-rose-300' : 'bg-sky-950/40 border-sky-800/60 text-sky-300'}">${k === 'absent' ? "Can't come" : 'Coming late'}</span>`;
-      const row = r => `<li class="px-3 py-2.5 space-y-1.5">
-          <p class="text-sm text-white"><span class="font-semibold">${esc(name(r.cadetId))}</span> <span class="text-slate-500 text-xs">${esc(coy(r.cadetId))}</span>${chip(r.kind)}</p>
+    /** Sergeants and above: every request about this parade, waiting, approved and not approved, with filters.
+     *  First the late/absence requests for this parade, then (apart) the longer leave that covers its day. */
+    const RQF = { status: 'all', kind: 'all', coy: 'all', q: '' };
+    function rqKindChip(k) { return k === 'leave' ? '<span class="rq-kind rq-leave">Leave</span>' : k === 'absent' ? `<span class="rq-kind rq-absent">Can't come</span>` : '<span class="rq-kind rq-late">Coming late</span>'; }
+    function rqStatusPill(r) { return r.status === 'pending' ? '<span class="rq-status rq-wait">Waiting</span>' : r.status === 'approved' ? '<span class="rq-status rq-yes">Approved</span>' : '<span class="rq-status rq-no">Not approved</span>'; }
+    /** One late/absence request with its buttons (sergeants and above). */
+    function rqRowHtml(r) {
+      const esc = escapeHtml, btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border', coy = cadetById(r.cadetId)?.company || '';
+      return `<li class="rq-row ${r.status === 'pending' ? 'rq-row-wait' : ''}">
+          <div class="flex flex-wrap items-center gap-1.5"><span class="text-sm font-semibold text-white">${esc(cadetLabel(r.cadetId))}</span><span class="text-[11px] text-slate-500">${esc(coy)}</span>${rqKindChip(r.kind)}${rqStatusPill(r)}</div>
           <p class="text-xs text-slate-300 break-words">${esc(r.reason)}</p>
-          <p class="text-[11px] text-slate-500">Sent ${esc(fmtWhen(r.at))}${r.hasImage ? ' · screenshot attached' : r.hadImage ? ' · screenshot deleted' : ''}</p>
-          <div class="flex flex-wrap gap-1.5">
+          <p class="text-[11px] text-slate-500">Sent ${esc(fmtWhen(r.at))}${r.hasImage ? ' · screenshot attached' : r.hadImage ? ' · screenshot deleted' : ''}${r.status !== 'pending' && r.decidedBy ? ` · ${r.status === 'approved' ? 'approved' : 'not approved'} by ${esc(r.decidedBy)}` : ''}${r.note ? ` · <span class="text-rose-300">${esc(r.note)}</span>` : ''}</p>
+          ${r.hasImage || r.status === 'pending' ? `<div class="flex flex-wrap gap-1.5">
             ${r.hasImage ? `<button type="button" data-id="${esc(r.id)}" onclick="viewRequestImage(this.dataset.id)" class="${btn} border-slate-700 text-slate-200">View screenshot</button>` : ''}
-            ${r.mine && !app.isAdmin() ? '<span class="text-[11px] text-slate-500">Your own request: another senior decides it.</span>'
+            ${r.status !== 'pending' ? '' : r.mine && !app.isAdmin() ? '<span class="text-[11px] text-slate-500">Your own request: another senior decides it.</span>'
               : `<button type="button" data-id="${esc(r.id)}" onclick="decideRequest(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Approve</button>
                  <button type="button" data-id="${esc(r.id)}" onclick="decideRequest(this.dataset.id, false)" class="${btn} border-rose-900/60 text-rose-300">Don't approve</button>`}
-          </div></li>`;
-      return `<div class="bg-slate-900 rounded-2xl border ${pending.length ? 'border-amber-700/60' : 'border-slate-800'} p-4 sm:p-5 space-y-3">
-          <div class="flex items-start justify-between gap-3"><div><h3 class="font-extrabold text-white">Requests from cadets</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Approved requests go onto the reports below. Only sergeants and above see these.</p></div>
+          </div>` : ''}</li>`;
+    }
+    function renderParadeRequestsCard(pd) {
+      const esc = escapeHtml, day = ymd(new Date(pd.reportAt)), over = pd.reportAt + 3 * 3600000 < Date.now();
+      const expected = new Set(paradeCadets(pd).map(c => c.id));
+      const coy = id => cadetById(id)?.company || '';
+      const btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
+      const st = s => s === 'pending' ? 'pending' : s === 'approved' ? 'approved' : 'rejected';
+      // This parade's own requests, and leave covering its day (requests, plus approved leave with no request on hand).
+      const own = paradeRequests(pd.id).map(r => ({ ...r, group: 'parade' }));
+      const leaveReqs = leaveRequests().filter(r => r.fromDate <= day && day <= r.toDate && expected.has(r.cadetId));
+      const known = new Set(leaveReqs.map(r => r.id));
+      const leaveOnly = leaveList().filter(l => l.from <= day && day <= l.to && expected.has(l.cadetId) && !(l.requestId && known.has(l.requestId)))
+        .map(l => ({ id: l.id, cadetId: l.cadetId, kind: 'leave', status: 'approved', fromDate: l.from, toDate: l.to, reason: '', decidedBy: l.by || '', at: l.at || 0, fromState: true }));
+      const leave = [...leaveReqs, ...leaveOnly].map(r => ({ ...r, group: 'leave' }));
+      const everything = [...own, ...leave];
+      const coys = COMPANY_CHOICES.filter(co => everything.some(r => coy(r.cadetId) === co));
+      if (RQF.coy !== 'all' && !coys.includes(RQF.coy)) RQF.coy = 'all';
+      const q = RQF.q.trim().toLowerCase();
+      const pass = (r, skip) => (skip === 'status' || RQF.status === 'all' || st(r.status) === RQF.status)
+        && (skip === 'kind' || RQF.kind === 'all' || r.kind === RQF.kind)
+        && (RQF.coy === 'all' || coy(r.cadetId) === RQF.coy)
+        && (!q || cadetLabel(r.cadetId).toLowerCase().includes(q));
+      const order = (a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || (b.at || 0) - (a.at || 0);
+      const shownOwn = own.filter(r => pass(r)).sort(order), shownLeave = leave.filter(r => pass(r)).sort(order);
+      const chip = (key, val, label, n) => `<button type="button" class="af-chip text-[11px]" aria-pressed="${RQF[key] === val}" onclick="RQF.${key} = '${val}'; renderParadePage()">${label}${n == null ? '' : ` <span class="font-mono-num opacity-70">${n}</span>`}</button>`;
+      const nStatus = s => everything.filter(r => pass(r, 'status') && (s === 'all' || st(r.status) === s)).length;
+      const nKind = k => everything.filter(r => pass(r, 'kind') && (k === 'all' || r.kind === k)).length;
+      const kindChip = rqKindChip, statusPill = rqStatusPill, ownRow = r => rqRowHtml(r);
+      const leaveRow = r => {
+        const n = leaveDayCount(r), excused = paradeReportOf(pd, r.cadetId)?.fromLeave;
+        let acts = '';
+        if (r.status === 'pending') acts = excused || over ? (r.mine && !app.isAdmin() ? '' : `${excused ? '<span class="text-[11px] font-bold text-emerald-300">Excused for this parade</span>' : ''}${leaveDecideButtons(r, null)}`) : leaveDecideButtons(r, pd);
+        else if (r.hasImage) acts = `<button type="button" data-id="${esc(r.id)}" onclick="viewRequestImage(this.dataset.id)" class="${btn} border-slate-700 text-slate-200">View screenshot</button>`;
+        return `<li class="rq-row ${r.status === 'pending' ? 'rq-row-wait' : ''}">
+          <div class="flex flex-wrap items-center gap-1.5"><span class="text-sm font-semibold text-white">${esc(cadetLabel(r.cadetId))}</span><span class="text-[11px] text-slate-500">${esc(coy(r.cadetId))}</span>${kindChip('leave')}${statusPill(r)}</div>
+          <p class="text-xs text-amber-200">${esc(leaveRange({ from: r.fromDate, to: r.toDate }))} · ${n} day${n === 1 ? '' : 's'}</p>
+          ${r.reason ? `<p class="text-xs text-slate-300 break-words">${esc(r.reason)}</p>` : ''}
+          <p class="text-[11px] text-slate-500">${r.at ? `Asked ${esc(fmtWhen(r.at))}` : 'Leave'}${r.status !== 'pending' && r.decidedBy ? ` · ${r.status === 'approved' ? 'approved' : 'not approved'} by ${esc(r.decidedBy)}` : ''}${r.note ? ` · <span class="text-rose-300">${esc(r.note)}</span>` : ''}</p>
+          ${acts ? `<div class="flex flex-wrap items-center gap-1.5">${acts}</div>` : ''}</li>`;
+      };
+      const waiting = everything.filter(r => r.status === 'pending' && (r.group === 'parade' || !paradeReportOf(pd, r.cadetId)?.fromLeave)).length;
+      const filtered = RQF.status !== 'all' || RQF.kind !== 'all' || RQF.coy !== 'all' || q;
+      return `<div id="paradeRequests" class="bg-slate-900 rounded-2xl border ${waiting ? 'border-amber-700/60' : 'border-slate-800'} p-4 sm:p-5 space-y-3">
+          <div class="flex items-start justify-between gap-3"><div><h3 class="font-extrabold text-white">Requests from cadets ${waiting ? `<span class="text-sm text-amber-300 font-mono-num">${waiting} waiting</span>` : ''}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Every request about this parade: waiting, approved and not approved. Approved ones go onto the parade's reports. Only sergeants and above see these.</p></div>
             <button type="button" onclick="loadRequests(true)" class="shrink-0 text-[11px] font-bold text-slate-400 hover:text-white">Refresh</button></div>
-          ${pending.length ? `<ul class="border border-slate-800 rounded-xl divide-y divide-slate-800">${pending.map(row).join('')}</ul>` : '<p class="text-xs text-slate-500">No requests waiting.</p>'}
-          ${decided.length ? `<button type="button" onclick="PAR.showDecided = !PAR.showDecided; renderParadePage()" aria-expanded="${!!PAR.showDecided}" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300 hover:text-white">${PAR.showDecided ? 'Hide decided' : `Show decided (${decided.length})`}</button>
-            ${PAR.showDecided ? `<ul class="divide-y divide-slate-800/70 text-xs">${decided.map(r => `<li class="py-1.5 flex flex-wrap justify-between gap-2"><span class="text-slate-300">${esc(name(r.cadetId))}${chip(r.kind)}</span>
-              <span class="${r.status === 'approved' ? 'text-emerald-300' : 'text-rose-300'}">${r.status === 'approved' ? 'Approved' : 'Not approved'}${r.decidedBy ? ' by ' + esc(r.decidedBy) : ''}</span></li>`).join('')}</ul>` : ''}` : ''}
+          ${everything.length ? `<div class="space-y-2" id="rqFilters">
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Status">${chip('status', 'all', 'All', nStatus('all'))}${chip('status', 'pending', 'Waiting', nStatus('pending'))}${chip('status', 'approved', 'Approved', nStatus('approved'))}${chip('status', 'rejected', 'Not approved', nStatus('rejected'))}</div>
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Kind">${chip('kind', 'all', 'Every kind', null)}${chip('kind', 'late', 'Coming late', nKind('late'))}${chip('kind', 'absent', "Can't come", nKind('absent'))}${chip('kind', 'leave', 'Leave', nKind('leave'))}</div>
+            <div class="flex flex-wrap items-center gap-1.5">${coys.length > 1 ? `<div class="flex flex-wrap gap-1.5" role="group" aria-label="Company">${chip('coy', 'all', 'All companies', null)}${coys.map(co => chip('coy', co, esc(co), null)).join('')}</div>` : ''}
+              <input type="search" id="rqSearch" value="${esc(RQF.q)}" oninput="RQF.q = this.value; redrawKeepFocus('rqSearch')" placeholder="Search name…" autocomplete="off" class="flex-1 min-w-[140px] px-3 py-1.5 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-xs">
+              ${filtered ? `<button type="button" onclick="Object.assign(RQF, { status: 'all', kind: 'all', coy: 'all', q: '' }); renderParadePage()" class="text-[11px] font-bold text-slate-400 hover:text-white">Clear filters</button>` : ''}</div>
+          </div>` : ''}
+          ${!everything.length ? '<p class="text-xs text-slate-500">No requests about this parade.</p>' : !shownOwn.length && !shownLeave.length ? '<p class="text-xs text-slate-500">Nothing matches these filters.</p>' : ''}
+          ${shownOwn.length ? `<section class="space-y-2"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">For this parade <span class="font-mono-num">${shownOwn.length}</span></h4>
+            <ul class="space-y-2">${shownOwn.map(ownRow).join('')}</ul></section>` : ''}
+          ${shownLeave.length ? `<section class="space-y-2 rq-leave-part" id="paradeLeaveCard"><h4 class="text-[11px] font-black uppercase tracking-wider text-amber-300">Longer leave covering this day <span class="font-mono-num">${shownLeave.length}</span></h4>
+            <p class="text-[11px] text-slate-500">Waiting leave: excuse the cadet for this parade only (the leave stays waiting), or decide the whole leave.</p>
+            <ul class="space-y-2">${shownLeave.map(leaveRow).join('')}</ul></section>` : ''}
         </div>`;
+    }
+    /** Redraw the parade page from a search box without losing the cursor. */
+    function redrawKeepFocus(inputId) {
+      const pos = document.getElementById(inputId)?.selectionStart;
+      renderParadePage();
+      const input = document.getElementById(inputId);
+      if (input) { input.focus(); if (pos != null) input.setSelectionRange(pos, pos); }
     }
     async function decideRequest(id, approve) {
       const r = REQ.list.find(x => x.id === id); if (!r) return;
@@ -6593,6 +6754,18 @@
       renderParadePage();
     }
 
+    /** Clear your own declined request from your view (sergeants and above keep the record). Undo puts it back. */
+    async function dismissRequest(id) {
+      const r = REQ.list.find(x => x.id === id); if (!r) return;
+      const redraw = () => { renderParadePage(); renderLeaveArea?.(); renderMyDay?.(); };
+      try { await api('dismiss', { id }); r.dismissed = true; }
+      catch (e) { app.showToast(e.message || 'Could not delete it.'); loadRequests(true); return; }
+      redraw();
+      app.showToast('Request deleted.', { undo: async () => {
+        try { await api('dismiss', { id, undo: true }); delete r.dismissed; if (!REQ.list.includes(r)) REQ.list.push(r); redraw(); }
+        catch (e) { app.showToast(e.message || 'Could not bring it back.'); }
+      } });
+    }
     function renderParadePage() {
       const page = document.getElementById('paradePage');
       renderParadeHomeStat();
@@ -6606,33 +6779,36 @@
       // A parade stays "upcoming" until 3 hours after reporting time.
       const upcoming = paradeList().filter(x => x.reportAt + 3 * 3600000 >= now);
       const past = paradeList().filter(x => x.reportAt + 3 * 3600000 < now).slice().reverse();
-      const esc = escapeHtml;
+      const esc = escapeHtml, me = app.myCadet();
+      const seniors = app.can('requests');
       document.getElementById('paradeUpcoming').innerHTML = upcoming.length ? upcoming.map(x => {
-        const n = (x.reports || []).length, open = paradeOpenForReports(x);
-        const seniors = app.can('requests'), waiting = seniors ? paradeRequests(x.id).filter(r => r.status === 'pending').length : 0;
-        const leaveAsk = seniors ? leaveAsksFor(x).length : 0;
-        const mine = myParadeLine(x);
-        return `<button type="button" onclick="openParadeDetail('${esc(x.id)}')" class="lift text-left rounded-2xl border border-slate-800 bg-slate-900 p-4 hover:border-amber-600/70">
-          ${x.seriesId ? '<span class="series-tag">Repeats</span>' : ''}
+        const waiting = seniors ? paradeRequests(x.id).filter(r => r.status === 'pending').length + leaveAsksFor(x).length : 0;
+        const mine = myParadeLine(x), day = messList().find(d => d.paradeId === x.id);
+        const onDuty = me && day?.cadetIds.includes(me.id);
+        const tags = [
+          x.dress ? `<span class="par-tag">${esc(x.dress)}</span>` : '',
+          hasRefreshments(x) ? `<span class="par-tag ${onDuty ? 'par-tag-warn' : ''}">${onDuty ? 'You: mess duty' : 'Refreshments'}</span>` : '',
+          waiting ? `<span class="par-tag par-tag-warn">${waiting} request${waiting === 1 ? '' : 's'}</span>` : '',
+          x.seriesId ? '<span class="par-tag">Repeats</span>' : '',
+        ].filter(Boolean).join('');
+        return `<button type="button" onclick="openParadeDetail('${esc(x.id)}')" class="lift par-card text-left rounded-2xl border border-slate-800 bg-slate-900 p-4 hover:border-amber-600/70">
           <p class="text-[11px] font-bold text-amber-400">${esc(paradeDay(x.reportAt))} · ${esc(paradeClock(x.reportAt))}</p>
           <p class="text-base font-extrabold text-white mt-0.5">${esc(x.title)}</p>
-          <p class="text-xs text-slate-400 mt-0.5">${x.venue ? esc(x.venue) + ' · ' : ''}${esc(paradeAudience(x))}</p>
-          ${x.agenda ? `<p class="text-xs text-slate-500 mt-1.5 line-clamp-2">${esc(x.agenda)}</p>` : ''}
-          ${x.dress || x.kit ? `<p class="text-[11px] text-slate-400 mt-1">${esc([x.dress ? 'Dress: ' + x.dress : '', x.kit ? 'Bring: ' + x.kit : ''].filter(Boolean).join(' · '))}</p>` : ''}
-          <p class="text-[11px] mt-2 ${open ? 'text-emerald-300' : 'text-slate-500'}">${open ? `Late reports open until ${esc(paradeClock(paradeCutoff(x)))}` : 'Late reports closed'}${seniors ? ` · ${n} report${n === 1 ? '' : 's'}` : ''}${waiting ? ` · <span class="text-amber-300 font-bold">${waiting} request${waiting === 1 ? '' : 's'} to approve</span>` : ''}${leaveAsk ? ` · <span class="text-amber-300 font-bold">${leaveAsk} leave request${leaveAsk === 1 ? '' : 's'}</span>` : ''}</p>
-          ${mine ? `<p class="text-[11px] mt-1 text-sky-300">${esc(mine)}</p>` : ''}
+          ${x.venue ? `<p class="text-xs text-slate-400 mt-0.5">${esc(x.venue)}</p>` : ''}
+          ${tags ? `<div class="flex flex-wrap gap-1 mt-2">${tags}</div>` : ''}
+          ${mine ? `<p class="text-[11px] mt-1.5 text-sky-300">${esc(mine)}</p>` : ''}
         </button>`;
       }).join('') : '<p class="text-sm text-slate-500 md:col-span-2">No upcoming parades.</p>';
-      document.getElementById('paradePast').innerHTML = past.length ? past.map(x => {
+      const pastShown = PAR.pastAll ? past : past.slice(0, 5);
+      document.getElementById('paradePast').innerHTML = past.length ? pastShown.map(x => {
         const k = paradeCounts(x);
         const marked = k.present + k.late + k.absent > 0;
         return `<button type="button" onclick="openParadeDetail('${esc(x.id)}')" class="w-full text-left rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 hover:border-amber-600/70 flex flex-wrap items-center justify-between gap-2">
           <span class="min-w-0"><span class="block text-sm font-bold text-white">${esc(x.title)}${x.minutes?.text ? ' <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-700 text-slate-300">Minutes</span>' : ''}</span><span class="block text-[11px] text-slate-500">${esc(paradeDay(x.reportAt))} · ${esc(paradeClock(x.reportAt))}${x.venue ? ' · ' + esc(x.venue) : ''}</span></span>
-          <span class="text-xs font-semibold ${marked ? 'text-slate-300' : 'text-amber-300'}">${marked ? `<span class="text-emerald-300">${k.present} present</span> · <span class="text-sky-300">${k.late} late</span> · <span class="text-rose-300">${k.absent} absent</span>${k.unmarked ? ` · ${k.unmarked} not marked` : ''}` : 'Attendance not marked'}</span>
+          <span class="text-xs font-semibold ${marked ? 'text-slate-300' : 'text-amber-300'}">${marked ? `<span class="text-emerald-300">${k.present} present</span> · <span class="text-sky-300">${k.late} late</span> · <span class="text-rose-300">${k.absent} absent</span>` : 'Attendance not marked'}</span>
         </button>`;
-      }).join('') : '<p class="text-sm text-slate-500">No past parades yet.</p>';
+      }).join('') + (past.length > 5 ? `<button type="button" onclick="PAR.pastAll = !PAR.pastAll; renderParadePage()" class="w-full py-2 text-xs font-bold text-slate-400 hover:text-white">${PAR.pastAll ? 'Show fewer' : `Show all ${past.length} past parades`}</button>` : '') : '<p class="text-sm text-slate-500">No past parades yet.</p>';
       renderParadeCalendar();
-      const me = app.myCadet();
       if (me) markSeen(upcoming.filter(x => x.reportAt >= now && paradeCadets(x).some(c => c.id === me.id)).map(x => 'parade:' + x.id));
     }
     function renderParadeHomeStat() {
@@ -6641,7 +6817,7 @@
       const next = paradeList().find(x => x.reportAt >= Date.now() && (!me || paradeCadets(x).some(c => c.id === me.id)));
       el.innerHTML = next ? `<b>${escapeHtml(new Date(next.reportAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}</b><small>next parade, ${escapeHtml(paradeClock(next.reportAt))}</small>` : '<b>–</b><small>no parade planned</small>';
     }
-    function openParadeDetail(id) { PAR.openId = id; PAR.coy = 'all'; PAR.q = ''; renderParadePage(); window.scrollTo({ top: 0 }); loadRequests(); }
+    function openParadeDetail(id) { if (PAR.openId !== id) { PAR.more = false; PAR.showAttend = false; } PAR.openId = id; PAR.coy = 'all'; PAR.q = ''; renderParadePage(); window.scrollTo({ top: 0 }); loadRequests(); }
     function closeParadeDetail() { PAR.openId = null; renderParadePage(); }
 
     function renderParadeDetail(pd) {
@@ -6654,33 +6830,35 @@
       const coyOf = c => c.company;
       const companies = COMPANY_CHOICES.filter(co => cadets.some(c => coyOf(c) === co));
       if (PAR.coy !== 'all' && !companies.includes(PAR.coy)) PAR.coy = 'all';
-      // ---- details
+      // ---- details: what every cadet needs at a glance; the rest sits behind "More"
+      const upcomingPd = pd.reportAt > Date.now();
+      const fact = (label, value, wide = false) => `<div class="par-fact ${wide ? 'sm:col-span-2' : ''}"><dt>${label}</dt><dd>${esc(value)}</dd></div>`;
       const info = `
-        <div><button type="button" onclick="closeParadeDetail()" class="px-3 py-2 border border-slate-700 text-sm font-bold text-slate-200">← All parades</button></div>
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3">
-          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div><button type="button" onclick="closeParadeDetail()" class="px-3 py-2 border border-slate-700 text-sm font-bold text-slate-200 rounded-xl">← All parades</button></div>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" id="paradeInfo">
+          <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="text-[11px] font-bold text-amber-400">${esc(paradeDay(pd.reportAt))}</p>
               <h2 class="text-xl sm:text-2xl font-black text-white leading-tight">${esc(pd.title)}</h2>
-              <p class="text-xs text-slate-500 mt-1">${esc(paradeAudience(pd))} · ${cadets.length} cadet${cadets.length === 1 ? '' : 's'} expected${pd.createdBy ? ' · created by ' + esc(pd.createdBy) : ''}</p>
+              <p class="text-xs text-slate-500 mt-1">${esc(paradeAudience(pd))} · ${cadets.length} cadet${cadets.length === 1 ? '' : 's'} expected</p>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">
-              <button type="button" onclick="copyParadeAnnouncement('${id}')" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy announcement</button>
-              ${pd.reportAt > Date.now() ? `<button type="button" onclick="downloadParadeCalendar('${id}')" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Add to calendar</button>` : ''}
-              ${pd.reportAt > Date.now() ? `<button type="button" onclick="sendParadeNotification('${id}')" class="parade-only px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Send notification</button>` : ''}
-              <button type="button" onclick="openParadeModal('${id}')" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit</button>
-              <button type="button" onclick="deleteParade('${id}')" class="px-3 py-2 text-xs font-bold border border-rose-900/60 text-rose-300 hover:bg-rose-950/40 rounded-xl">Delete</button>
+              <button type="button" onclick="openParadeModal('${id}')" class="parade-only px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Edit</button>
+              <button type="button" onclick="PAR.more = !PAR.more; renderParadePage()" aria-expanded="${PAR.more}" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">${PAR.more ? 'Less' : 'More'}</button>
             </div>
           </div>
-          <dl class="grid sm:grid-cols-3 gap-2 text-sm">
-            <div class="rounded-xl bg-slate-950 border border-slate-800 p-3"><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Reporting time</dt><dd class="text-white font-bold mt-0.5">${esc(paradeClock(pd.reportAt))}</dd></div>
-            <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 sm:col-span-2"><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Venue</dt><dd class="text-white font-bold mt-0.5 break-words">${esc(pd.venue || 'Not set')}</dd></div>
+          ${PAR.more ? `<div class="flex flex-wrap gap-2 fx-enter" id="paradeMore">
+              <button type="button" onclick="copyParadeAnnouncement('${id}')" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy announcement</button>
+              ${upcomingPd ? `<button type="button" onclick="downloadParadeCalendar('${id}')" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl">Add to calendar</button>` : ''}
+              ${upcomingPd ? `<button type="button" onclick="sendParadeNotification('${id}')" class="parade-only px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Send notification</button>` : ''}
+              <button type="button" onclick="deleteParade('${id}')" class="admin-only px-3 py-2 text-xs font-bold border border-rose-900/60 text-rose-300 hover:bg-rose-950/40 rounded-xl">Delete</button>
+              ${pd.createdBy ? `<span class="self-center text-[11px] text-slate-500">Created by ${esc(pd.createdBy)}</span>` : ''}
+            </div>` : ''}
+          <dl class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+            ${fact('Reporting', paradeClock(pd.reportAt))}${fact('Venue', pd.venue || 'Not set')}
+            ${pd.dress ? fact('Turnout', pd.dress) : ''}${pd.kit ? fact('Bring', pd.kit) : ''}
           </dl>
-          ${pd.dress || pd.kit ? `<dl class="grid sm:grid-cols-2 gap-2 text-sm" id="paradeKitBox">
-            ${pd.dress ? `<div class="rounded-xl bg-slate-950 border border-slate-800 p-3"><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dress</dt><dd class="text-white font-bold mt-0.5 break-words">${esc(pd.dress)}</dd></div>` : ''}
-            ${pd.kit ? `<div class="rounded-xl bg-slate-950 border border-slate-800 p-3"><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">What to bring</dt><dd class="text-white font-bold mt-0.5 break-words">${esc(pd.kit)}</dd></div>` : ''}
-          </dl>` : ''}
-          <div class="rounded-xl bg-slate-950 border border-slate-800 p-3"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Agenda</p><p class="text-sm text-slate-200 mt-1 whitespace-pre-wrap break-words">${esc(pd.agenda || 'No agenda written.')}</p></div>
+          ${pd.agenda ? `<div class="par-fact"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Agenda</p><p class="text-sm text-slate-200 mt-1 whitespace-pre-wrap break-words">${esc(pd.agenda)}</p></div>` : ''}
           ${app.canEdit() && pd.reportAt + 3 * 3600000 >= Date.now() ? `<div class="nb-actions">${seenButton('parade:' + pd.id)}</div>${seenPanel('parade:' + pd.id)}` : ''}
         </div>`;
       // ---- late / absence reports
@@ -6700,7 +6878,6 @@
         </li>`;
       };
       const mineCard = renderMyParadeCard(pd, cadets);
-      const requestsCard = app.can('requests') ? renderParadeLeaveCard(pd) + renderParadeRequestsCard(pd) : '';
       const reportCard = !app.can('requests') ? '' : `
         <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -6741,7 +6918,10 @@
         return `<button type="button" onclick="PAR.coy = '${esc(val)}'; renderParadePage()" class="af-chip text-xs" aria-pressed="${PAR.coy === val}">${esc(label)} <span class="font-mono-num opacity-80">${kk.present + kk.late}/${kk.expected}</span></button>`;
       };
       const kc = paradeCounts(pd, cadets.filter(inCoy));
-      const attendCard = `
+      const attendFolded = !started && !PAR.showAttend && !app.isAdmin();
+      const attendCard = attendFolded ? `<div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 flex flex-wrap items-center justify-between gap-2" id="paradeAttendFolded">
+          <p class="text-sm text-slate-300"><b class="text-white">Attendance</b> · marked after the parade starts</p>
+          <button type="button" onclick="PAR.showAttend = true; renderParadePage()" class="px-3 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Show the list</button></div>` : `
         <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -6765,7 +6945,7 @@
             <ul class="divide-y divide-slate-800/70">${excused.map(row).join('')}</ul>
           </div>` : ''}
         </div>`;
-      host.innerHTML = info + paradeMessHtml(pd) + renderMinutesCard(pd) + mineCard + requestsCard + reportCard + attendCard;
+      host.innerHTML = info + mineCard + paradeStripHtml(pd) + renderMinutesCard(pd) + (reports.length || canReports ? reportCard : '') + attendCard;
     }
     /** Typing in the search shouldn't lose focus: redraw, then put the cursor back. */
     function renderParadeAttendanceOnly() {
@@ -6778,13 +6958,34 @@
 
     // ---- Minutes: what was covered at a parade. Sergeants and above, POCs, JUOs and SUOs write them once the
     // parade has started; every cadet can read them (also those who were on leave). pd.minutes = { text, by, at }.
-    /** Who returns the refreshments to the mess at this parade (planned on the Parades page). */
-    function paradeMessHtml(pd) {
-      const d = messList().find(x => x.paradeId === pd.id); if (!d || !d.cadetIds.length) return '';
-      const me = app.myCadet();
-      return `<div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5" id="paradeMess"><h3 class="font-extrabold text-white">Mess duty</h3>
-        <p class="text-xs text-slate-400 mt-0.5">Return the refreshments to the mess after the parade.</p>
-        <div class="mt-2 flex flex-wrap gap-1.5">${d.cadetIds.map(id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''}">${escapeHtml(cadetLabel(id))}</span>`).join('')}</div></div>`;
+    /** Boxes under the parade's details: mess duty (when it has refreshments) and, for sergeants and above,
+     *  the requests about it. Each opens its dialog; the cadet's own Volunteer button is right here. */
+    function paradeStripHtml(pd) {
+      const esc = escapeHtml, id = esc(pd.id), on = hasRefreshments(pd), cq = canRefreshments(), upcoming = pd.reportAt + 3 * 3600000 > Date.now();
+      const boxes = [], me = app.myCadet(), per = messConfig().perDay;
+      if (on || (cq && upcoming)) {
+        const d = messList().find(x => x.paradeId === pd.id) || (on ? messVirtual(pd) : null);
+        const n = d ? d.cadetIds.length : 0, mine = me && d?.cadetIds.includes(me.id);
+        const canJoin = on && d && me && !mine && n < per && pd.reportAt > Date.now() && messPool(d).some(c => c.id === me.id);
+        const names = d && d.cadetIds.length ? d.cadetIds.map(cadetLabel).join(', ') : '';
+        boxes.push(`<div class="par-tile par-tile-static ${canJoin ? 'par-tile-warn' : ''}" id="paradeMess">
+          <span class="par-tile-label">${on ? 'Refreshments · mess duty' : 'Refreshments'}</span>
+          <b class="par-tile-main">${!on ? 'None at this parade' : mine ? 'You are on it' : `${n} of ${per} cadets`}</b>
+          <span class="par-tile-sub">${!on ? 'Turn on if there are refreshments' : names ? esc(names) : 'Nobody yet: cadets volunteer first'}</span>
+          <span class="flex flex-wrap gap-1.5 mt-2">
+            ${canJoin ? `<button type="button" data-id="${id}" onclick="messVolunteer(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-emerald-600 bg-emerald-600 text-white">Volunteer</button>` : ''}
+            ${mine && d && messVolunteers(d).includes(me.id) && messCanStepBack(d) ? `<button type="button" data-id="${id}" onclick="messVolunteer(this.dataset.id, true)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-300">Step back</button>` : ''}
+            ${on ? `<button type="button" data-id="${id}" onclick="openMessDialog(this.dataset.id)" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">${messLead() || app.isAdmin() ? 'Pick and manage' : 'Mess duty'}</button>` : ''}
+            ${cq && upcoming ? `<button type="button" data-id="${id}" onclick="toggleRefreshments(this.dataset.id)" aria-pressed="${on}" class="af-chip text-[11px]">${on ? 'Refreshments: on' : 'Refreshments: off'}</button>` : ''}
+          </span></div>`);
+      }
+      if (app.can('requests')) {
+        const own = paradeRequests(pd.id), wait = own.filter(r => r.status === 'pending').length + leaveAsksFor(pd).length;
+        boxes.push(`<button type="button" class="par-tile ${wait ? 'par-tile-warn' : ''}" id="paradeRequestsBox" data-id="${id}" onclick="openRequestsDialog(this.dataset.id)">
+          <span class="par-tile-label">Requests from cadets</span><b class="par-tile-main">${wait ? `${wait} waiting` : 'None waiting'}</b>
+          <span class="par-tile-sub">${own.length} about this parade · tap to see them all</span></button>`);
+      }
+      return boxes.length ? `<div class="par-tiles par-strip">${boxes.join('')}</div>` : '';
     }
     function canWriteMinutes() { return !!app?.can?.('attendance') || !!app?.can?.('parade'); }
     function renderMinutesCard(pd) {
@@ -6827,6 +7028,24 @@
     }
 
     // ---- Create / edit
+    const TURNOUTS = ['Full turnout in uniform', 'Turnout in tracks'];
+    /** The turnout in the parade dialog: one of the two, or Custom with its own words (in #paradeTurnoutCustom).
+     *  v: one of TURNOUTS, 'custom', any other text (an older parade's dress: shown as Custom), or ''. */
+    function setParadeTurnout(v, typed = true) {
+      const box = document.getElementById('paradeDress'), own = document.getElementById('paradeTurnoutCustom'); if (!box || !own) return;
+      const custom = v === 'custom' || (!!v && !TURNOUTS.includes(v));
+      box.value = custom ? 'custom' : (v || '');
+      if (custom && v !== 'custom') own.value = v;
+      if (!custom && !typed) own.value = '';
+      own.classList.toggle('hidden', !custom);
+      if (typed) { box.dataset.auto = document.getElementById('paradeKit').dataset.auto = ''; if (custom) own.focus(); }
+      document.querySelectorAll('#paradeTurnout [data-turnout]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.turnout === box.value)));
+    }
+    /** What the dialog says the turnout is ('' when nothing is picked). */
+    function paradeTurnoutValue() {
+      const v = document.getElementById('paradeDress').value;
+      return v === 'custom' ? document.getElementById('paradeTurnoutCustom').value.trim().replace(/\s+/g, ' ').slice(0, 80) : v;
+    }
     /** Pick the parade type in the dialog; Custom shows the name box. */
     function setParadeKind(kind, focus = true) {
       PAR.kind = PARADE_KINDS.some(k => k.key === kind) ? kind : null;
@@ -6837,7 +7056,7 @@
       const dress = document.getElementById('paradeDress'), kit = document.getElementById('paradeKit');
       if (!PAR.editId && PAR.kind && dress && kit && (!dress.value.trim() || dress.dataset.auto === '1') && (!kit.value.trim() || kit.dataset.auto === '1')) {
         const last = paradeList().filter(x => x.kind === PAR.kind && (x.dress || x.kit)).slice(-1)[0];
-        dress.value = last?.dress || ''; kit.value = last?.kit || '';
+        setParadeTurnout(last?.dress || '', false); kit.value = last?.kit || '';
         dress.dataset.auto = kit.dataset.auto = last ? '1' : '';
       }
     }
@@ -6852,8 +7071,11 @@
       const pad = n => String(n).padStart(2, '0');
       document.getElementById('paradeTitle').value = pd && pd.kind === 'custom' ? pd.title : '';
       const dressBox = document.getElementById('paradeDress'), kitBox = document.getElementById('paradeKit');
-      dressBox.value = pd?.dress || ''; kitBox.value = pd?.kit || ''; dressBox.dataset.auto = kitBox.dataset.auto = '';
-      dressBox.oninput = kitBox.oninput = () => { dressBox.dataset.auto = kitBox.dataset.auto = ''; };
+      document.getElementById('paradeTurnoutCustom').value = '';
+      setParadeTurnout(pd?.dress || '', false); kitBox.value = pd?.kit || ''; dressBox.dataset.auto = kitBox.dataset.auto = '';
+      kitBox.oninput = document.getElementById('paradeTurnoutCustom').oninput = () => { dressBox.dataset.auto = kitBox.dataset.auto = ''; };
+      document.getElementById('paradeRefreshWrap').classList.toggle('hidden', !canRefreshments());
+      document.getElementById('paradeRefresh').checked = pd ? hasRefreshments(pd) : false;
       setParadeKind(pd ? pd.kind || 'custom' : null, false);
       document.getElementById('paradeDate').value = at ? `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}` : '';
       document.getElementById('paradeTime').value = at ? `${pad(at.getHours())}:${pad(at.getMinutes())}` : '';
@@ -6885,7 +7107,9 @@
       if (!Number.isFinite(reportAt)) { fail('That date or time is not valid.'); return; }
       const venue = document.getElementById('paradeVenue').value.trim();
       const agenda = document.getElementById('paradeAgenda').value.trim();
-      const dress = document.getElementById('paradeDress').value.trim().replace(/\s+/g, ' ').slice(0, 80);
+      const dress = paradeTurnoutValue();
+      if (!dress && (!PAR.editId || document.getElementById('paradeDress').value === 'custom')) { fail(document.getElementById('paradeDress').value === 'custom' ? 'Write the custom turnout.' : 'Pick the turnout: Full turnout in uniform, Turnout in tracks, or Custom.'); return; }
+      const refresh = canRefreshments() ? document.getElementById('paradeRefresh').checked : null;
       const kit = document.getElementById('paradeKit').value.trim().replace(/\s+/g, ' ').slice(0, 200);
       const who = app.readTaskWho('parade');
       const scope = document.getElementById('paradeEventScopeInput').value;
@@ -6893,7 +7117,7 @@
       if (who.mode === 'pick' && !who.ids.length) { fail('Pick at least one cadet, or choose Companies & years.'); return; }
       const audience = who.mode === 'pick' ? { scope: 'All', cadetIds: who.ids } : { scope, ...(years.length ? { years } : {}) };
       if (!Array.isArray(app.state.parades)) app.state.parades = [];
-      let pd, changedFrom = null;
+      let pd, changedFrom = null, callMess = false;
       if (PAR.editId) {
         pd = findParade(PAR.editId);
         if (!pd) { fail('This parade was deleted meanwhile.'); return; }
@@ -6901,13 +7125,18 @@
         if (reportAt > Date.now() && (Number(pd.reportAt) !== reportAt || String(pd.venue || '') !== venue)) changedFrom = { reportAt: Number(pd.reportAt), venue: String(pd.venue || '') };
         Object.assign(pd, { kind, title, reportAt, venue, agenda, dress, kit });
         if (!dress) delete pd.dress; if (!kit) delete pd.kit;
+        if (refresh != null && refresh !== hasRefreshments(pd)) {
+          pd.refreshments = refresh;
+          if (refresh && reportAt > Date.now()) callMess = true;
+          if (!refresh) app.state.messDuty = (app.state.messDuty || []).filter(d => d.paradeId !== pd.id);
+        }
         delete pd.years; delete pd.cadetIds; Object.assign(pd, audience);
         app.logHistory('parade-edited', null, `Edited parade: ${title} (${paradeDay(reportAt)} ${paradeClock(reportAt)})`);
         app.showToast('Parade updated.');
       } else {
         const times = paradeRepeatDates(date, time);
         const seriesId = times.length > 1 ? newId('series') : null;
-        const made = times.map(t => ({ id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, kind, title, reportAt: t, venue, agenda, ...(dress ? { dress } : {}), ...(kit ? { kit } : {}), ...audience, ...(seriesId ? { seriesId } : {}), createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} }));
+        const made = times.map(t => ({ id: `parade-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, kind, title, reportAt: t, venue, agenda, dress, ...(kit ? { kit } : {}), ...(refresh ? { refreshments: true } : {}), ...audience, ...(seriesId ? { seriesId } : {}), createdAt: Date.now(), createdBy: app.authorName(), reports: [], marks: {} }));
         pd = made[0];
         app.state.parades.push(...made);
         if (made.length > 1) {
@@ -6918,6 +7147,7 @@
           app.showToast(`Created ${title}.`);
         }
         if (reportAt > Date.now()) announceNewParade(pd.id); // notify every device with notifications on (the first of a series)
+        if (refresh && made.some(x => x.reportAt > Date.now())) callMess = true;
       }
       app.state.parades = normalizeParades(app.state.parades);
       app.closeModal('paradeModal');
@@ -6925,6 +7155,7 @@
       PAR.openId = pd.id;
       renderParadePage();
       if (changedFrom) offerParadeChangeNotice(pd.id, changedFrom);
+      if (callMess) messCallNow(PAR.editId ? pd.id : null);
     }
     /** "Parade changed" notification to the cadets the parade is for, if the editor wants it. */
     async function offerParadeChangeNotice(paradeId, was) {
@@ -7088,7 +7319,7 @@
       const pd = findParade(id); if (!pd) return;
       let msg = `*${pd.title}*\nDate: ${paradeDay(pd.reportAt)}\nReporting time: ${paradeClock(pd.reportAt)}\n`;
       if (pd.venue) msg += `Venue: ${pd.venue}\n`;
-      if (pd.dress) msg += `Dress: ${pd.dress}\n`;
+      if (pd.dress) msg += `Turnout: ${pd.dress}\n`;
       if (pd.kit) msg += `Bring: ${pd.kit}\n`;
       msg += `For: ${paradeAudience(pd)}\n`;
       if (pd.agenda) msg += `\n*Agenda*\n${pd.agenda}\n`;
@@ -8618,11 +8849,27 @@
       if (before.size) list.querySelectorAll('[data-notice]').forEach(el => { if (!before.has(el.dataset.notice)) el.classList.add('nb-fresh'); });
       if (isVisible('homePage')) markSeen(items.map(n => 'notice:' + n.id));
     }
-    function openNoticeComposer() {
+    let NOTICE_TYPE = 'notice';
+    /** The notice form posts a plain notice or a sign-up (title, place, date and time, description, vacancies, apply-by). */
+    function setNoticeType(type) {
+      NOTICE_TYPE = type === 'signup' ? 'signup' : 'notice';
+      const su = NOTICE_TYPE === 'signup';
+      document.querySelectorAll('#noticeComposer [data-ntype]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ntype === NOTICE_TYPE)));
+      document.getElementById('noticeSignupFields')?.classList.toggle('hidden', !su);
+      ['noticeText', 'noticeKeepWrap', 'noticeAskWrap'].forEach(id => document.getElementById(id)?.classList.toggle('hidden', su));
+      if (su) document.getElementById('noticeOptionsRow')?.classList.add('hidden');
+      else document.getElementById('noticeOptionsRow')?.classList.toggle('hidden', !document.getElementById('noticeAsk')?.checked);
+      const close = document.getElementById('nsCloseDate');
+      if (su && close && !close.value) { const d = new Date(Date.now() + 3 * 86400000); close.value = ymd(d); }
+      const post = document.getElementById('noticePostBtn'); if (post) post.textContent = su ? 'Open sign-up' : 'Post';
+      document.getElementById(su ? 'nsTitle' : 'noticeText')?.focus();
+    }
+    function openNoticeComposer(type = 'notice') {
       if (!app?.canEdit?.()) { app?.showToast?.('Only lance corporals and above, and POCs, can post notices.'); return; }
       document.getElementById('noticeComposer').classList.remove('hidden');
       document.getElementById('noticeNewBtn').classList.add('hidden');
-      document.getElementById('noticeText').focus();
+      setNoticeType(type);
+      if (type === 'signup') document.getElementById('noticeBoard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function closeNoticeComposer() {
       document.getElementById('noticeComposer').classList.add('hidden');
@@ -8631,9 +8878,47 @@
       const ask = document.getElementById('noticeAsk'); if (ask) ask.checked = false;
       document.getElementById('noticeOptionsRow')?.classList.add('hidden');
       const opts = document.getElementById('noticeOptions'); if (opts) opts.value = 'Yes, No';
+      ['nsTitle', 'nsPlace', 'nsDate', 'nsTime', 'nsDetails', 'nsCloseDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      const seats = document.getElementById('nsSeats'); if (seats) seats.value = '0';
+      const ct = document.getElementById('nsCloseTime'); if (ct) ct.value = '20:00';
+      const sc = document.getElementById('nsScope'); if (sc) sc.value = 'All';
+      document.querySelectorAll('#nsYears [data-y]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+      setNoticeType('notice');
+    }
+    /** Sign-up from the notice form: anyone who posts notices can open one. */
+    async function postSignupFromComposer() {
+      const val = id => (document.getElementById(id)?.value || '').trim();
+      const fail = (t, id) => { app.showToast(t); document.getElementById(id)?.focus(); };
+      const title = val('nsTitle').replace(/\s+/g, ' ').slice(0, 100), place = val('nsPlace').replace(/\s+/g, ' ').slice(0, 100);
+      const details = val('nsDetails').slice(0, 1000), date = val('nsDate'), time = val('nsTime');
+      const seats = Math.min(500, Math.max(0, Math.round(Number(val('nsSeats')) || 0)));
+      const closesAt = new Date(`${val('nsCloseDate')}T${val('nsCloseTime') || '20:00'}`).getTime();
+      const startsAt = date ? new Date(`${date}T${time || '00:00'}`).getTime() : null;
+      if (title.length < 3) return fail('Write a title for the sign-up.', 'nsTitle');
+      if (!val('nsCloseDate') || !Number.isFinite(closesAt)) return fail('Pick the date to apply by.', 'nsCloseDate');
+      if (closesAt <= Date.now()) return fail('The apply-by time has already passed.', 'nsCloseDate');
+      if (startsAt && startsAt < Date.now() - 86400000) return fail('The date has already passed.', 'nsDate');
+      const scope = val('nsScope') || 'All', notify = document.getElementById('noticeNotify').checked;
+      const years = normalizeYears([...document.querySelectorAll('#nsYears [data-y][aria-pressed="true"]')].map(b => b.dataset.y));
+      if (!Array.isArray(app.state.signups)) app.state.signups = [];
+      const id = newId('signup');
+      app.state.signups.push({ id, title, details, seats, closesAt, scope, ...(years.length ? { years } : {}), ...(place ? { place } : {}), ...(date ? { date, ...(time ? { time } : {}) } : {}),
+        createdBy: app.authorName(), byCadet: app.myCadet()?.id || null, createdAt: Date.now(), applicants: [] });
+      app.logHistory('signup-created', null, `Opened sign-up: ${title} (apply by ${fmtWhen(closesAt)})`);
+      app.saveStorage();
+      closeNoticeComposer();
+      renderSignups(); renderMyDay();
+      document.getElementById('signupsCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (!notify) { app.showToast('Sign-up open.'); return; }
+      try {
+        await app.flushRemoteSave?.();
+        const r = await api('signupAnnounce', { id });
+        app.showToast(r.alreadySent ? 'Sign-up open.' : `Sign-up open. Notification sent to ${r.people} cadet${r.people === 1 ? '' : 's'}.`);
+      } catch (e) { app.showToast(`Sign-up open, but the notification was not sent: ${e.message || e}`); }
     }
     async function postNotice() {
       if (!app?.canEdit?.()) return;
+      if (NOTICE_TYPE === 'signup') return postSignupFromComposer();
       const box = document.getElementById('noticeText');
       const text = box.value.trim().slice(0, 600);
       if (!text) { box.focus(); return; }
@@ -8681,7 +8966,7 @@
       const half = day === 0 ? 'Sunday, no timetable' : now.getHours() < 13 ? 'First half' : 'Second half';
       const me = app?.myCadet?.();
       const next = paradeList().find(x => x.reportAt >= Date.now() && (!me || paradeCadets(x).some(c => c.id === me.id)));
-      const myMess = me ? messList().find(d => d.date >= ymd(now) && (d.cadetIds || []).includes(me.id)) : null;
+      const myMess = me ? messDays().find(d => d.date >= ymd(now) && (d.cadetIds || []).includes(me.id)) : null;
       const soon = next && next.reportAt - Date.now() < 3600000;
       const parts = [
         `<span class="hn-item"><b class="hn-clock">${hh}<i>:</i>${mm}</b> ${esc(now.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }))}</span>`,
@@ -8988,11 +9273,18 @@
       app.showToast(`${a.name} is back on the roster as a 3rd year.`);
     }
 
-    // ---- Mess duty (Parades page): at each parade some cadets return the refreshments to the mess.
-    // Only cadets (rank CDT, no rank holders), only those expected at that parade, never the locals.
-    // Fair rotation: fewest duties first, then longest since the last one.
-    // state.messDuty = [{ id: 'mess-<parade id>', paradeId, date, cadetIds, at, by }] (older items have no paradeId).
-    const MESS = { settings: false, q: '' };
+    // ---- Mess duty (Parades page, Mess duty box and dialog): at parades with refreshments some cadets return
+    // them to the mess. The CQMS, JUOs, SUOs or the administrator turn refreshments on per parade
+    // (pd.refreshments, in the parade dialog or on its page). The server then calls for cadets (messCall,
+    // and the reminders job): first the advance volunteers (state.messStandby), then every cadet who can do
+    // it, then the lance corporals and corporals, who pick by hand or Fill the rest fairly. Cadets take a place
+    // with messVolunteer. Only cadets (rank CDT), only those expected at that parade, never the locals or anyone
+    // on leave or excused. LCPLs and CPLs have a big button; sergeants and above a small Manage link; the
+    // administrator always sees everything.
+    // state.messDuty = [{ id: 'mess-<parade id>', paradeId, date, cadetIds, volunteers?: [cadetId], asked?: { standby, all, leads (times), standbyN, allN, leadsN }, at, by }]
+    // state.messStandby = [{ id: 'sb-<cadet id>', cadetId, at }] (server only)
+    // (older items have no paradeId).
+    const MESS = { settings: false, q: '', manage: false };
     function messConfig() {
       const c = cfState()?.messConfig || {};
       const years = (Array.isArray(c.years) ? c.years : []).filter(y => YEARS.includes(y));
@@ -9000,60 +9292,177 @@
       return { perDay: Math.min(30, Math.max(1, Math.round(Number(c.perDay)) || 4)), years: years.length ? years : ['1st', '2nd'], exempt: Array.isArray(c.exempt) ? c.exempt : [] };
     }
     function messList() { return (cfState()?.messDuty || []).filter(d => d && safeId(d.id) && /^\d{4}-\d\d-\d\d$/.test(d.date) && Array.isArray(d.cadetIds)).slice().sort((a, b) => a.date.localeCompare(b.date) || (findParade(a.paradeId)?.reportAt || 0) - (findParade(b.paradeId)?.reportAt || 0)); }
+    /** Refreshments at this parade? Set by the CQMS; parades from before the switch count when they already had mess duty (same as rules.mjs). */
+    function hasRefreshments(pd) {
+      if (!pd) return false;
+      if (pd.refreshments === true) return true;
+      if (pd.refreshments === false) return false;
+      return (cfState()?.messDuty || []).some(d => d && d.paradeId === pd.id);
+    }
+    /** Mess duty that is shown: parades with refreshments (and older days that belong to no parade). */
+    function messShown(d) { const pd = d.paradeId ? findParade(d.paradeId) : null; return !pd || hasRefreshments(pd); }
+    function messDays() { return messList().filter(messShown); }
+    function messDayById(id) { return (app.state.messDuty || []).find(x => x && x.id === id) || null; }
+    function messVolunteers(d) { return (Array.isArray(d?.volunteers) ? d.volunteers : []).filter(id => (d.cadetIds || []).includes(id)); }
+    /** Who switches refreshments on: the CQMS, those who create parades (JUO, SUO) and the administrator. */
+    function canRefreshments() { return !!app?.can?.('uniform') || !!app?.can?.('parade'); }
+    /** The advance volunteers list (state.messStandby): asked first when a parade gets refreshments. */
+    function messOnStandby(cadetId) { return (cfState()?.messStandby || []).some(x => x && x.cadetId === cadetId); }
+    function messStandbyOk(c) { const cfg = messConfig(); return !!c && messRankOk(c) && cfg.years.includes(c.year) && !cfg.exempt.includes(c.id); }
+    async function toggleMessStandby() {
+      const me = app.myCadet(); if (!me) return;
+      const on = !messOnStandby(me.id);
+      try {
+        await api('messStandby', { on });
+        await app.refreshFromRemote();
+        app.showToast(on ? 'Thank you. You will be asked first when a parade has refreshments.' : 'You are off the volunteers list.');
+      } catch (e) { app.showToast(e.message || 'Could not save it.'); }
+      messRedraw();
+    }
+    /** Refreshments were just turned on: the server asks the advance volunteers at once (the rest follows on its own). */
+    async function messCallNow(pid) {
+      try { await app.flushRemoteSave?.(); const r = await api('messCall', pid ? { paradeId: pid } : {}); if (r.calls) await app.refreshFromRemote(); }
+      catch (e) { console.warn('CadetFlow mess call:', e); }
+    }
+    /** Lance corporals and corporals (and POCs below sergeant) look after mess duty; sergeants and above only oversee. */
+    function messLead() { return !!app?.canEdit?.() && !app.isAdmin() && ['CDT', 'LCPL', 'CPL'].includes(app.myCadet()?.rank || 'CDT'); }
     function messRankOk(c) { return !c.rank || c.rank === 'CDT'; }
     function messEligible(cfg = messConfig()) { return (cfState()?.cadets || []).filter(c => messRankOk(c) && cfg.years.includes(c.year) && !cfg.exempt.includes(c.id)); }
     function messCounts() {
       const m = new Map();
-      messList().forEach(d => (d.cadetIds || []).forEach(id => { const x = m.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; m.set(id, x); }));
+      messDays().forEach(d => (d.cadetIds || []).forEach(id => { const x = m.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; m.set(id, x); }));
       return m;
     }
     function messHash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
     function messTitle(d) { const pd = findParade(d.paradeId); return pd ? `${pd.title}, ${dayLabel(d.date)} ${paradeClock(pd.reportAt)}` : dayLabel(d.date); }
-    /** The fairest cadets for a parade: expected at it, not excused or on leave, fewest duties, then longest since the last. */
-    function messPick(d, count, counts, skip) {
+    /** Cadets who can do this duty: expected at the parade, not excused or on leave, not a local, not on it already (skip). */
+    function messPool(d, skip = new Set()) {
       const pd = findParade(d.paradeId), expected = pd ? new Set(paradeCadets(pd).map(c => c.id)) : null;
-      return messEligible().filter(c => !skip.has(c.id) && !leaveOnDate(c.id, d.date) && (!expected || (expected.has(c.id) && paradeStatus(pd, c.id) !== 'excused')))
+      return messEligible().filter(c => !skip.has(c.id) && !leaveOnDate(c.id, d.date) && (!expected || (expected.has(c.id) && paradeStatus(pd, c.id) !== 'excused')));
+    }
+    /** The fairest cadets for a parade: fewest duties, then longest since the last (same as rules.mjs messFairPick). */
+    function messPick(d, count, counts, skip) {
+      return messPool(d, skip)
         .map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '', h: messHash(c.id + d.date) }))
         .sort((a, b) => a.n - b.n || a.last.localeCompare(b.last) || a.h - b.h)
         .slice(0, count).map(x => x.c.id);
     }
-    /** Upcoming parades in the next 14 days that have no mess duty yet. */
-    function messParadesToPlan() {
-      const have = new Set(messList().map(d => d.paradeId).filter(Boolean)), soon = Date.now() + 14 * 86400000;
-      return paradeList().filter(pd => pd.reportAt > Date.now() && pd.reportAt <= soon && !have.has(pd.id));
+    /** A parade with refreshments and nobody on it yet, shown as an empty list. */
+    function messVirtual(pd) { return { id: 'mess-' + pd.id, paradeId: pd.id, date: ymd(new Date(pd.reportAt)), cadetIds: [], volunteers: [], virtual: true }; }
+    /** Upcoming mess duty: one row per parade with refreshments (empty ones too), plus older days with no parade. */
+    function messUpcoming() {
+      const today = ymd(new Date()), days = messDays();
+      const rows = paradeList().filter(pd => pd.reportAt + 3 * 3600000 > Date.now() && hasRefreshments(pd)).map(pd => days.find(d => d.paradeId === pd.id) || messVirtual(pd));
+      days.filter(d => d.date >= today && !(d.paradeId && findParade(d.paradeId))).forEach(d => rows.push(d));
+      return rows.sort((a, b) => a.date.localeCompare(b.date) || (findParade(a.paradeId)?.reportAt || 0) - (findParade(b.paradeId)?.reportAt || 0));
     }
+    /** Can a cadet still step back from a duty they volunteered for? Until 6 pm the evening before (then places are filled). */
+    function messCanStepBack(d) { const t = fromYmd(d.date); t.setHours(-6); return Date.now() < t.getTime(); }
+    function messRedraw() { renderMessCard(); if (isVisible('paradePage') && PAR.openId) renderParadePage(); renderMyDay?.(); }
+    /** Upcoming parades with refreshments in the next 14 days with empty places. */
+    function messParadesToPlan() {
+      const per = messConfig().perDay, soon = Date.now() + 14 * 86400000;
+      return messUpcoming().filter(d => d.paradeId && findParade(d.paradeId)?.reportAt > Date.now() && findParade(d.paradeId).reportAt <= soon && d.cadetIds.length < per);
+    }
+    /** Fill the empty places of the next 14 days' parades with the fairest cadets (volunteers stay). */
     function planMessParades() {
       if (!app?.canEdit?.()) return;
       const cfg = messConfig(), todo = messParadesToPlan();
-      if (!todo.length) { app.showToast('Every parade in the next 14 days already has mess duty.'); return; }
-      const counts = messCounts(), added = [], short = [];
-      todo.forEach(pd => {
-        const d = { id: 'mess-' + pd.id, paradeId: pd.id, date: ymd(new Date(pd.reportAt)) };
-        const ids = messPick(d, cfg.perDay, counts, new Set());
-        if (ids.length < cfg.perDay) short.push(pd.title);
+      if (!todo.length) { app.showToast('Every parade with refreshments in the next 14 days is full.'); return; }
+      const counts = messCounts(), filled = [], short = [];
+      todo.forEach(row => {
+        const d = ensureMessDay(row.paradeId); if (!d) return;
+        const ids = messPick(d, cfg.perDay - d.cadetIds.length, counts, new Set(d.cadetIds));
+        if (d.cadetIds.length + ids.length < cfg.perDay) short.push(findParade(d.paradeId)?.title || d.date);
         if (!ids.length) return;
         ids.forEach(id => { const x = counts.get(id) || { n: 0, last: '' }; x.n++; if (d.date > x.last) x.last = d.date; counts.set(id, x); });
-        added.push({ ...d, cadetIds: ids, at: Date.now(), by: app.authorName() });
+        d.cadetIds = [...d.cadetIds, ...ids];
+        filled.push(d);
       });
-      if (!added.length) { app.showToast('No cadets can do mess duty at those parades with these settings.'); return; }
-      app.state.messDuty = [...(app.state.messDuty || []), ...added];
-      app.logHistory('mess-planned', null, `Planned mess duty for ${added.length} parade(s): ${added.map(messTitle).join('; ')}`);
+      if (!filled.length) { app.showToast('No more cadets can do mess duty at those parades.'); return; }
+      app.logHistory('mess-planned', null, `Filled mess duty for ${filled.length} parade(s): ${filled.map(messTitle).join('; ')}`);
       app.saveStorage();
-      MESS.flash = new Set(added.map(d => d.id));
-      renderMessCard();
-      app.showToast(`Mess duty planned for ${added.length} parade${added.length === 1 ? '' : 's'}.${short.length ? ` Fewer than ${cfg.perDay} cadets were free for: ${short.join(', ')}.` : ''}`);
+      MESS.flash = new Set(filled.map(d => d.id));
+      messRedraw();
+      app.showToast(`Filled ${filled.length} parade${filled.length === 1 ? '' : 's'}.${short.length ? ` Not enough cadets free for: ${short.join(', ')}.` : ''}`);
     }
+    /** CQMS or administrator: refreshments at this parade, or not. Turning them on lets cadets volunteer. */
+    function toggleRefreshments(pid) {
+      if (!canRefreshments()) return;
+      const pd = findParade(pid); if (!pd) return;
+      const on = !hasRefreshments(pd), list = app.state.messDuty || [];
+      const at = list.findIndex(d => d && d.paradeId === pid), day = at >= 0 ? list[at] : null;
+      pd.refreshments = on;
+      if (!on && day) app.state.messDuty = list.filter(x => x !== day);
+      app.logHistory(on ? 'mess-refreshments-on' : 'mess-refreshments-off', null, `${on ? 'Refreshments at' : 'No refreshments at'} ${pd.title} (${paradeDay(pd.reportAt)})`);
+      app.saveStorage();
+      messRedraw();
+      if (on) { app.showToast(`Refreshments at ${pd.title}. The cadets who offered are asked first.`); if (pd.reportAt > Date.now()) messCallNow(pid); return; }
+      app.showToast(`No refreshments at ${pd.title}.${day && day.cadetIds.length ? ' Its mess duty list is removed.' : ''}`, { undo: () => {
+        const p = findParade(pid); if (!p) return;
+        p.refreshments = true;
+        if (day && !(app.state.messDuty || []).some(x => x.id === day.id)) app.state.messDuty = putBack(app.state.messDuty || [], day, at);
+        app.logHistory('mess-refreshments-on', null, `Refreshments at ${p.title} again`);
+        app.saveStorage(); messRedraw();
+      } });
+    }
+    /** The mess duty list of a parade, made (empty) when there is none yet. */
+    function ensureMessDay(pid) {
+      const pd = findParade(pid); if (!pd) return null;
+      let d = (app.state.messDuty || []).find(x => x && x.paradeId === pid);
+      if (!d) { d = { id: 'mess-' + pid, paradeId: pid, date: ymd(new Date(pd.reportAt)), cadetIds: [], volunteers: [], at: Date.now(), by: app.authorName() }; app.state.messDuty = [...(app.state.messDuty || []), d]; }
+      return d;
+    }
+    /** Fill the empty places with the fairest cadets. */
+    function fillMessDay(dayId, pid) {
+      if (!app?.canEdit?.()) return;
+      const d = messDayById(dayId) || (pid ? ensureMessDay(pid) : null); if (!d) return;
+      const need = messConfig().perDay - d.cadetIds.length;
+      if (need <= 0) { app.showToast('Already full.'); return; }
+      const ids = messPick(d, need, messCounts(), new Set(d.cadetIds));
+      if (!ids.length) { app.showToast('Nobody else can do this duty.'); return; }
+      d.cadetIds = [...d.cadetIds, ...ids];
+      app.logHistory('mess-picked', null, `Mess duty ${messTitle(d)}: picked ${ids.map(cadetLabel).join(', ')}`);
+      app.saveStorage();
+      MESS.flash = new Set(ids.map(id => d.id + ':' + id));
+      messRedraw();
+      app.showToast(`Picked ${ids.map(cadetLabel).join(', ')}.`);
+    }
+    function setMessCadet(dayId, out, inId) {
+      if (!app?.canEdit?.()) return false;
+      const d = messDayById(dayId); if (!d || d.cadetIds.includes(inId)) return false;
+      d.cadetIds = out && d.cadetIds.includes(out) ? d.cadetIds.map(id => id === out ? inId : id) : [...d.cadetIds, inId];
+      if (out && Array.isArray(d.volunteers)) d.volunteers = d.volunteers.filter(x => x !== out);
+      app.logHistory('mess-picked', null, `Mess duty ${messTitle(d)}: ${out ? `${cadetLabel(inId)} instead of ${cadetLabel(out)}` : `picked ${cadetLabel(inId)}`}`);
+      app.saveStorage();
+      MESS.flash = new Set([d.id + ':' + inId]);
+      messRedraw();
+      return true;
+    }
+    /** Give a cadet's duty to the next fairest cadet. */
     function swapMess(dayId, cadetId) {
       if (!app?.canEdit?.()) return;
-      const d = (app.state.messDuty || []).find(x => x.id === dayId); if (!d) return;
+      const d = messDayById(dayId); if (!d) return;
       const [next] = messPick(d, 1, messCounts(), new Set(d.cadetIds));
       if (!next) { app.showToast('Nobody else is free to take this duty.'); return; }
-      d.cadetIds = d.cadetIds.map(id => id === cadetId ? next : id);
-      app.logHistory('mess-swapped', null, `Mess duty ${messTitle(d)}: ${cadetLabel(cadetId)} swapped for ${cadetLabel(next)}`);
-      app.saveStorage();
-      MESS.flash = new Set([d.id + ':' + next]);
-      renderMessCard();
+      setMessCadet(dayId, cadetId, next);
       app.showToast(`${cadetLabel(next)} takes it instead.`);
+    }
+    function removeFromMess(dayId, cadetId) {
+      if (!app?.canEdit?.()) return;
+      const d = messDayById(dayId); if (!d) return;
+      const at = d.cadetIds.indexOf(cadetId); if (at < 0) return;
+      const wasVol = (d.volunteers || []).includes(cadetId);
+      d.cadetIds = d.cadetIds.filter(id => id !== cadetId);
+      if (wasVol) d.volunteers = d.volunteers.filter(x => x !== cadetId);
+      app.logHistory('mess-removed', cadetId, `Mess duty ${messTitle(d)}: took off ${cadetLabel(cadetId)}`);
+      app.saveStorage(); messRedraw();
+      app.showToast(`${cadetLabel(cadetId)} is off mess duty.`, { undo: () => {
+        const x = messDayById(dayId); if (!x || x.cadetIds.includes(cadetId)) return;
+        x.cadetIds = putBack(x.cadetIds, cadetId, at);
+        if (wasVol) x.volunteers = [...(x.volunteers || []), cadetId];
+        app.saveStorage(); messRedraw();
+      } });
     }
     function removeMessDay(dayId) {
       if (!app?.canEdit?.()) return;
@@ -9061,14 +9470,14 @@
       if (at < 0) return;
       const x = list[at], title = messTitle(x);
       app.state.messDuty = list.filter(y => y.id !== dayId);
-      app.logHistory('mess-removed', null, `Removed mess duty: ${title}`);
+      app.logHistory('mess-removed', null, `Cleared mess duty: ${title}`);
       app.saveStorage();
-      renderMessCard();
-      app.showToast(`Mess duty removed: ${title}.`, { undo: () => {
+      messRedraw();
+      app.showToast(`Mess duty cleared: ${title}.`, { undo: () => {
         if ((app.state.messDuty || []).some(y => y.id === dayId)) return;
         app.state.messDuty = putBack(app.state.messDuty || [], x, at);
         app.logHistory('mess-restored', null, `Brought back mess duty: ${title}`);
-        app.saveStorage(); renderMessCard();
+        app.saveStorage(); messRedraw();
       } });
     }
     function setMessConfig(change) {
@@ -9089,62 +9498,143 @@
       });
     }
     function copyMessDuty() {
-      const up = messList().filter(d => d.date >= ymd(new Date()));
+      const up = messDays().filter(d => d.date >= ymd(new Date()) && d.cadetIds.length);
       if (!up.length) { app.showToast('Nothing planned yet.'); return; }
       const msg = '*Mess duty* (return the refreshments to the mess)\n' + up.map(d => `\n*${messTitle(d)}*\n${d.cadetIds.map((id, i) => `${i + 1}. ${cadetLabel(id)}`).join('\n')}`).join('\n');
       app.copyToClipboard(msg, 'Copied mess duty list');
     }
+    function toggleMessManage() { MESS.manage = !MESS.manage; if (!MESS.manage) MESS.settings = false; renderMessCard(); }
+
+    // ---- Volunteering (through the server: cadets cannot save the shared data themselves)
+    async function messVolunteer(pid, undo = false) {
+      try {
+        await api('messVolunteer', { paradeId: pid, ...(undo ? { undo: true } : {}) });
+        await app.refreshFromRemote();
+        app.showToast(undo ? 'You stepped back.' : 'Thank you. You are on mess duty for this parade.');
+      } catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
+      messRedraw();
+    }
+
+    // ---- Picking a cadet by hand (lance corporals, corporals, sergeants and above, the administrator)
+    const MPICK = { dayId: null, out: null, q: '' };
+    function openMessPick(dayId, out = null) {
+      if (!app?.canEdit?.()) return;
+      const d = messDayById(dayId); if (!d) return;
+      MPICK.dayId = dayId; MPICK.out = out || null; MPICK.q = '';
+      document.getElementById('messPickHeading').textContent = out ? `Instead of ${cadetLabel(out)}` : `Pick for ${messTitle(d)}`;
+      renderMessPick();
+      document.getElementById('messPickModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('messPickSearch')?.focus(), 50);
+    }
+    function openMessPickParade(pid) { const d = ensureMessDay(pid); if (d) openMessPick(d.id); }
+    function renderMessPick() {
+      const d = messDayById(MPICK.dayId); if (!d) { app.closeModal('messPickModal'); return; }
+      const esc = escapeHtml, counts = messCounts(), q = MPICK.q.trim().toLowerCase();
+      const pool = messPool(d, new Set(d.cadetIds)).filter(c => !q || c.name.toLowerCase().includes(q))
+        .map(c => ({ c, n: counts.get(c.id)?.n || 0 })).sort((a, b) => a.n - b.n || a.c.name.localeCompare(b.c.name)).slice(0, 60);
+      document.getElementById('messPickBody').innerHTML = `<div class="space-y-3">
+        <p class="text-xs text-slate-400">Cadets expected at this parade who can do it. Locals, rank holders and anyone on leave are not listed. Fewest duties first.</p>
+        <input type="search" id="messPickSearch" value="${esc(MPICK.q)}" oninput="MPICK.q = this.value; renderMessPick(); const b = document.getElementById('messPickSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
+        <ul class="max-h-72 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800">${pool.map(({ c, n }) => `<li><button type="button" data-id="${esc(c.id)}" onclick="pickMessCadet(this.dataset.id)" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-800/60"><span class="text-sm text-slate-100">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span></span><span class="text-[11px] text-slate-400 font-mono-num">${n}×</span></button></li>`).join('') || '<li class="p-3 text-xs text-slate-500">Nobody matches.</li>'}</ul>
+        <div class="flex flex-wrap justify-end gap-2">
+          ${MPICK.out ? `<button type="button" onclick="app.closeModal('messPickModal'); swapMess(MPICK.dayId, MPICK.out)" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-200 rounded-xl">Pick the fairest for me</button>` : ''}
+          <button type="button" onclick="app.closeModal('messPickModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Close</button></div></div>`;
+    }
+    function pickMessCadet(id) {
+      const out = MPICK.out;
+      if (!setMessCadet(MPICK.dayId, out, id)) return;
+      app.closeModal('messPickModal');
+      app.showToast(`${cadetLabel(id)} is on mess duty${out ? ` instead of ${cadetLabel(out)}` : ''}.`);
+    }
+
+    /** One parade's mess duty: who is on it (volunteers marked), Volunteer / Step back / Swap for cadets,
+     *  pick and replace for those who manage it. */
+    function messDayHtml(d, { manage = false, isPast = false, flash = new Set(), compact = false } = {}) {
+      const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), per = messConfig().perDay;
+      const vols = new Set(messVolunteers(d)), pd = findParade(d.paradeId), left = Math.max(0, per - d.cadetIds.length);
+      const icon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>';
+      const cross = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      const live = manage && !isPast && !d.virtual;
+      const chip = id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''} ${flash.has(d.id + ':' + id) ? 'fx-flash' : ''}">${esc(cadetLabel(id))}${vols.has(id) ? '<i class="mess-vol" title="Volunteered">volunteer</i>' : ''}${live ? `<button type="button" data-day="${esc(d.id)}" data-id="${esc(id)}" onclick="openMessPick(this.dataset.day, this.dataset.id)" title="Someone else instead" aria-label="Someone else instead of ${esc(cadetLabel(id))}">${icon}</button><button type="button" data-day="${esc(d.id)}" data-id="${esc(id)}" onclick="removeFromMess(this.dataset.day, this.dataset.id)" title="Take off" aria-label="Take ${esc(cadetLabel(id))} off">${cross}</button>` : ''}</span>`;
+      const mine = !isPast && me && d.cadetIds.includes(me.id);
+      const canJoin = !isPast && me && pd && !mine && left > 0 && pd.reportAt > Date.now() && messPool(d).some(c => c.id === me.id);
+      const btn = 'px-3 py-1.5 text-[11px] font-bold rounded-lg border';
+      const pickBtn = !manage || isPast ? '' : d.virtual
+        ? `<button type="button" data-id="${esc(d.paradeId)}" onclick="openMessPickParade(this.dataset.id)" class="mess-add">+ Pick</button>${left ? `<button type="button" data-id="${esc(d.paradeId)}" onclick="fillMessDay('', this.dataset.id)" class="mess-add">Fill the rest fairly (${left})</button>` : ''}`
+        : `<button type="button" data-day="${esc(d.id)}" onclick="openMessPick(this.dataset.day)" class="mess-add">+ Pick</button>${left ? `<button type="button" data-day="${esc(d.id)}" onclick="fillMessDay(this.dataset.day)" class="mess-add">Fill the rest fairly (${left})</button>` : ''}`;
+      const asked = d.asked || {}, calls = [asked.standby && 'advance volunteers asked', asked.all && 'all cadets asked', asked.leads && 'LCPLs and CPLs asked to pick'].filter(Boolean);
+      if (compact) return `<li class="mess-day" data-mess-parade="${esc(d.paradeId || '')}"><div class="flex items-center justify-between gap-2"><p class="text-sm font-bold text-white">${esc(messTitle(d))}</p><span class="text-[11px] font-mono-num ${left ? 'text-amber-300' : 'text-emerald-300'}">${d.cadetIds.length}/${per}</span></div></li>`;
+      return `<li class="mess-day ${flash.has(d.id) ? 'fx-flash' : ''} ${d.date === today ? 'mess-today' : ''} ${MESS.focus && MESS.focus === d.paradeId ? 'mess-focus' : ''}" data-mess-parade="${esc(d.paradeId || '')}">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm font-bold ${isPast ? 'text-slate-400' : 'text-white'}">${d.date === today ? 'Today · ' : ''}${esc(messTitle(d))}</p>
+          <span class="flex items-center gap-2">${isPast ? '' : `<span class="text-[11px] font-mono-num ${left ? 'text-amber-300' : 'text-emerald-300'}">${d.cadetIds.length}/${per}</span>`}${live ? `<button type="button" data-day="${esc(d.id)}" onclick="removeMessDay(this.dataset.day)" class="text-[11px] text-slate-500 hover:text-rose-300">Clear</button>` : ''}</span>
+        </div>
+        <div class="mt-1.5 flex flex-wrap gap-1.5">${d.cadetIds.map(chip).join('') || `<span class="text-[11px] text-slate-500">${isPast ? 'Nobody.' : 'No volunteers yet.'}</span>`}${pickBtn}</div>
+        ${!isPast && left && !manage ? `<p class="mt-1.5 text-[11px] text-slate-400">${left} place${left === 1 ? '' : 's'} left for volunteers. If nobody takes them, the LCPLs and CPLs pick.</p>` : ''}
+        ${!isPast && calls.length && (manage || app.canEdit()) ? `<p class="mt-1 text-[11px] text-slate-500 mess-calls">${esc(calls.join(' · '))}</p>` : ''}
+        ${canJoin ? `<div class="mt-2"><button type="button" data-id="${esc(pd.id)}" onclick="messVolunteer(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Volunteer</button></div>` : ''}
+        ${mine ? `<div class="mt-2 flex flex-wrap gap-1.5">${vols.has(me.id) && pd && messCanStepBack(d) ? `<button type="button" data-id="${esc(pd.id)}" onclick="messVolunteer(this.dataset.id, true)" class="${btn} border-slate-700 text-slate-300">Step back</button>` : ''}${!d.virtual ? `<button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="${btn} border-sky-700/60 text-sky-200 hover:bg-sky-950/40">Swap</button>` : ''}</div>` : ''}
+      </li>`;
+    }
     function renderMessCard() {
       const host = document.getElementById('messCard'); if (!host || !cfState()) return;
-      const esc = escapeHtml, edit = app.canEdit(), cfg = messConfig(), today = ymd(new Date());
-      const all = messList(), upcoming = all.filter(d => d.date >= today), past = all.filter(d => d.date < today).reverse();
+      const esc = escapeHtml, edit = app.canEdit(), admin = app.isAdmin(), lead = messLead(), cq = canRefreshments(), cfg = messConfig(), today = ymd(new Date());
+      const manage = edit && (MESS.manage || admin);
+      const upcoming = messUpcoming(), past = messDays().filter(d => d.date < today).reverse();
       const me = app.myCadet(), mine = me ? upcoming.find(d => d.cadetIds.includes(me.id)) : null;
       const counts = messCounts();
       const flash = MESS.flash || new Set(); MESS.flash = null;
-      const dayRow = (d, isPast) => `<li class="mess-day ${flash.has(d.id) ? 'fx-flash' : ''} ${d.date === today ? 'mess-today' : ''}">
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-sm font-bold ${isPast ? 'text-slate-400' : 'text-white'}">${d.date === today ? 'Today · ' : ''}${esc(messTitle(d))}</p>
-          ${edit && !isPast ? `<button type="button" onclick="removeMessDay('${esc(d.id)}')" class="text-[11px] text-slate-500 hover:text-rose-300">Remove</button>` : ''}
-        </div>
-        <div class="mt-1.5 flex flex-wrap gap-1.5">${d.cadetIds.map(id => `<span class="mess-chip ${me && id === me.id ? 'mess-me' : ''} ${flash.has(d.id + ':' + id) ? 'fx-flash' : ''}">${esc(cadetLabel(id))}${edit && !isPast ? `<button type="button" onclick="swapMess('${esc(d.id)}', '${esc(id)}')" title="Give this duty to the next fairest cadet" aria-label="Swap ${esc(cadetLabel(id))}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>` : ''}</span>`).join('')}</div>
-        ${!isPast && me && d.cadetIds.includes(me.id) && safeId(d.id) ? `<button type="button" data-day="${esc(d.id)}" onclick="openSwapModal(this.dataset.day)" class="mt-2 px-3 py-1.5 text-[11px] font-bold rounded-lg border border-sky-700/60 text-sky-200 hover:bg-sky-950/40">Ask someone to swap</button>` : ''}
-      </li>`;
-      const ranked = messEligible(cfg).map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '' })).sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name));
+      const swaps = messSwapsHtml(manage);
+      const open = upcoming.filter(d => d.cadetIds.length < cfg.perDay).length;
+      // A cadet who cannot volunteer anywhere and is on nothing (a local, a rank holder): keep it out of the way.
+      const relevant = upcoming.filter(d => d.cadetIds.length || messPool(d).some(c => c.id === me?.id));
+      const standbyOk = !!me && messStandbyOk(me);
+      if (!edit && !cq && !relevant.length && !swaps && !standbyOk) { host.innerHTML = '<p class="text-sm text-slate-400">Mess duty is for cadets (no rank holders) from the years on the list. Nothing for you here.</p>'; return; }
+      host.classList.remove('hidden');
+      const senior = edit && !lead && !admin;
+      const head = `<div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0"><h3 id="messHeading" class="font-extrabold text-white">Mess duty</h3>
+          ${senior && !manage ? `<p class="text-xs text-slate-500 mt-0.5">Looked after by the lance corporals and corporals.${upcoming.length ? ` ${upcoming.length} parade${upcoming.length === 1 ? '' : 's'} with refreshments coming up.` : ''}</p>`
+            : `<p class="text-xs text-slate-400 mt-0.5">At parades with refreshments, ${cfg.perDay} cadet${cfg.perDay === 1 ? '' : 's'} return them to the mess. Cadets on the volunteers list are asked first, then every cadet at that parade; places still empty go to the LCPLs and CPLs to pick. Only cadets (no rank holders) from ${esc(cfg.years.join(' & '))} years who are expected at that parade, never the locals.</p>`}</div>
+          ${lead ? `<button type="button" onclick="toggleMessManage()" aria-expanded="${manage}" class="mess-lead-btn">${manage ? 'Done' : 'Pick mess duty'}${!manage && open ? ` <span class="mess-badge">${open} to fill</span>` : ''}</button>`
+            : senior ? `<button type="button" onclick="toggleMessManage()" aria-expanded="${manage}" class="text-[11px] font-semibold text-slate-500 hover:text-slate-200 underline underline-offset-2">${manage ? 'Close' : 'Manage'}</button>` : ''}
+        </div>`;
+      if (senior && !manage) { host.innerHTML = head + (upcoming.length ? `<ul class="mess-list">${upcoming.map(d => messDayHtml(d, { compact: true })).join('')}</ul>` : ''); return; }
+      const ranked = messEligible(cfg).map(c => ({ c, n: counts.get(c.id)?.n || 0 })).sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name));
       const max = Math.max(1, ...ranked.map(r => r.n));
       const exempt = cfg.exempt.map(id => cadetById(id)).filter(Boolean);
       const q = MESS.q.trim().toLowerCase();
       const addable = q ? (app.state.cadets || []).filter(c => !cfg.exempt.includes(c.id) && c.name.toLowerCase().includes(q)).slice(0, 6) : [];
-      host.innerHTML = `
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div><h3 id="messHeading" class="font-extrabold text-white">Mess duty</h3>
-          <p class="text-xs text-slate-400 mt-0.5">${cfg.perDay} cadet${cfg.perDay === 1 ? '' : 's'} at each parade return the refreshments to the mess. Only cadets (no rank holders) from ${esc(cfg.years.join(' & '))} years who are expected at that parade, never the locals. Whoever has done it least goes next. They get a notification the evening before.</p></div>
-          <div class="flex flex-wrap gap-2">
-            ${edit ? `<button type="button" onclick="planMessParades()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Plan upcoming parades${messParadesToPlan().length ? ` (${messParadesToPlan().length})` : ''}</button>` : ''}
+      const rows = manage ? upcoming : relevant;
+      const standby = standbyOk ? `<div class="cf-switch" id="messStandby"><span><span class="block text-sm font-bold text-white">Ask me first</span><span class="block text-[11px] text-slate-400">${messOnStandby(me.id) ? 'You are on the volunteers list: when a parade gets refreshments you hear first and can take a place.' : 'Join the volunteers list: when a parade gets refreshments you hear first and can take a place.'}</span></span><input type="checkbox" role="switch" aria-label="On the mess duty volunteers list" ${messOnStandby(me.id) ? 'checked' : ''} onchange="toggleMessStandby()"></div>` : '';
+      host.innerHTML = head + `
+        ${standby}
+        ${manage ? `<div class="flex flex-wrap gap-2">
+            ${messParadesToPlan().length ? `<button type="button" onclick="planMessParades()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Fill all the rest fairly (${messParadesToPlan().length})</button>` : ''}
             <button type="button" onclick="copyMessDuty()" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Copy for WhatsApp</button>
-            ${edit ? `<button type="button" onclick="MESS.settings = !MESS.settings; renderMessCard()" aria-expanded="${MESS.settings}" class="px-3 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Settings</button>` : ''}
-          </div>
-        </div>
+            <button type="button" onclick="MESS.settings = !MESS.settings; renderMessCard()" aria-expanded="${MESS.settings}" class="px-3 py-2 text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 rounded-xl">Settings</button>
+          </div>` : ''}
         ${mine ? `<p class="mess-mine-note">Your next mess duty: <b>${mine.date === today ? 'today' : esc(dayLabel(mine.date))}</b></p>` : ''}
-        ${messSwapsHtml()}
-        ${edit && MESS.settings ? `<div class="mess-settings fx-enter">
+        ${swaps}
+        ${manage && MESS.settings ? `<div class="mess-settings fx-enter">
           <label class="text-xs font-bold text-slate-300">Cadets at each parade
             <input type="number" id="messPerDay" min="1" max="30" value="${cfg.perDay}" onchange="setMessConfig(c => { c.perDay = Math.min(30, Math.max(1, Math.round(Number(this.value)) || 1)); })" class="ml-2 w-20 px-2 py-1 bg-slate-950 border border-slate-700 text-white rounded-lg text-sm">
           </label>
           <div class="flex flex-wrap items-center gap-1.5"><span class="text-xs font-bold text-slate-300 w-12">Years</span>${YEARS.map(y => `<button type="button" class="af-chip text-[11px]" aria-pressed="${cfg.years.includes(y)}" onclick="toggleMessList('years', '${y}')">${y}</button>`).join('')}</div>
-          <div id="messLocals"><p class="text-xs font-bold text-slate-300">Locals (never on mess duty)${app.isAdmin() ? '' : ' <span class="font-normal text-slate-500">· the administrator changes this list</span>'}</p>
+          <div id="messLocals"><p class="text-xs font-bold text-slate-300">Locals (never on mess duty, not in the pick list)${app.isAdmin() ? '' : ' <span class="font-normal text-slate-500">· the administrator changes this list</span>'}</p>
             <div class="mt-1 flex flex-wrap gap-1.5">${exempt.map(c => app.isAdmin() ? `<button type="button" class="af-chip text-[11px]" aria-pressed="true" title="Not a local any more" onclick="toggleMessList('exempt', '${esc(c.id)}')">${esc(c.rank || 'CDT')} ${esc(c.name)}</button>` : `<span class="af-chip text-[11px]" aria-pressed="true">${esc(c.rank || 'CDT')} ${esc(c.name)}</span>`).join('') || '<span class="text-[11px] text-slate-500">Nobody.</span>'}</div>
             ${app.isAdmin() ? `<input type="search" id="messExemptSearch" value="${esc(MESS.q)}" oninput="MESS.q = this.value; renderMessCard(); const b = document.getElementById('messExemptSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Add a local: type a name…" autocomplete="off" class="mt-2 w-full sm:w-72 px-3 py-1.5 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-lg text-xs">
             ${addable.length ? `<div class="mt-1 flex flex-wrap gap-1.5">${addable.map(c => `<button type="button" class="af-chip text-[11px]" onclick="MESS.q = ''; toggleMessList('exempt', '${esc(c.id)}')">+ ${esc(c.rank || 'CDT')} ${esc(c.name)}</button>`).join('')}</div>` : ''}` : ''}
           </div>
         </div>` : ''}
-        ${upcoming.length ? `<ul class="mess-list">${upcoming.map(d => dayRow(d, false)).join('')}</ul>` : `<p class="text-xs text-slate-500">${edit ? 'Nothing planned. Plan upcoming parades picks the cadets for each parade.' : 'Nothing planned yet.'}</p>`}
-        <details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Times on mess duty (${ranked.length} cadets)</summary>
+        ${rows.length ? `<ul class="mess-list">${rows.map(d => messDayHtml(d, { manage, flash })).join('')}</ul>` : `<p class="text-xs text-slate-500">${cq ? 'No parade with refreshments coming up. Turn refreshments on in the parade (Edit, or the switch on its page).' : 'No parade with refreshments coming up.'}</p>`}
+        ${manage ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Times on mess duty (${ranked.length} cadets)</summary>
           <ul class="mt-2 space-y-1 max-h-72 overflow-y-auto pr-1">${ranked.map(r => `<li class="mess-count"><span class="truncate">${esc(r.c.rank || 'CDT')} ${esc(r.c.name)}</span><span class="mess-bar"><i class="bar-fill" style="width:${Math.round(r.n / max * 100)}%"></i></span><b class="font-mono-num">${r.n}</b></li>`).join('')}</ul>
         </details>
-        ${past.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Past days (${past.length})</summary><ul class="mess-list mt-2">${past.slice(0, 14).map(d => dayRow(d, true)).join('')}</ul></details>` : ''}`;
+        ${past.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">Past (${past.length})</summary><ul class="mess-list mt-2">${past.slice(0, 14).map(d => messDayHtml(d, { isPast: true })).join('')}</ul></details>` : ''}` : ''}`;
     }
     function cadetMessHtml(c) {
-      const list = messList().filter(d => (d.cadetIds || []).includes(c.id));
+      const list = messDays().filter(d => (d.cadetIds || []).includes(c.id));
       const today = ymd(new Date()), next = list.find(d => d.date >= today), done = list.filter(d => d.date < today).length;
       return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
         <div class="flex items-center justify-between gap-3"><h4 class="font-extrabold text-white">Mess duty</h4><span class="text-sm font-black text-amber-300 font-mono-num">${done}×</span></div>
@@ -10542,19 +11032,6 @@
         <button type="button" data-id="${id}" onclick="decideRequest(this.dataset.id, false)" class="${btn} border-rose-900/60 text-rose-300">Don't approve</button>
         ${r.hasImage ? `<button type="button" data-id="${id}" onclick="viewRequestImage(this.dataset.id)" class="${btn} border-slate-700 text-slate-200">View screenshot</button>` : ''}`;
     }
-    /** Parade detail, sergeants and above: leave asked for that covers this parade. Hidden when there is none. */
-    function renderParadeLeaveCard(pd) {
-      const asks = leaveAsksFor(pd); if (!asks.length) return '';
-      const esc = escapeHtml;
-      return `<div class="bg-slate-900 rounded-2xl border border-amber-700/60 p-4 sm:p-5 space-y-3" id="paradeLeaveCard">
-        <div><h3 class="font-extrabold text-white">Leave requested for this period <span class="text-sm text-amber-300 font-mono-num">${asks.length}</span></h3>
-          <p class="text-xs text-slate-400 mt-0.5">Excuse a cadet for this parade only (their leave request stays waiting), or decide the whole leave.</p></div>
-        <ul class="space-y-2">${asks.map(r => `<li class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
-          <p class="text-sm text-white"><span class="font-semibold">${esc(cadetLabel(r.cadetId))}</span> <span class="text-xs text-slate-500">${esc(cadetById(r.cadetId)?.company || '')}</span>
-            <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-700/60 text-amber-300">Leave ${esc(leaveRange({ from: r.fromDate, to: r.toDate }))} · ${leaveDayCount(r)} day${leaveDayCount(r) === 1 ? '' : 's'}</span></p>
-          <p class="text-xs text-slate-300 break-words">${esc(r.reason)}</p>
-          <div class="flex flex-wrap gap-2">${leaveDecideButtons(r, pd)}</div></li>`).join('')}</ul></div>`;
-    }
     async function excuseForParade(id, paradeId) {
       const r = REQ.list.find(x => x.id === id), pd = findParade(paradeId);
       if (!r || !pd) return;
@@ -10565,19 +11042,18 @@
       } catch (e) { app.showToast(e.message || 'Could not excuse them.'); loadRequests(true); }
       renderParadePage(); renderMyDay();
     }
-    /** Parades page: your leave, and for sergeants and above the leave waiting for a decision and who is on
-     *  leave. Each part is its own section with buttons; the whole area is hidden when there is nothing. */
+    /** The Leave dialog (Parades page, Leave box): ask for leave, and your own leave (approved, waiting, not approved). */
     function renderLeaveArea() {
       const host = document.getElementById('leaveArea');
-      if (!host || !cfState() || !app.isApproved?.()) { host?.classList.add('hidden'); return; }
-      const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), seniors = app.can('requests');
+      if (!host || !cfState() || !app.isApproved?.()) return;
+      const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date());
       const btn = 'px-3 py-2 text-xs font-bold rounded-xl border';
       const section = (title, count, tone, inner) => `<section class="rounded-xl border ${tone} bg-slate-950/50 p-3 sm:p-4 space-y-2.5">
         <h4 class="text-sm font-extrabold text-white">${title} <span class="font-mono-num text-slate-400">${count}</span></h4>${inner}</section>`;
       const parts = [];
       if (me) {
         const mine = leaveList().filter(l => l.cadetId === me.id && l.to >= today);
-        const reqs = leaveRequests().filter(r => r.cadetId === me.id && (r.status === 'pending' || (r.status === 'rejected' && r.toDate >= today)));
+        const reqs = leaveRequests().filter(r => r.cadetId === me.id && !r.dismissed && (r.status === 'pending' || (r.status === 'rejected' && r.toDate >= today)));
         if (mine.length || reqs.length) parts.push(section('Your leave', mine.length + reqs.length, 'border-sky-900/60', `<ul class="space-y-2">
           ${mine.map(l => `<li class="rounded-lg border border-emerald-800/60 bg-emerald-950/20 px-3 py-2 text-sm text-slate-200"><b>${esc(leaveRange(l))}</b> <span class="text-emerald-300 font-bold">Approved</span>${l.by ? ` <span class="text-xs text-slate-500">by ${esc(l.by)}</span>` : ''}
             <p class="text-[11px] text-slate-400 mt-0.5">Parades on these days are excused. You only need to read their agenda and minutes.</p></li>`).join('')}
@@ -10587,34 +11063,42 @@
             <p class="text-sm text-slate-200"><b>${esc(leaveRange({ from: r.fromDate, to: r.toDate }))}</b> ${r.status === 'pending' ? '<span class="text-amber-300 font-bold">Waiting for a decision</span>' : `<span class="text-rose-300 font-bold">Not approved</span>`}</p>
             <p class="text-xs text-slate-400 break-words">${esc(r.reason)}${r.status === 'rejected' && r.note ? ` · <span class="text-rose-300">${esc(r.note)}</span>` : ''}</p>
             ${excused.length ? `<p class="text-[11px] text-emerald-300">Excused so far from: ${excused.map(pd => esc(`${pd.title} (${new Date(pd.reportAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})`)).join(', ')}</p>` : ''}
-            ${r.status === 'pending' ? `<button type="button" data-id="${esc(r.id)}" onclick="withdrawSelfReport(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw request</button>` : ''}</li>`;
+            ${r.status === 'pending' ? `<button type="button" data-id="${esc(r.id)}" onclick="withdrawSelfReport(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw request</button>` : `<button type="button" data-id="${esc(r.id)}" onclick="dismissRequest(this.dataset.id)" class="${btn} border-slate-700 text-slate-300">Delete</button>`}</li>`;
           }).join('')}</ul>`));
       }
-      if (seniors) {
-        const waiting = leaveRequests().filter(r => r.status === 'pending').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
-        const current = leaveList().filter(l => l.to >= today).sort((a, b) => a.from.localeCompare(b.from));
-        if (waiting.length) parts.push(section('Leave waiting for a decision', waiting.length, 'border-amber-700/60', `<ul class="space-y-2">${waiting.map(r => {
-          const pds = leaveRequestParades(r);
-          return `<li class="rounded-lg border border-slate-800 bg-slate-900 p-3 space-y-2">
-            <p class="text-sm text-white"><span class="font-semibold">${esc(cadetLabel(r.cadetId))}</span> <span class="text-xs text-slate-500">${esc(cadetById(r.cadetId)?.company || '')}</span>
-              <span class="ml-1 text-xs text-amber-200">${esc(leaveRange({ from: r.fromDate, to: r.toDate }))} · ${leaveDayCount(r)} day${leaveDayCount(r) === 1 ? '' : 's'}</span></p>
-            <p class="text-xs text-slate-300 break-words">${esc(r.reason)}</p>
-            ${pds.length ? `<div class="space-y-1.5"><p class="text-[10px] font-black uppercase tracking-wider text-slate-500">Parades in this period</p>
-              <ul class="space-y-1.5">${pds.map(pd => {
-                const done = paradeReportOf(pd, r.cadetId), over = pd.reportAt + 3 * 3600000 < Date.now();
-                return `<li class="flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-slate-200">${esc(pd.title)} <span class="text-slate-500">· ${esc(paradeDay(pd.reportAt))} ${esc(paradeClock(pd.reportAt))}</span></span>
-                  ${done ? `<span class="text-emerald-300 font-bold">${done.fromLeave ? 'Excused' : done.kind === 'absent' ? "Can't come (recorded)" : 'Coming late (recorded)'}</span>`
-                    : over ? '<span class="text-slate-500">Over</span>'
-                    : r.mine && !app.isAdmin() ? '' : `<button type="button" data-id="${esc(r.id)}" data-parade="${esc(pd.id)}" onclick="excuseForParade(this.dataset.id, this.dataset.parade)" class="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border border-amber-500 text-amber-200">Excuse for this parade</button>`}</li>`;
-              }).join('')}</ul></div>` : '<p class="text-[11px] text-slate-500">No parades planned in this period yet.</p>'}
-            <div class="flex flex-wrap gap-2">${leaveDecideButtons(r, null)}</div></li>`;
-        }).join('')}</ul>`));
-        if (current.length) parts.push(section('On leave now or coming up', current.length, 'border-slate-800', `<ul class="space-y-2">${current.map(l => `<li class="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm text-slate-200"><b>${esc(cadetLabel(l.cadetId))}</b> <span class="text-xs text-slate-500">· ${esc(leaveRange(l))}</span> ${l.from <= today ? '<span class="text-xs text-emerald-300 font-bold">On leave now</span>' : '<span class="text-xs text-sky-300 font-bold">Coming up</span>'}</span>
-            <button type="button" data-id="${esc(l.id)}" onclick="endLeave(this.dataset.id)" class="${btn} border-slate-700 text-slate-200">${l.from <= today ? 'End leave' : 'Cancel leave'}</button></li>`).join('')}</ul>`));
-      }
-      host.className = parts.length ? 'bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3' : 'hidden';
-      host.innerHTML = parts.length ? `<h3 class="font-extrabold text-white">Leave</h3>${parts.join('')}` : '';
+      host.innerHTML = `${me ? `<div class="flex flex-wrap items-center justify-between gap-2"><p class="text-xs text-slate-400">Away for several days? Ask once for the whole period; a sergeant or above decides it.</p>
+          <button type="button" onclick="openLeaveModal()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Ask for leave</button></div>` : ''}
+        ${parts.join('') || '<p class="text-xs text-slate-500">No leave asked for.</p>'}`;
+    }
+    /** Sergeants and above (Requests dialog): leave waiting for a decision, and who is on leave. */
+    function seniorLeaveHtml() {
+      const esc = escapeHtml, today = ymd(new Date());
+      const btn = 'px-3 py-2 text-xs font-bold rounded-xl border';
+      const section = (title, count, tone, inner) => `<section class="rounded-xl border ${tone} bg-slate-950/50 p-3 sm:p-4 space-y-2.5">
+        <h4 class="text-sm font-extrabold text-white">${title} <span class="font-mono-num text-slate-400">${count}</span></h4>${inner}</section>`;
+      const parts = [];
+      const waiting = leaveRequests().filter(r => r.status === 'pending').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+      const current = leaveList().filter(l => l.to >= today).sort((a, b) => a.from.localeCompare(b.from));
+      if (waiting.length) parts.push(section('Leave waiting for a decision', waiting.length, 'border-amber-700/60', `<ul class="space-y-2">${waiting.map(r => {
+        const pds = leaveRequestParades(r);
+        return `<li class="rounded-lg border border-slate-800 bg-slate-900 p-3 space-y-2">
+          <p class="text-sm text-white"><span class="font-semibold">${esc(cadetLabel(r.cadetId))}</span> <span class="text-xs text-slate-500">${esc(cadetById(r.cadetId)?.company || '')}</span>
+            <span class="ml-1 text-xs text-amber-200">${esc(leaveRange({ from: r.fromDate, to: r.toDate }))} · ${leaveDayCount(r)} day${leaveDayCount(r) === 1 ? '' : 's'}</span></p>
+          <p class="text-xs text-slate-300 break-words">${esc(r.reason)}</p>
+          ${pds.length ? `<div class="space-y-1.5"><p class="text-[10px] font-black uppercase tracking-wider text-slate-500">Parades in this period</p>
+            <ul class="space-y-1.5">${pds.map(pd => {
+              const done = paradeReportOf(pd, r.cadetId), over = pd.reportAt + 3 * 3600000 < Date.now();
+              return `<li class="flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-slate-200">${esc(pd.title)} <span class="text-slate-500">· ${esc(paradeDay(pd.reportAt))} ${esc(paradeClock(pd.reportAt))}</span></span>
+                ${done ? `<span class="text-emerald-300 font-bold">${done.fromLeave ? 'Excused' : done.kind === 'absent' ? "Can't come (recorded)" : 'Coming late (recorded)'}</span>`
+                  : over ? '<span class="text-slate-500">Over</span>'
+                  : r.mine && !app.isAdmin() ? '' : `<button type="button" data-id="${esc(r.id)}" data-parade="${esc(pd.id)}" onclick="excuseForParade(this.dataset.id, this.dataset.parade)" class="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border border-amber-500 text-amber-200">Excuse for this parade</button>`}</li>`;
+            }).join('')}</ul></div>` : '<p class="text-[11px] text-slate-500">No parades planned in this period yet.</p>'}
+          <div class="flex flex-wrap gap-2">${leaveDecideButtons(r, null)}</div></li>`;
+      }).join('')}</ul>`));
+      if (current.length) parts.push(section('On leave now or coming up', current.length, 'border-slate-800', `<ul class="space-y-2">${current.map(l => `<li class="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <span class="text-sm text-slate-200"><b>${esc(cadetLabel(l.cadetId))}</b> <span class="text-xs text-slate-500">· ${esc(leaveRange(l))}</span> ${l.from <= today ? '<span class="text-xs text-emerald-300 font-bold">On leave now</span>' : '<span class="text-xs text-sky-300 font-bold">Coming up</span>'}</span>
+          <button type="button" data-id="${esc(l.id)}" onclick="endLeave(this.dataset.id)" class="${btn} border-slate-700 text-slate-200">${l.from <= today ? 'End leave' : 'Cancel leave'}</button></li>`).join('')}</ul>`));
+      return parts.join('');
     }
     function cadetLeaveHtml(c) {
       const list = leaveList().filter(l => l.cadetId === c.id).sort((a, b) => b.from.localeCompare(a.from));
@@ -10738,7 +11222,7 @@
         if (next) {
           const id = esc(next.id), lv = leaveOn(me.id, next.reportAt), line = myParadeLine(next), req = myRequest(next.id), rep = paradeReportOf(next, me.id);
           const canSay = !lv && !rep && req?.status !== 'pending' && !pendingLeaveFor(me.id, next) && paradeOpenForReports(next);
-          const kitLine = lv ? '' : [next.dress ? `Dress: ${next.dress}` : '', next.kit ? `Bring: ${next.kit}` : ''].filter(Boolean).join(' · ');
+          const kitLine = lv ? '' : [next.dress ? `Turnout: ${next.dress}` : '', next.kit ? `Bring: ${next.kit}` : ''].filter(Boolean).join(' · ');
           cards.push(card('Next parade', esc(next.title), `${esc(paradeDay(next.reportAt))}, ${esc(paradeClock(next.reportAt))}${next.venue ? ' · ' + esc(next.venue) : ''} · in <span data-until="${next.reportAt}">${esc(untilShort(next.reportAt - Date.now()))}</span>${line ? ' · ' + esc(line) : ''}${kitLine ? `<br>${esc(kitLine)}` : ''}`, {
             go: `switchCadetFlowPage('parades'); openParadeDetail('${id}')`,
             actions: `<button type="button" onclick="switchCadetFlowPage('parades'); openParadeDetail('${id}')">Open</button>${canSay ? `<button type="button" onclick="openSelfReport('${id}', 'late')">I'll be late</button><button type="button" onclick="openSelfReport('${id}', 'absent')">I can't come</button>` : ''}`,
@@ -10750,8 +11234,8 @@
         // Leave now or coming up, or waiting.
         const myLeave = leaveList().filter(l => l.cadetId === me.id && l.to >= today).sort((a, b) => a.from.localeCompare(b.from))[0];
         const waitingLeave = leaveRequests().filter(r => r.cadetId === me.id && r.status === 'pending');
-        if (myLeave) cards.push(card('Leave', esc(leaveRange(myLeave)), myLeave.from <= today ? 'You are on leave now' : 'Approved', { go: "switchCadetFlowPage('parades')" }));
-        else if (waitingLeave.length) cards.push(card('Leave', esc(leaveRange({ from: waitingLeave[0].fromDate, to: waitingLeave[0].toDate })), 'Waiting for approval', { go: "switchCadetFlowPage('parades')" }));
+        if (myLeave) cards.push(card('Leave', esc(leaveRange(myLeave)), myLeave.from <= today ? 'You are on leave now' : 'Approved', { go: "switchCadetFlowPage('parades'); openLeaveList()" }));
+        else if (waitingLeave.length) cards.push(card('Leave', esc(leaveRange({ from: waitingLeave[0].fromDate, to: waitingLeave[0].toDate })), 'Waiting for approval', { go: "switchCadetFlowPage('parades'); openLeaveList()" }));
         // Uniform: to pay or to collect.
         const uni = uniformRequests().filter(r => r.cadetId === me.id && r.status === 'arrived');
         const toPay = uni.filter(r => uniformReceiveBlock(r) && r.pay?.status !== 'submitted' && uniformUnitPrice(r) != null);
@@ -10759,8 +11243,8 @@
         if (toPay.length) cards.push(card('Uniform', `${toPay.length} item${toPay.length === 1 ? '' : 's'} to pay for`, esc(toPay.map(uniformFullLabel).join(', ')), { go: "switchCadetFlowPage('uniform')", warn: true }));
         else if (toCollect.length) cards.push(card('Uniform', `${toCollect.length} item${toCollect.length === 1 ? '' : 's'} ready to collect`, esc(toCollect.map(uniformFullLabel).join(', ')), { go: "switchCadetFlowPage('uniform')" }));
         // Mess duty.
-        const mess = messList().find(d => d.date >= today && (d.cadetIds || []).includes(me.id));
-        if (mess) cards.push(card('Mess duty', mess.date === today ? 'Today' : esc(dayLabel(mess.date)), esc(messTitle(mess)), { go: "switchCadetFlowPage('parades')", warn: mess.date === today }));
+        const mess = messDays().find(d => d.date >= today && (d.cadetIds || []).includes(me.id));
+        if (mess) cards.push(card('Mess duty', mess.date === today ? 'Today' : esc(dayLabel(mess.date)), esc(messTitle(mess)), { go: "switchCadetFlowPage('parades'); openMessDialog()", warn: mess.date === today }));
       }
       // Questions on the notice board not answered yet.
       const open = activeNotices().filter(n => Array.isArray(n.options) && n.options.length >= 2 && ANS.data[n.id] && ANS.data[n.id].mine == null);
@@ -10768,7 +11252,7 @@
       // Seniors: requests waiting; administrator: the week.
       if (app.can('requests')) {
         const waiting = REQ.list.filter(r => r.status === 'pending' && !(r.mine && !app.isAdmin()));
-        if (waiting.length) cards.push(card('Requests', `${waiting.length} waiting`, 'Late, absence and leave requests to decide', { go: "switchCadetFlowPage('parades')", warn: true }));
+        if (waiting.length) cards.push(card('Requests', `${waiting.length} waiting`, 'Late, absence and leave requests to decide', { go: "switchCadetFlowPage('parades'); openRequestsDialog()", warn: true }));
       }
       if (app.isAdmin()) {
         const wk = weekFigures();
@@ -11176,6 +11660,93 @@
       }, 50);
     }
 
+    // ---- Parades page: three boxes at the top (Requests for sergeants and above, Leave, Mess duty), each
+    // opening its own dialog, so the page itself shows only the parades.
+    const REQD = { pid: null };
+    function isOpenModal(id) { const m = document.getElementById(id); return !!m && !m.classList.contains('hidden'); }
+    /** Late/absence requests waiting for a parade that is not over, and leave waiting. */
+    function requestsWaiting() {
+      const now = Date.now();
+      return REQ.list.filter(r => r.status === 'pending' && (r.kind === 'leave' || (findParade(r.paradeId)?.reportAt || 0) + 3 * 3600000 >= now));
+    }
+    function messTileInfo() {
+      if (!cfState()) return null;
+      const me = app.myCadet(), per = messConfig().perDay, today = ymd(new Date());
+      const up = messUpcoming().filter(d => !d.paradeId || (findParade(d.paradeId)?.reportAt || 0) > Date.now());
+      const open = up.filter(d => d.cadetIds.length < per);
+      const mine = me ? up.find(d => d.cadetIds.includes(me.id)) : null;
+      if (mine) return { main: mine.date === today ? 'You: today' : `You: ${dayLabel(mine.date)}`, sub: messTitle(mine), warn: mine.date === today };
+      if (messLead() || app.isAdmin() || canRefreshments()) {
+        const soon = open.filter(d => d.date <= ymd(new Date(Date.now() + 3 * 86400000)));
+        return { main: open.length ? `${open.length} to fill` : up.length ? 'All filled' : 'Nothing coming up', sub: up.length ? `${up.length} parade${up.length === 1 ? '' : 's'} with refreshments` : 'No parade with refreshments', warn: soon.length > 0 && messLead() };
+      }
+      if (app.canEdit()) return { main: up.length ? `${up.length} coming up` : 'Nothing coming up', sub: 'Looked after by the LCPLs and CPLs' };
+      if (!me || !messStandbyOk(me)) return null;
+      const wanted = open.filter(d => d.paradeId && messPool(d).some(c => c.id === me.id));
+      if (wanted.length) return { main: 'Volunteers wanted', sub: `${wanted.length} parade${wanted.length === 1 ? '' : 's'} need${wanted.length === 1 ? 's' : ''} help`, warn: true };
+      return { main: messOnStandby(me.id) ? 'On the volunteers list' : 'Offer to help', sub: messOnStandby(me.id) ? 'You are asked first' : 'Get asked first when there are refreshments' };
+    }
+    function renderParadeTiles() {
+      const host = document.getElementById('paradeTiles'); if (!host || !cfState() || !app.isApproved?.()) return;
+      const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), tiles = [];
+      const tile = (key, label, main, sub, onclick, warn) => `<button type="button" class="par-tile ${warn ? 'par-tile-warn' : ''}" data-tile="${key}" onclick="${onclick}">
+          <span class="par-tile-label">${label}</span><b class="par-tile-main">${esc(main)}</b><span class="par-tile-sub">${esc(sub)}</span></button>`;
+      if (app.can('requests')) {
+        const n = requestsWaiting().length;
+        tiles.push(tile('requests', 'Requests', n ? `${n} waiting` : 'None waiting', n ? 'Late, absence and leave to decide' : 'Everything is decided', 'openRequestsDialog()', n > 0));
+      }
+      if (me) {
+        const mine = leaveList().filter(l => l.cadetId === me.id && l.to >= today).sort((a, b) => a.from.localeCompare(b.from))[0];
+        const asked = leaveRequests().filter(r => r.cadetId === me.id && r.status === 'pending');
+        tiles.push(tile('leave', 'Leave', mine ? leaveRange(mine) : asked.length ? 'Waiting' : 'Ask for leave',
+          mine ? (mine.from <= today ? 'You are on leave now' : 'Approved') : asked.length ? `${asked.length} request${asked.length === 1 ? '' : 's'} waiting for approval` : 'Away for several days', 'openLeaveList()', false));
+      }
+      const m = messTileInfo();
+      if (m) tiles.push(tile('mess', 'Mess duty', m.main, m.sub, 'openMessDialog()', !!m.warn));
+      host.innerHTML = tiles.join('');
+      host.classList.toggle('hidden', !tiles.length);
+    }
+    function openLeaveList() { renderLeaveArea(); document.getElementById('leaveListModal').classList.remove('hidden'); }
+    function openMessDialog(pid = null) {
+      MESS.focus = pid;
+      renderMessCard();
+      document.getElementById('messModal').classList.remove('hidden');
+      if (pid) setTimeout(() => document.querySelector(`#messCard [data-mess-parade="${CSS.escape(pid)}"]`)?.scrollIntoView({ block: 'center' }), 60);
+    }
+    /** Requests dialog: one parade's requests (with filters), or everything waiting. */
+    function openRequestsDialog(pid = null) {
+      if (!app.can('requests')) return;
+      REQD.pid = pid;
+      renderRequestsDialog();
+      document.getElementById('requestsModal').classList.remove('hidden');
+      loadRequests();
+    }
+    function renderRequestsDialog() {
+      const body = document.getElementById('requestsBody'); if (!body || !app.can('requests')) return;
+      const esc = escapeHtml, pd = REQD.pid ? findParade(REQD.pid) : null;
+      document.getElementById('requestsModalFor').textContent = pd ? `${pd.title} · ${paradeDay(pd.reportAt)} ${paradeClock(pd.reportAt)}` : 'Waiting for a decision';
+      if (pd) { body.innerHTML = renderParadeRequestsCard(pd); return; }
+      const now = Date.now();
+      const late = REQ.list.filter(r => r.status === 'pending' && r.kind !== 'leave' && (findParade(r.paradeId)?.reportAt || 0) + 3 * 3600000 >= now);
+      const groups = [...new Set(late.map(r => r.paradeId))].map(findParade).filter(Boolean).sort((a, b) => a.reportAt - b.reportAt);
+      const lateHtml = groups.map(p => `<section class="rounded-xl border border-amber-700/60 bg-slate-950/50 p-3 sm:p-4 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="text-sm font-extrabold text-white">${esc(p.title)} <span class="text-xs font-semibold text-slate-400">· ${esc(paradeDay(p.reportAt))} ${esc(paradeClock(p.reportAt))}</span></h4>
+            <button type="button" data-id="${esc(p.id)}" onclick="REQD.pid = this.dataset.id; renderRequestsDialog()" class="text-[11px] font-bold text-amber-300 hover:text-amber-200">All requests for this parade</button></div>
+          <ul class="space-y-2">${late.filter(r => r.paradeId === p.id).sort((a, b) => (a.at || 0) - (b.at || 0)).map(r => rqRowHtml(r)).join('')}</ul></section>`).join('');
+      const leaveHtml = seniorLeaveHtml();
+      body.innerHTML = `<div class="flex items-center justify-between gap-2"><p class="text-xs text-slate-400">Approved requests go onto the parade's reports. To see decided ones too, open a parade's requests.</p>
+          <button type="button" onclick="loadRequests(true)" class="shrink-0 text-[11px] font-bold text-slate-400 hover:text-white">Refresh</button></div>
+        ${lateHtml ? `<div class="space-y-3" id="rqWaitingLate"><h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">Coming late or can't come</h4>${lateHtml}</div>` : ''}
+        ${leaveHtml ? `<div class="space-y-3" id="rqWaitingLeave">${leaveHtml}</div>` : ''}
+        ${!lateHtml && !leaveHtml ? '<p class="text-sm text-slate-400">Nothing is waiting for a decision.</p>' : ''}`;
+    }
+    /** Redraw whatever dialog of the Parades page is open (after a sync or a change). */
+    function rerenderParadeDialogs() {
+      if (isOpenModal('requestsModal')) renderRequestsDialog();
+      if (isOpenModal('leaveListModal')) renderLeaveArea();
+      if (isOpenModal('messModal')) renderMessCard();
+    }
+
     // ---- Hook the new parts into the existing redraws
     {
       const base = renderFeatures;
@@ -11186,12 +11757,12 @@
         loadAnswers();
         if (isVisible('registerPage')) renderRegisterPage();
         if (isVisible('directoryPage')) renderCertCard();
-        if (isVisible('paradePage')) renderLeaveArea();
+        if (isVisible('paradePage')) { renderParadeTiles(); rerenderParadeDialogs(); }
       };
       const baseParade = renderParadePage;
       renderParadePage = function () {
         const r = baseParade.apply(this, arguments);
-        if (isVisible('paradePage') && cfState()) { renderLeaveArea(); if (!PAR.openId) renderMessCard(); }
+        if (cfState()) { if (isVisible('paradePage') && !PAR.openId) renderParadeTiles(); rerenderParadeDialogs(); }
         if (isVisible('homePage') && cfState()) renderMyDay();
         return r;
       };
@@ -11217,11 +11788,23 @@
       return need ? `attend the next ${need} parade${need === 1 ? '' : 's'} to reach 75%` : 'at 75%';
     }
 
-    // ---- Sign-ups: JUOs, SUOs and the administrator open one (seats, closing time, who may apply);
-    // cadets apply through the server; the organiser selects. state.signups =
-    // [{ id, title, details, seats, closesAt, scope, years?, closed?, createdBy, createdAt,
+    // ---- Sign-ups: anyone who posts notices opens one from the notice form (Sign-up), or JUOs, SUOs and
+    // the administrator from here; cadets apply through the server; the organiser (whoever opened it, JUO,
+    // SUO, administrator) selects. state.signups =
+    // [{ id, title, details, place?, date?, time?, seats, closesAt, scope, years?, closed?, createdBy, byCadet?, createdAt,
     //    applicants: [{ id: 'ap-<cadet id>', cadetId, at, status: 'applied'|'selected'|'not' }] }]
     const SIGN = { editId: null, open: new Set(), busy: false, years: [] };
+    /** The one who opened it, JUOs, SUOs and the administrator run a sign-up. */
+    function canManageSignup(x) {
+      if (!app.canEdit()) return false;
+      return app.can('parade') || (!!x && !!x.byCadet && x.byCadet === app.myCadet()?.id);
+    }
+    /** "Sat 14 Nov, 09:00" for the sign-up's own date and time ('' when none). */
+    function signupWhenText(x) {
+      if (!x.date || !/^\d{4}-\d{2}-\d{2}$/.test(x.date)) return '';
+      const d = new Date(`${x.date}T${/^\d{2}:\d{2}$/.test(x.time || '') ? x.time : '00:00'}`);
+      return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + (x.time ? `, ${x.time}` : '');
+    }
     function signupList() { return (cfState()?.signups || []).filter(x => x && safeId(x.id) && x.title); }
     function signupIsOpen(x) { return !x.closed && Date.now() < Number(x.closesAt); }
     function signupFor(x, c) { return !!c && cadetInEvent(c, { type: 'task', scope: x.scope, years: x.years, cadetIds: x.cadetIds }); }
@@ -11235,20 +11818,21 @@
       return { waiting: seats > 0 && i >= 0 && taken + i >= seats, pos: i + 1 };
     }
     function signupShown() {
-      const me = app.myCadet(), org = app.can('parade'), week = Date.now() - 14 * 86400000;
-      return signupList().filter(x => org ? (signupIsOpen(x) || Number(x.closesAt) > week - 16 * 86400000)
+      const me = app.myCadet(), week = Date.now() - 14 * 86400000;
+      return signupList().filter(x => canManageSignup(x) ? (signupIsOpen(x) || Number(x.closesAt) > week - 16 * 86400000)
         : (signupIsOpen(x) && signupFor(x, me)) || signupApplicants(x).some(a => a.cadetId === me?.id) && Number(x.closesAt) > week)
         .sort((a, b) => Number(signupIsOpen(b)) - Number(signupIsOpen(a)) || Number(a.closesAt) - Number(b.closesAt));
     }
     function renderSignups() {
       const host = document.getElementById('signupsCard');
       if (!host || !cfState() || !app.isApproved?.()) { host?.classList.add('hidden'); return; }
-      const esc = escapeHtml, me = app.myCadet(), org = app.can('parade'), list = signupShown();
-      if (!list.length && !org) { host.className = 'hidden'; host.innerHTML = ''; return; }
+      const esc = escapeHtml, me = app.myCadet(), list = signupShown();
+      if (!list.length && !app.canEdit()) { host.className = 'hidden'; host.innerHTML = ''; return; }
       const btn = 'px-3 py-2 text-xs font-bold rounded-xl border';
       const statusText = { applied: 'Applied', selected: 'Selected', not: 'Not selected' };
       const item = x => {
-        const id = esc(x.id), apps = signupApplicants(x), open = signupIsOpen(x), seats = Number(x.seats) || 0;
+        const id = esc(x.id), apps = signupApplicants(x), open = signupIsOpen(x), seats = Number(x.seats) || 0, org = canManageSignup(x);
+        const whenText = signupWhenText(x);
         const mine = me ? apps.find(a => a.cadetId === me.id) : null, eligible = signupFor(x, me);
         const chosen = apps.filter(a => a.status === 'selected').length;
         let mineHtml = '';
@@ -11269,9 +11853,11 @@
         return `<li class="rounded-xl border ${open ? 'border-slate-700' : 'border-slate-800'} bg-slate-950/50 p-3 sm:p-4 space-y-2" data-signup="${id}">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0"><p class="text-sm font-extrabold text-white break-words">${esc(x.title)}</p>
-              <p class="text-[11px] ${open ? 'text-amber-300' : 'text-slate-500'}">${open ? `Closes ${esc(fmtWhen(Number(x.closesAt)))}` : 'Closed'}${seats ? ` · ${seats} place${seats === 1 ? '' : 's'}` : ''} · ${apps.length} applied${chosen ? ` · ${chosen} selected` : ''} · ${esc(eventAudienceText({ type: 'task', scope: x.scope, years: x.years }))}</p></div>
+              <p class="text-[11px] ${open ? 'text-amber-300' : 'text-slate-500'}">${open ? `Apply by ${esc(fmtWhen(Number(x.closesAt)))}` : 'Closed'}${seats ? ` · ${seats} vacanc${seats === 1 ? 'y' : 'ies'}` : ''} · ${apps.length} applied${chosen ? ` · ${chosen} selected` : ''} · ${esc(eventAudienceText({ type: 'task', scope: x.scope, years: x.years }))}</p></div>
           </div>
+          ${x.place || whenText ? `<p class="text-xs text-slate-200">${whenText ? `<b class="text-slate-400 font-semibold">When</b> ${esc(whenText)}` : ''}${x.place && whenText ? ' · ' : ''}${x.place ? `<b class="text-slate-400 font-semibold">Where</b> ${esc(x.place)}` : ''}</p>` : ''}
           ${x.details ? `<p class="text-xs text-slate-300 whitespace-pre-wrap break-words">${esc(x.details)}</p>` : ''}
+          ${x.createdBy ? `<p class="text-[11px] text-slate-500">Opened by ${esc(x.createdBy)}</p>` : ''}
           ${mineHtml}
           ${cadetBtns ? `<div class="flex flex-wrap gap-1.5">${cadetBtns}</div>` : ''}
           ${org ? `<div class="flex flex-wrap gap-1.5">
@@ -11288,8 +11874,8 @@
       };
       host.className = 'bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3 mt-4';
       host.innerHTML = `<div class="flex flex-wrap items-start justify-between gap-3"><div><h3 id="signupsHeading" class="font-extrabold text-white">Sign-ups</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Camps, competitions and duties you can apply for. The organiser selects who goes.</p></div>
-          ${org ? '<button type="button" onclick="openSignupModal()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New sign-up</button>' : ''}</div>
+          <p class="text-xs text-slate-400 mt-0.5">Anything you can apply for: camps, events, duties. Whoever opened it selects who goes.</p></div>
+          ${app.canEdit() ? `<button type="button" onclick="openNoticeComposer('signup')" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">New sign-up</button>` : ''}</div>
         ${list.length ? `<ul class="space-y-2">${list.map(item).join('')}</ul>` : '<p class="text-xs text-slate-500">No sign-ups open.</p>'}`;
     }
     function toggleSignupApplicants(id) { if (SIGN.open.has(id)) SIGN.open.delete(id); else SIGN.open.add(id); renderSignups(); }
@@ -11304,8 +11890,7 @@
     }
     function findSignup(id) { return signupList().find(x => x.id === id) || null; }
     function setApplicant(id, cadetId, status) {
-      if (!app.can('parade')) return;
-      const x = findSignup(id); if (!x) return;
+      const x = findSignup(id); if (!x || !canManageSignup(x)) return;
       const a = (x.applicants || []).find(y => y.cadetId === cadetId); if (!a) return;
       a.status = status; a.decidedAt = Date.now(); a.decidedBy = app.authorName();
       const seats = Number(x.seats) || 0, chosen = signupApplicants(x).filter(y => y.status === 'selected').length;
@@ -11313,8 +11898,7 @@
       if (status === 'selected' && seats && chosen > seats) app.showToast(`${chosen} selected for ${seats} place${seats === 1 ? '' : 's'}.`);
     }
     function selectFirstApplicants(id) {
-      if (!app.can('parade')) return;
-      const x = findSignup(id); if (!x) return;
+      const x = findSignup(id); if (!x || !canManageSignup(x)) return;
       const seats = Number(x.seats) || 0; let left = seats - signupApplicants(x).filter(a => a.status === 'selected').length;
       signupApplicants(x).forEach(a => { if (a.status === 'applied' && left > 0) { const y = x.applicants.find(z => z.id === a.id); y.status = 'selected'; y.decidedAt = Date.now(); y.decidedBy = app.authorName(); left--; } });
       app.logHistory('signup-selected', null, `${x.title}: selected the first ${seats}`);
@@ -11334,23 +11918,23 @@
       } catch (e) { app.showToast(e.message || 'Could not send it.'); }
     }
     function closeSignup(id, close) {
-      const x = findSignup(id); if (!x || !app.can('parade')) return;
+      const x = findSignup(id); if (!x || !canManageSignup(x)) return;
       if (close) x.closed = true; else { delete x.closed; if (Number(x.closesAt) <= Date.now()) x.closesAt = Date.now() + 2 * 86400000; }
       app.logHistory('signup-edited', null, `${x.title}: ${close ? 'closed' : 'reopened'}`);
       app.saveStorage(); renderSignups();
     }
     function removeSignup(id) {
-      if (!app.can('parade')) return;
       const list = app.state.signups || [], at = list.findIndex(x => x.id === id); if (at < 0) return;
-      const x = list[at];
+      const x = list[at]; if (!canManageSignup(x)) return;
       app.state.signups = list.filter(y => y.id !== id);
       app.logHistory('signup-removed', null, `Removed sign-up: ${x.title}`);
       app.saveStorage(); renderSignups();
       app.showToast('Sign-up removed.', { undo: () => { app.state.signups = putBack(app.state.signups || [], x, at); app.saveStorage(); renderSignups(); } });
     }
     function openSignupModal(id) {
-      if (!app.can('parade')) { app.showToast('Only JUOs, SUOs and the administrator open sign-ups.'); return; }
       const x = id ? findSignup(id) : null;
+      if (!x) { openNoticeComposer('signup'); return; }
+      if (!canManageSignup(x)) { app.showToast('Only whoever opened it, JUOs, SUOs and the administrator change a sign-up.'); return; }
       SIGN.editId = x ? x.id : null;
       SIGN.years = x ? normalizeYears(x.years) : [];
       const close = x ? new Date(Number(x.closesAt)) : new Date(Date.now() + 3 * 86400000);
@@ -11359,10 +11943,15 @@
       const inp = 'mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500';
       document.getElementById('signupModalHeading').textContent = x ? 'Edit sign-up' : 'New sign-up';
       document.getElementById('signupBody').innerHTML = `<div class="space-y-3">
-        <label class="block text-xs font-bold text-slate-300">What for<input id="suTitle" maxlength="100" value="${esc(x?.title || '')}" placeholder="e.g. Republic Day camp selection" class="${inp}"></label>
-        <label class="block text-xs font-bold text-slate-300">Details <span class="font-normal text-slate-500">(optional)</span><textarea id="suDetails" rows="3" maxlength="1000" placeholder="Dates, place, who can apply, what to bring" class="${inp}">${esc(x?.details || '')}</textarea></label>
+        <label class="block text-xs font-bold text-slate-300">Title<input id="suTitle" maxlength="100" value="${esc(x?.title || '')}" placeholder="e.g. Republic Day camp selection" class="${inp}"></label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="block text-xs font-bold text-slate-300">Location<input id="suPlace" maxlength="100" value="${esc(x?.place || '')}" class="${inp}"></label>
+          <label class="block text-xs font-bold text-slate-300">Date<input id="suOnDate" type="date" value="${esc(x?.date || '')}" class="${inp}"></label>
+          <label class="block text-xs font-bold text-slate-300">Time<input id="suOnTime" type="time" value="${esc(x?.time || '')}" class="${inp}"></label>
+        </div>
+        <label class="block text-xs font-bold text-slate-300">Description <span class="font-normal text-slate-500">(optional)</span><textarea id="suDetails" rows="3" maxlength="1000" placeholder="Dates, place, who can apply, what to bring" class="${inp}">${esc(x?.details || '')}</textarea></label>
         <div class="grid grid-cols-3 gap-3">
-          <label class="block text-xs font-bold text-slate-300">Places<input id="suSeats" type="number" min="0" max="500" value="${x ? Number(x.seats) || 0 : 0}" class="${inp}"><span class="block text-[10px] font-normal text-slate-500 mt-0.5">0 = no limit</span></label>
+          <label class="block text-xs font-bold text-slate-300">Vacancies<input id="suSeats" type="number" min="0" max="500" value="${x ? Number(x.seats) || 0 : 0}" class="${inp}"><span class="block text-[10px] font-normal text-slate-500 mt-0.5">0 = no limit</span></label>
           <label class="block text-xs font-bold text-slate-300">Closes on<input id="suDate" type="date" value="${close.getFullYear()}-${pad(close.getMonth() + 1)}-${pad(close.getDate())}" class="${inp}"></label>
           <label class="block text-xs font-bold text-slate-300">at<input id="suTime" type="time" value="${pad(close.getHours())}:${pad(close.getMinutes())}" class="${inp}"></label>
         </div>
@@ -11379,7 +11968,7 @@
       setTimeout(() => document.getElementById('suTitle')?.focus(), 50);
     }
     async function saveSignup() {
-      if (!app.can('parade')) return;
+      if (SIGN.editId ? !canManageSignup(findSignup(SIGN.editId)) : !app.can('parade')) return;
       const err = document.getElementById('suError'), fail = t => { err.textContent = t; err.classList.remove('hidden'); };
       const title = document.getElementById('suTitle').value.trim().replace(/\s+/g, ' ');
       const details = document.getElementById('suDetails').value.trim();
@@ -11394,6 +11983,9 @@
       if (id) {
         const x = findSignup(id); if (!x) return fail('This sign-up was removed meanwhile.');
         Object.assign(x, { title, details, seats, closesAt, scope }); if (years.length) x.years = years; else delete x.years;
+        const place = document.getElementById('suPlace').value.trim().replace(/\s+/g, ' ').slice(0, 100), onDate = document.getElementById('suOnDate').value, onTime = document.getElementById('suOnTime').value;
+        if (place) x.place = place; else delete x.place;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(onDate)) { x.date = onDate; if (onTime) x.time = onTime; else delete x.time; } else { delete x.date; delete x.time; }
         app.logHistory('signup-edited', null, `Edited sign-up: ${title}`);
       } else {
         id = newId('signup');
@@ -11410,77 +12002,90 @@
       }
     }
 
-    // ---- Mess duty swaps: the cadet on duty asks another cadet (optionally taking one of their days in
-    // return); the other cadet agrees; a lance corporal or above approves. All through the server.
-    // state.messSwaps = [{ id, dayId, date, from, to, takeDayId?, takeDate?, status, at, answeredAt?, decidedAt?, decidedBy? }]
+    // ---- Mess duty swaps, through the server: the cadet on duty puts it up for anyone (any cadet who can
+    // do it takes it), or asks one cadet, optionally taking one of their duties in return. Taking it or
+    // agreeing makes the change at once: both agreed, so no senior needs to approve.
+    // state.messSwaps = [{ id, dayId, date, from, to (null while open), takeDayId?, takeDate?, status: open|asked|done|declined|withdrawn, at, answeredAt? }]
     const SWAP = { dayId: null, to: null, q: '', busy: false };
-    function swapList() { return (cfState()?.messSwaps || []).filter(x => x && safeId(x.id) && x.from && x.to); }
-    function messSwapsHtml() {
-      const me = app.myCadet(), esc = escapeHtml, writer = app.canEdit(), recent = Date.now() - 7 * 86400000;
-      const mine = swapList().filter(x => me && (x.from === me.id || x.to === me.id) && (['asked', 'accepted'].includes(x.status) || Number(x.decidedAt || x.answeredAt || 0) > recent));
-      const toApprove = writer ? swapList().filter(x => x.status === 'accepted' && !mine.includes(x)) : [];
-      if (!mine.length && !toApprove.length) return '';
+    function swapList() { return (cfState()?.messSwaps || []).filter(x => x && safeId(x.id) && x.from); }
+    /** Can I take this open swap? Same rules as picking: a cadet expected at that parade, not a local, not on leave. */
+    function canTakeSwap(x, me = app.myCadet()) {
+      if (!me || x.status !== 'open' || x.from === me.id) return false;
+      const d = messDayById(x.dayId);
+      return !!d && d.date >= ymd(new Date()) && d.cadetIds.includes(x.from) && !d.cadetIds.includes(me.id) && messShown(d) && messPool(d).some(c => c.id === me.id);
+    }
+    function messSwapsHtml(manage = false) {
+      const me = app.myCadet(), esc = escapeHtml, recent = Date.now() - 7 * 86400000, today = ymd(new Date());
+      const live = x => x.status === 'open' || x.status === 'asked';
+      const list = swapList().filter(x => x.date >= today || Number(x.answeredAt || 0) > recent).filter(x =>
+        (me && (x.from === me.id || x.to === me.id) && (live(x) || Number(x.answeredAt || x.at || 0) > recent)) || canTakeSwap(x, me) || (manage && live(x)));
+      if (!list.length) return '';
       const btn = 'px-2.5 py-1.5 text-[11px] font-bold rounded-lg border';
-      const what = x => `${esc(cadetLabel(x.to))} takes ${esc(cadetLabel(x.from))}'s duty on ${esc(dayLabel(x.date))}${x.takeDate ? `; ${esc(cadetLabel(x.from))} takes ${esc(dayLabel(x.takeDate))}` : ''}`;
-      const state = { asked: 'Waiting for an answer', accepted: 'Agreed · waiting for a senior', declined: 'Said no', approved: 'Approved', refused: 'Not approved', withdrawn: 'Withdrawn' };
+      const where = x => { const d = messDayById(x.dayId); return esc(d ? messTitle(d) : dayLabel(x.date)); };
+      const what = x => x.status === 'open' ? `${esc(cadetLabel(x.from))} needs someone for ${where(x)}`
+        : x.status === 'done' ? `${esc(cadetLabel(x.to))} took ${esc(cadetLabel(x.from))}'s duty at ${where(x)}${x.takeDate ? `; ${esc(cadetLabel(x.from))} took ${esc(dayLabel(x.takeDate))}` : ''}`
+        : `${esc(cadetLabel(x.from))} asks ${esc(cadetLabel(x.to))} to take ${where(x)}${x.takeDate ? `; in return ${esc(cadetLabel(x.from))} takes ${esc(dayLabel(x.takeDate))}` : ''}`;
+      const label = { open: 'Up for anyone to take', asked: 'Waiting for an answer', done: 'Swapped', declined: 'Said no', withdrawn: 'Withdrawn', accepted: 'Agreed', approved: 'Swapped', refused: 'Not approved' };
       const row = x => {
         let acts = '';
-        if (me && x.to === me.id && x.status === 'asked') acts = `<button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Agree</button><button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Say no</button>`;
-        else if (me && x.from === me.id && ['asked', 'accepted'].includes(x.status)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="withdrawSwap(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw</button>`;
-        if (writer && x.status === 'accepted' && (app.isAdmin() || !me || (x.from !== me.id && x.to !== me.id))) acts += `<button type="button" data-id="${esc(x.id)}" onclick="decideSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Approve</button><button type="button" data-id="${esc(x.id)}" onclick="decideSwap(this.dataset.id, false)" class="${btn} border-rose-900/60 text-rose-300">Don't approve</button>`;
+        if (canTakeSwap(x, me)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="takeSwap(this.dataset.id)" class="${btn} border-emerald-600 bg-emerald-600 text-white">I'll take it</button>`;
+        else if (me && x.to === me.id && x.status === 'asked') acts = `<button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, true)" class="${btn} border-emerald-600 bg-emerald-600 text-white">Agree</button><button type="button" data-id="${esc(x.id)}" onclick="answerSwap(this.dataset.id, false)" class="${btn} border-slate-700 text-slate-300">Say no</button>`;
+        else if (me && x.from === me.id && live(x)) acts = `<button type="button" data-id="${esc(x.id)}" onclick="withdrawSwap(this.dataset.id)" class="${btn} border-rose-900/60 text-rose-300">Withdraw</button>`;
         return `<li class="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 space-y-1.5"><p class="text-xs text-slate-200">${what(x)}</p>
-          <p class="text-[11px] ${x.status === 'approved' ? 'text-emerald-300' : ['declined', 'refused', 'withdrawn'].includes(x.status) ? 'text-slate-500' : 'text-amber-300'}">${state[x.status] || ''}${x.decidedBy ? ' · ' + esc(x.decidedBy) : ''}</p>
+          <p class="text-[11px] ${['done', 'approved'].includes(x.status) ? 'text-emerald-300' : ['declined', 'refused', 'withdrawn'].includes(x.status) ? 'text-slate-500' : 'text-amber-300'}">${label[x.status] || ''}</p>
           ${acts ? `<div class="flex flex-wrap gap-1.5">${acts}</div>` : ''}</li>`;
       };
-      return `<div class="space-y-2" id="messSwaps"><h4 class="text-xs font-extrabold text-white">Swap requests</h4><ul class="space-y-1.5">${[...mine, ...toApprove].map(row).join('')}</ul></div>`;
+      return `<div class="space-y-2" id="messSwaps"><h4 class="text-xs font-extrabold text-white">Swaps</h4><ul class="space-y-1.5">${list.map(row).join('')}</ul></div>`;
     }
     function openSwapModal(dayId) {
-      const me = app.myCadet(), d = (cfState()?.messDuty || []).find(x => x.id === dayId);
+      const me = app.myCadet(), d = messDayById(dayId);
       if (!me || !d) return;
       SWAP.dayId = dayId; SWAP.to = null; SWAP.q = '';
       document.getElementById('swapModalHeading').textContent = `Swap: ${messTitle(d)}`;
       renderSwapModal();
       document.getElementById('swapModal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('swapSearch')?.focus(), 50);
     }
     function renderSwapModal() {
-      const d = (cfState()?.messDuty || []).find(x => x.id === SWAP.dayId); if (!d) return;
+      const d = messDayById(SWAP.dayId); if (!d) return;
       const esc = escapeHtml, me = app.myCadet(), today = ymd(new Date()), q = SWAP.q.trim().toLowerCase();
-      const pd = findParade(d.paradeId), expected = pd ? new Set(paradeCadets(pd).map(c => c.id)) : null;
-      const pool = messEligible().filter(c => c.id !== me.id && !d.cadetIds.includes(c.id) && !leaveOnDate(c.id, d.date) && (!expected || expected.has(c.id)) && (!q || c.name.toLowerCase().includes(q)))
+      const pool = messPool(d, new Set([...d.cadetIds, me.id])).filter(c => !q || c.name.toLowerCase().includes(q))
         .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40);
-      const theirDays = SWAP.to ? messList().filter(x => x.date >= today && x.cadetIds.includes(SWAP.to) && !x.cadetIds.includes(me.id)) : [];
+      const theirDays = SWAP.to ? messDays().filter(x => x.date >= today && x.cadetIds.includes(SWAP.to) && !x.cadetIds.includes(me.id)) : [];
       const was = document.getElementById('swapTake')?.value || '';
       document.getElementById('swapBody').innerHTML = `<div class="space-y-3">
-        <p class="text-xs text-slate-400">Pick who should do your duty. They are asked first; once they agree, a lance corporal or above approves it.</p>
+        <div class="rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-3 space-y-2">
+          <p class="text-xs text-slate-300">Put it up: any cadet who can do it takes it. You are off it as soon as someone does, no senior needed.</p>
+          <button type="button" id="swapOpen" onclick="sendSwap(true)" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl">Put it up for anyone</button>
+        </div>
+        <p class="text-xs text-slate-400">Or ask one cadet. When they agree, the swap is done.</p>
         <input type="search" id="swapSearch" value="${esc(SWAP.q)}" oninput="SWAP.q = this.value; renderSwapModal(); const b = document.getElementById('swapSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
         <div class="max-h-56 overflow-y-auto border border-slate-800 rounded-xl p-1">${pool.map(c => `<button type="button" data-id="${esc(c.id)}" onclick="SWAP.to = this.dataset.id; renderSwapModal()" aria-pressed="${SWAP.to === c.id}" class="af-chip text-xs m-0.5">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="opacity-60">${esc(c.company)}</span></button>`).join('') || '<p class="p-2 text-xs text-slate-500">Nobody matches.</p>'}</div>
         ${SWAP.to ? `<label class="block text-xs font-bold text-slate-300">In return <span class="font-normal text-slate-500">(optional)</span>
-          <select id="swapTake" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">Nothing: they just take my day</option>${theirDays.map(x => `<option value="${esc(x.id)}" ${was === x.id ? 'selected' : ''}>I take their duty at ${esc(messTitle(x))}</option>`).join('')}</select></label>` : ''}
+          <select id="swapTake" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-sm"><option value="">Nothing: they just take mine</option>${theirDays.map(x => `<option value="${esc(x.id)}" ${was === x.id ? 'selected' : ''}>I take their duty at ${esc(messTitle(x))}</option>`).join('')}</select></label>` : ''}
         <p id="swapError" class="hidden text-xs text-rose-300" role="alert"></p>
         <div class="flex justify-end gap-2"><button type="button" onclick="app.closeModal('swapModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
-          <button type="button" id="swapSend" onclick="sendSwap()" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div></div>`;
+          <button type="button" id="swapSend" onclick="sendSwap(false)" ${SWAP.to ? '' : 'disabled'} class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 rounded-xl">Ask ${SWAP.to ? esc(cadetById(SWAP.to)?.name || '') : ''}</button></div></div>`;
     }
-    async function sendSwap() {
-      if (SWAP.busy || !SWAP.to) return;
-      const take = document.getElementById('swapTake')?.value || '';
+    async function sendSwap(open) {
+      if (SWAP.busy || (!open && !SWAP.to)) return;
+      const take = open ? '' : (document.getElementById('swapTake')?.value || '');
       SWAP.busy = true;
       try {
-        await api('swapAsk', { dayId: SWAP.dayId, to: SWAP.to, ...(take ? { takeDayId: take } : {}) });
+        await api('swapAsk', open ? { dayId: SWAP.dayId } : { dayId: SWAP.dayId, to: SWAP.to, ...(take ? { takeDayId: take } : {}) });
         app.closeModal('swapModal');
         await app.refreshFromRemote();
-        app.showToast(`Asked ${cadetLabel(SWAP.to)}. You will be told when they answer.`);
+        app.showToast(open ? 'Put up. You are told when someone takes it.' : `Asked ${cadetLabel(SWAP.to)}. When they agree, the swap is done.`);
       } catch (e) { const el = document.getElementById('swapError'); if (el) { el.textContent = e.message || 'Could not send it.'; el.classList.remove('hidden'); } }
-      finally { SWAP.busy = false; renderMessCard(); renderMyDay(); }
+      finally { SWAP.busy = false; messRedraw(); }
     }
     async function swapCall(action, body, done) {
       try { await api(action, body); await app.refreshFromRemote(); app.showToast(done); }
-      catch (e) { app.showToast(e.message || 'Could not save it.'); }
-      renderMessCard(); renderMyDay();
+      catch (e) { app.showToast(e.message || 'Could not save it.'); await app.refreshFromRemote?.(); }
+      messRedraw();
     }
-    function answerSwap(id, accept) { return swapCall('swapAnswer', { id, accept }, accept ? 'Agreed. A senior approves it next.' : 'Told them no.'); }
+    function takeSwap(id) { return swapCall('swapTake', { id }, 'Done: the duty is yours now.'); }
+    function answerSwap(id, accept) { return swapCall('swapAnswer', { id, accept }, accept ? 'Done: the duty is yours now.' : 'Told them no.'); }
     function withdrawSwap(id) { return swapCall('swapWithdraw', { id }, 'Swap request withdrawn.'); }
-    function decideSwap(id, approve) { return swapCall('swapDecide', { id, approve }, approve ? 'Swap approved. Mess duty is updated.' : 'Swap not approved.'); }
 
     // ---- Learn: practice questions (server tables, SGT and above keep the bank) and the study library
     // (links only: files stay on Google Drive, YouTube or websites, so nothing is stored here).
@@ -11593,8 +12198,13 @@
         <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="font-extrabold text-white">Question bank <span class="text-sm text-slate-500 font-mono-num">${bank.length}</span></h3>
           <p class="text-xs text-slate-400 mt-0.5">Sergeants and above add questions. Import a sheet with columns: cert (B, C or both), subject, question, A, B, C, D (up to F), answer (letter), explanation.</p></div>
           <div class="flex flex-wrap gap-2"><button type="button" onclick="openQuizModal()" class="${btn} bg-amber-500 hover:bg-amber-400 text-slate-950">Add question</button>
-            <button type="button" onclick="document.getElementById('quizImportFile').click()" class="${btn} bg-slate-800 border border-slate-700 text-slate-200">Import Excel or CSV</button>
-            <input type="file" id="quizImportFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="importQuizFile(this)"></div></div>
+            <button type="button" onclick="document.getElementById('quizImportFile').click()" class="${btn} bg-slate-800 border border-slate-700 text-slate-200">Import PDF, Excel or text</button>
+            <button type="button" onclick="openQuizPaste()" class="${btn} bg-slate-800 border border-slate-700 text-slate-200">Paste questions</button>
+            <input type="file" id="quizImportFile" accept=".pdf,.txt,.xlsx,.xls,.csv" class="hidden" onchange="importQuizFile(this)"></div></div>
+        <details class="text-xs" id="quizFormat"><summary class="cursor-pointer text-slate-400 hover:text-slate-200">How to write questions for a PDF or text file</summary>
+          <div class="mt-2 space-y-2 text-slate-300"><p>One question after another, with an empty line between them. Cert and Subject carry on to the next questions until you change them. Explanation is optional.</p>
+          <pre class="quiz-format">${esc(QUIZ_FORMAT_SAMPLE)}</pre>
+          <button type="button" onclick="app.copyToClipboard(QUIZ_CHATGPT_PROMPT, 'Copied: paste it into ChatGPT with your notes')" class="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Copy a ChatGPT prompt that writes this format</button></div></details>
         ${bank.length ? `<input type="search" value="${esc(LEARN.mq)}" oninput="LEARN.mq = this.value; renderQuiz(); const b = document.querySelector('#quizManage input[type=search]'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search questions…" autocomplete="off" class="w-full sm:w-80 px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-xs">
         <ul class="border border-slate-800 rounded-xl divide-y divide-slate-800">${shown.map(x => `<li class="px-3 py-2 flex items-start justify-between gap-2"><div class="min-w-0"><p class="text-xs text-white break-words">${esc(x.question)}</p><p class="text-[11px] text-slate-500">${esc(x.cert === 'both' ? 'B and C' : x.cert)} · ${esc(x.subject)} · answer ${'ABCDEF'[x.answer]}: ${esc(x.options[x.answer] || '')}</p></div>
           <span class="flex gap-1 shrink-0"><button type="button" data-id="${esc(x.id)}" onclick="openQuizModal(this.dataset.id)" class="text-[11px] text-slate-400 hover:text-white px-1">Edit</button><button type="button" data-id="${esc(x.id)}" onclick="deleteQuizQuestion(this.dataset.id)" class="text-[11px] text-slate-500 hover:text-rose-300 px-1">Remove</button></span></li>`).join('')}</ul>
@@ -11645,6 +12255,114 @@
         app.showToast('Question removed.', { undo: async () => { try { const { id: _, ...back } = x; await api('quizSave', { question: back }); await loadQuizBank(true); } catch (e) { app.showToast(e.message); } } });
       } catch (e) { app.showToast(e.message || 'Could not remove it.'); }
     }
+    // ---- Questions as text (a PDF, a .txt file, or pasted): the format below. ChatGPT can write it from notes.
+    const QUIZ_FORMAT_SAMPLE = `Cert: B
+Subject: Map reading
+Q: What does a contour line join?
+A) Points of equal height
+B) Rivers
+C) Roads
+D) Railway lines
+Answer: A
+Explanation: Contour lines join points of the same height above sea level.
+
+Q: How many cardinal directions are there?
+A) 2
+B) 4
+C) 8
+D) 16
+Answer: B`;
+    const QUIZ_CHATGPT_PROMPT = `Make multiple-choice practice questions for the NCC ${"'B'"} and ${"'C'"} certificate exams from the notes I give you. Write them as plain text in exactly this format, with an empty line between questions, 4 answers (A to D) each, one right answer, and a short explanation:
+
+${QUIZ_FORMAT_SAMPLE}
+
+Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" when they change. No numbering, no bold, no tables. Then I will save your answer as a PDF or text file.`;
+    /** Questions from text in the format above. Also takes "1." or "Q1." for Q:, "(a)" or "a." for A), and "Ans:". */
+    function parseQuizText(text) {
+      const lines = String(text || '').replace(/\r/g, '').split('\n').map(l => l.replace(/\s+/g, ' ').trim());
+      const out = [], problems = [];
+      let cert = LEARN.cert || 'B', subject = 'General', cur = null, last = null;
+      const finish = () => {
+        if (!cur) return;
+        if (!cur.options.length || cur.answer === '') problems.push(`"${cur.question.slice(0, 50)}": ${!cur.options.length ? 'no answers' : 'no Answer line'}`);
+        else out.push(cur);
+        cur = null; last = null;
+      };
+      for (const line of lines) {
+        if (!line) { last = null; continue; }
+        let m;
+        if ((m = /^cert(?:ificate)?\s*[:\-]\s*(.+)$/i.exec(line))) { finish(); cert = m[1].replace(/['"’]/g, '').trim(); continue; }
+        if ((m = /^(?:subject|topic)\s*[:\-]\s*(.+)$/i.exec(line))) { finish(); subject = m[1].trim(); continue; }
+        if ((m = /^(?:q(?:uestion)?\s*\d*\s*[:.)\-]|\d{1,3}\s*[.)])\s*(.+)$/i.exec(line))) { finish(); cur = { cert, subject, question: m[1], options: [], answer: '', explain: '' }; last = 'q'; continue; }
+        if (!cur) continue;
+        if ((m = /^(?:correct\s+)?(?:answer|ans)\s*[:.\-]?\s*\(?([a-f])\)?(?:[\s).:-].*)?$/i.exec(line))) { cur.answer = m[1].toUpperCase(); last = 'ans'; continue; }
+        if ((m = /^(?:explanation|explain|why)\s*[:\-]\s*(.+)$/i.exec(line))) { cur.explain = m[1]; last = 'exp'; continue; }
+        if ((m = /^\(?([a-f])\s*[).:]\s*(.+)$/i.exec(line)) && 'abcdef'.indexOf(m[1].toLowerCase()) === cur.options.length) { cur.options.push(m[2]); last = 'opt'; continue; }
+        // A line that carries on the one before it (PDFs break long lines).
+        if (last === 'q') cur.question += ' ' + line;
+        else if (last === 'opt') cur.options[cur.options.length - 1] += ' ' + line;
+        else if (last === 'exp') cur.explain += ' ' + line;
+      }
+      finish();
+      return { questions: out.map(q => ({ ...q, options: q.options.concat(['', '', '', '', '', '']).slice(0, 6) })), problems };
+    }
+    function loadPdfReader() {
+      if (window.pdfjsLib) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(); };
+        s.onerror = () => reject(new Error('Could not load the PDF reader. Check the connection, or paste the questions instead.'));
+        document.head.appendChild(s);
+      });
+    }
+    /** The text of a PDF, line by line (read in the browser; the file is not uploaded or kept). */
+    async function pdfText(file) {
+      await loadPdfReader();
+      const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+      const pages = [];
+      for (let n = 1; n <= Math.min(doc.numPages, 200); n++) {
+        const items = (await (await doc.getPage(n)).getTextContent()).items;
+        let text = '', y = null;
+        for (const it of items) {
+          const iy = it.transform ? Math.round(it.transform[5]) : y;
+          if (y != null && iy != null && Math.abs(iy - y) > 2 && !text.endsWith('\n')) text += '\n';
+          text += it.str || '';
+          if (it.hasEOL) text += '\n';
+          y = iy;
+        }
+        pages.push(text);
+      }
+      return pages.join('\n\n');
+    }
+    /** Ask, then send the questions to the bank. */
+    async function addParsedQuestions(parsed, from) {
+      const { questions, problems } = parsed;
+      if (!questions.length) { tellUser(`No questions found in ${from}.${problems.length ? `\n\n${problems.slice(0, 8).join('\n')}` : '\n\nOpen "How to write questions" on this page for the format.'}`); return; }
+      const first = questions[0];
+      if (!(await askConfirm(`Found ${questions.length} question${questions.length === 1 ? '' : 's'} in ${from}${problems.length ? ` (${problems.length} could not be read)` : ''}.\n\nFirst one: ${first.question}\nAnswer ${first.answer}: ${first.options['ABCDEF'.indexOf(first.answer)] || ''}\n\nAdd them to the question bank?`, { ok: 'Add them' }))) return false;
+      const res = await api('quizImport', { rows: questions });
+      await loadQuizBank(true);
+      const skipped = [...problems, ...(res.skipped || []).map(x => `Question ${x.row}: ${x.error}`)];
+      tellUser(`Added ${res.added} question${res.added === 1 ? '' : 's'}.${skipped.length ? `\n\nNot added (${problems.length + (res.skippedCount || 0)}):\n${skipped.slice(0, 12).join('\n')}` : ''}`);
+      return true;
+    }
+    function openQuizPaste() {
+      if (!app.can('requests')) return;
+      document.getElementById('quizModalHeading').textContent = 'Paste questions';
+      document.getElementById('quizModalBody').innerHTML = `<div class="space-y-3">
+        <p class="text-xs text-slate-400">Paste questions written in the format shown under "How to write questions" (for example ChatGPT's answer).</p>
+        <textarea id="qzPaste" rows="12" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm font-mono" placeholder="${escapeHtml(QUIZ_FORMAT_SAMPLE.split('\n').slice(0, 9).join('\n'))}"></textarea>
+        <div class="flex justify-end gap-2"><button type="button" onclick="app.closeModal('quizModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+          <button type="button" id="qzPasteGo" onclick="addPastedQuestions()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Read questions</button></div></div>`;
+      document.getElementById('quizModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('qzPaste')?.focus(), 50);
+    }
+    async function addPastedQuestions() {
+      const text = document.getElementById('qzPaste')?.value || '';
+      try { if (await addParsedQuestions(parseQuizText(text), 'the pasted text')) app.closeModal('quizModal'); }
+      catch (e) { app.showToast(e.message || 'Could not add them.'); }
+    }
     async function readSheetRows(file) {
       if (/\.csv$/i.test(file.name)) return parseCsv(await file.text());
       await loadExcelReader();
@@ -11654,6 +12372,15 @@
     async function importQuizFile(input) {
       const file = input.files?.[0]; input.value = '';
       if (!file) return;
+      if (/\.(pdf|txt)$/i.test(file.name)) {
+        try {
+          if (file.size > 20 * 1024 * 1024) { app.showToast('That file is too large (20 MB at most).'); return; }
+          app.showToast('Reading ' + file.name + '…');
+          const text = /\.pdf$/i.test(file.name) ? await pdfText(file) : await file.text();
+          await addParsedQuestions(parseQuizText(text), file.name);
+        } catch (e) { app.showToast(e.message || 'Could not read that file.'); }
+        return;
+      }
       try {
         const rows = (await readSheetRows(file)).filter(r => r.some(x => String(x).trim()));
         if (rows.length < 2) { app.showToast('The sheet has no questions under the header row.'); return; }
@@ -12073,7 +12800,7 @@
       const ranks = (c.rankHistory || []).filter(x => x && x.to);
       const signups = signupList().filter(x => signupApplicants(x).some(a => a.cadetId === c.id && a.status === 'selected'));
       const leaves = leaveList().filter(l => l.cadetId === c.id);
-      const mess = messList().filter(d => (d.cadetIds || []).includes(c.id) && d.date <= ymd(new Date())).length;
+      const mess = messDays().filter(d => (d.cadetIds || []).includes(c.id) && d.date <= ymd(new Date())).length;
       const equip = equipmentList().filter(x => x.cadetId === c.id && !x.returnedAt);
       const certs = Object.entries(c.certs || {});
       const cert = certFor(c);
@@ -12110,13 +12837,20 @@
         if (chosen.length) out.push(card('Selected', esc(chosen[0].title), chosen.length > 1 ? `and ${chosen.length - 1} more` : 'Watch the notice board for what comes next', { go: "document.getElementById('signupsCard')?.scrollIntoView({ behavior: 'smooth' })" }));
         if (openSign.length) out.push(card('Sign-ups', `${openSign.length} open`, `${esc(openSign[0].title)} · closes ${esc(fmtWhen(Number(openSign[0].closesAt)))}`, { go: "document.getElementById('signupsCard')?.scrollIntoView({ behavior: 'smooth' })" }));
         const asked = swapList().filter(x => x.to === me.id && x.status === 'asked');
-        if (asked.length) out.push(card('Mess duty swap', `${esc(cadetLabel(asked[0].from))} asks`, `Take their duty on ${esc(dayLabel(asked[0].date))}?`, { go: "switchCadetFlowPage('parades')", warn: true }));
+        if (asked.length) out.push(card('Mess duty swap', `${esc(cadetLabel(asked[0].from))} asks`, `Take their duty on ${esc(dayLabel(asked[0].date))}?`, { go: "switchCadetFlowPage('parades'); openMessDialog()", warn: true }));
+        const wanted = messUpcoming().filter(d => { const pd = findParade(d.paradeId); return pd && pd.reportAt > Date.now() && pd.reportAt < Date.now() + 7 * 86400000 && !d.cadetIds.includes(me.id) && d.cadetIds.length < messConfig().perDay && messPool(d).some(c => c.id === me.id); });
+        if (wanted.length && !messUpcoming().some(d => d.cadetIds.includes(me.id))) out.push(card('Mess duty', 'Volunteers wanted', `${esc(messTitle(wanted[0]))} · ${messConfig().perDay - wanted[0].cadetIds.length} place${messConfig().perDay - wanted[0].cadetIds.length === 1 ? '' : 's'} left`, { go: `switchCadetFlowPage('parades'); openParadeDetail('${esc(wanted[0].paradeId)}')` }));
+        const takeable = swapList().filter(x => canTakeSwap(x, me));
+        if (takeable.length) out.push(card('Mess duty', `${takeable.length} up for swap`, `${esc(cadetLabel(takeable[0].from))} needs someone on ${esc(dayLabel(takeable[0].date))}`, { go: "switchCadetFlowPage('parades'); openMessDialog()" }));
         const late = equipmentList().filter(x => x.cadetId === me.id && equipOverdue(x));
         if (late.length) out.push(card('Equipment', `${late.length} to return`, esc(late.map(equipLine).join(', ')), { go: "switchCadetFlowPage('uniform')", warn: true }));
       }
       if (app.canEdit()) {
-        const sw = swapList().filter(x => x.status === 'accepted' && (app.isAdmin() || !me || (x.from !== me.id && x.to !== me.id)));
-        if (sw.length) out.push(card('Swaps', `${sw.length} to approve`, 'Mess duty swaps both cadets agreed to', { go: "switchCadetFlowPage('parades')", warn: true }));
+        if (messLead()) {
+          const soon = Date.now() + 3 * 86400000, per = messConfig().perDay;
+          const short = messUpcoming().filter(d => (findParade(d.paradeId)?.reportAt || 0) <= soon && d.cadetIds.length < per);
+          if (short.length) out.push(card('Mess duty', `${short.length} parade${short.length === 1 ? '' : 's'} to fill`, `${esc(messTitle(short[0]))}: ${short[0].cadetIds.length} of ${per}`, { go: "MESS.manage = true; switchCadetFlowPage('parades'); openMessDialog()", warn: true }));
+        }
         const links = libraryList().filter(x => x.status === 'suggested');
         if (links.length) out.push(card('Study links', `${links.length} suggested`, 'Check them and add them to the library', { go: "switchCadetFlowPage('learn'); setLearnView('library')" }));
       }
