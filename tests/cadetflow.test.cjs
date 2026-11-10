@@ -4614,3 +4614,135 @@ test('deleting a parade removes its mess duty; remind skips mess duty whose para
   assert.ok(!db.pushes.some(p => p.userId === 'user-4' && /mess/i.test(p.payload.title)), 'no reminder for a parade that is gone');
   noErrors(admin);
 }));
+
+test('camp vacancies for some years or one wing, medical exemption (never filled into mess duty automatically), social service hours, photo albums', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin); // 1-10 1st, 11-20 2nd, 21-30 3rd
+  await run(admin, () => { app.updateCadetField('cadet-1', 'rank', 'SGT'); });
+  await flush(admin);
+  db.account('user-s', { cadetId: 'cadet-1' }).account('user-l', { cadetId: 'cadet-2' }).account('user-c', { cadetId: 'cadet-3' });
+
+  // ---- Camp vacancy only for 2nd year SW cadets: the list shows only them
+  await run(admin, () => switchCadetFlowPage('directory'));
+  await admin.click('#campsCard button:has-text("Add camp")');
+  assert.equal(await admin.getAttribute('#campPlace', 'placeholder'), 'e.g. Battalion HQ');
+  await admin.selectOption('#campKind', 'TSC');
+  await admin.fill('#campStart', '2026-12-01');
+  await admin.click('#campYears [data-y="2nd"]');
+  await admin.click('#campWings [data-w="SW"]');
+  const pick = await admin.textContent('#campPickList');
+  assert.match(pick, /V Padma Nayana/); assert.match(pick, /Tanvi Vinnakota/);
+  assert.doesNotMatch(pick, /Prahast Mohanty|Aashna Singh|Manusree T/, '2nd year SW only');
+  await admin.fill('#campSearch', 'Padma');
+  await admin.check('#campPickList input');
+  await admin.fill('#campPhotos', 'javascript:alert(1)');
+  await admin.click('#campModal button:has-text("Save camp")');
+  assert.match(await admin.textContent('#campError'), /https:\/\//);
+  await admin.fill('#campPhotos', 'https://photos.app.goo.gl/tsc');
+  await admin.click('#campModal button:has-text("Save camp")');
+  await flush(admin);
+  const camp = db.row.state.camps[0];
+  assert.deepEqual([camp.years, camp.wings, camp.cadetIds, camp.photos], [['2nd'], ['SW'], ['cadet-11'], 'https://photos.app.goo.gl/tsc']);
+  assert.match(await admin.textContent('#campsCard'), /For 2nd years, SW only/);
+  assert.equal(await run(admin, () => campOpenText({ years: ['1st', '2nd', '3rd'], wings: ['SD', 'SW'] })), '', 'everything ticked = everyone');
+
+  // ---- Medical exemption: a sergeant adds it for their own company only
+  const pid = await makeParade(admin, 24, 'Drill');
+  await run(admin, id => { findParade(id).refreshments = true; ensureMessDay(id); app.saveStorage(); }, pid);
+  await flush(admin);
+  const sgt = await openAs(browser, db, 'user-s');
+  await run(sgt, () => openCadetProfile('cadet-13')); // Kohima
+  assert.equal(await sgt.locator('#profileMedical button:has-text("Add")').count(), 0, 'not their company');
+  await run(sgt, () => openCadetProfile('cadet-3')); // Jessami, like the sergeant
+  await sgt.click('#profileMedical button:has-text("Add")');
+  assert.equal(await sgt.getAttribute('#medCovers [data-c="PT"]', 'aria-pressed'), 'true');
+  await sgt.fill('#medNote', 'no running');
+  await sgt.click('#medicalModal button:has-text("Save")');
+  await waitToast(sgt, 'Medical exemption saved.');
+  await flush(sgt);
+  const med = db.row.state.medical[0];
+  assert.deepEqual([med.cadetId, med.covers, med.note], ['cadet-3', ['PT', 'Drill'], 'no running']);
+  assert.ok(db.row.state.history.some(h => h.action === 'medical-set' && !/Samahith/.test(h.details)), 'the open activity log keeps no name');
+  await run(sgt, () => { app.closeModal('profileModal'); switchCadetFlowPage('home'); renderMyDay(); });
+  assert.match(await sgt.textContent('#myDay'), /On medical exemption\s*1 today/);
+
+  // Mess duty: never filled with them automatically, still in the hand-pick list (marked)
+  await refresh(admin);
+  const mess = await run(admin, id => { const d = (app.state.messDuty || []).find(x => x.paradeId === id); return { pool: messPool(d).map(c => c.id), pick: messPick(d, 100, new Map(), new Set()) }; }, pid);
+  assert.ok(mess.pool.includes('cadet-3'), 'can still volunteer or be picked by hand');
+  assert.ok(!mess.pick.includes('cadet-3') && mess.pick.length > 0, 'the fair fill skips them');
+  await run(admin, id => { const d = (app.state.messDuty || []).find(x => x.paradeId === id); openMessPick(d.id); MPICK.q = 'Samahith'; renderMessPick(); }, pid);
+  assert.match(await admin.textContent('#messPickBody'), /Samahith M Rao[\s\S]*Medical exemption/);
+  await run(admin, () => app.closeModal('messPickModal'));
+  // Attendance shows it to whoever marks it
+  await run(admin, id => { switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.match(await admin.textContent('#paradePage [data-medical]'), /excused from PT and Drill · no running/);
+  // The cadet sees it on Your day; Fit again ends it (it started today, so it goes)
+  const cdt = await openAs(browser, db, 'user-c');
+  await run(cdt, () => { switchCadetFlowPage('home'); renderMyDay(); });
+  assert.match(await cdt.textContent('#myDay'), /Medical exemption\s*Excused from PT and Drill/);
+  await refresh(sgt);
+  await run(sgt, () => openCadetProfile('cadet-3'));
+  await sgt.click('#profileMedical button:has-text("Fit again")');
+  await waitToast(sgt, 'is fit again');
+  await flush(sgt);
+  assert.equal(db.row.state.medical.length, 0);
+
+  // ---- Social service: a lance corporal records it; hours on profiles, totals, report, record, Excel
+  const lcpl = await openAs(browser, db, 'user-l');
+  await run(lcpl, () => switchCadetFlowPage('directory'));
+  await lcpl.click('#serviceCard button:has-text("Add activity")');
+  await lcpl.fill('#svcTitle', 'Blood donation camp');
+  await lcpl.selectOption('#svcKind', 'Blood donation');
+  await lcpl.fill('#svcDate', '2026-11-01');
+  await lcpl.fill('#svcHours', '3');
+  await lcpl.fill('#svcSearch', 'Kohima');
+  await lcpl.click('#serviceModal button:has-text("Tick all shown")');
+  await lcpl.click('#serviceModal button:has-text("Save")');
+  await flush(lcpl);
+  const svc = db.row.state.service[0];
+  assert.deepEqual([svc.title, svc.kind, svc.hours, svc.cadetIds.length], ['Blood donation camp', 'Blood donation', 3, 13]);
+  assert.match(await lcpl.textContent('#serviceTotals'), /Kohima\s*39 hours/);
+  await run(lcpl, () => openCadetProfile('cadet-13'));
+  assert.match(await lcpl.textContent('#profileService'), /Social service\s*3 hours[\s\S]*Blood donation camp/);
+  await refresh(admin);
+  const report = await run(admin, () => unitReportHtml('2026-01-01', '2026-12-31'));
+  assert.match(report, /Social service<\/h2><p>1 activity, 13 cadets took part, 39 hours in all/);
+  assert.ok(await run(admin, () => everythingSheets().some(([name, rows]) => name === 'Social service' && rows[1][1] === 'Blood donation camp')));
+  await run(admin, () => { window.print = () => {}; printRecord('cadet-13'); });
+  assert.match(await admin.textContent('#recordPrint'), /Social service: 3 hours/);
+  assert.equal(await cdt.isVisible('#serviceCard button:has-text("Add activity")'), false);
+
+  // ---- Photos: a parade's album link under its minutes; the albums list gathers every link
+  await pastParade(admin, 'pp1', 1);
+  await flush(admin);
+  await refresh(lcpl);
+  await run(lcpl, () => { app.closeModal('profileModal'); switchCadetFlowPage('parades'); openParadeDetail('pp1'); });
+  await setPrompt(lcpl, 'http://not-secure.example/album');
+  await lcpl.click('#paradePhotos button');
+  await waitToast(lcpl, 'Paste a full link starting with https://');
+  await setPrompt(lcpl, 'https://photos.app.goo.gl/drill');
+  await lcpl.click('#paradePhotos button');
+  await waitToast(lcpl, 'Photos link saved.');
+  await flush(lcpl);
+  assert.equal(db.row.state.parades.find(p => p.id === 'pp1').photos, 'https://photos.app.goo.gl/drill');
+  await run(admin, () => {
+    openTrophyEvent();
+    document.getElementById('trTitle').value = 'Drill competition';
+    document.getElementById('trPhotos').value = 'https://photos.app.goo.gl/trophy';
+    document.getElementById('trPlace-Jessami').value = '1';
+    saveTrophyEvent();
+  });
+  await flush(admin);
+  assert.equal(db.row.state.trophy[0].photos, 'https://photos.app.goo.gl/trophy');
+  await refresh(cdt);
+  await run(cdt, () => { switchCadetFlowPage('parades'); openParadeDetail('pp1'); });
+  assert.equal(await cdt.getAttribute('#paradePhotos a', 'href'), 'https://photos.app.goo.gl/drill');
+  assert.equal(await cdt.locator('#paradePhotos button').count(), 0, 'cadets only open it');
+  await run(cdt, () => openAlbums());
+  const albums = await cdt.textContent('#albumsBody');
+  assert.match(albums, /Drill competition[\s\S]*Rolling trophy/); assert.match(albums, /TSC[\s\S]*Camp/); assert.match(albums, /Drill[\s\S]*Parade/);
+  assert.equal(await cdt.locator('#albumsBody a[target="_blank"][rel~="noopener"]').count(), 3);
+  noErrors(admin, sgt, lcpl, cdt);
+}));

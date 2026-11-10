@@ -187,8 +187,8 @@
       #headerSub, #headerCadetCount { display: none; }
 
       /* Dialogs become sheets from the bottom edge; the roster editor fills the screen. */
-      #campModal, #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #profileModal, #historyModal, #passwordModal, #selfReportModal { padding: 0 !important; align-items: flex-end !important; }
-      #campModal > div, #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #profileModal > div, #historyModal > div, #passwordModal > div, #selfReportModal > div {
+      #campModal, #serviceModal, #medicalModal, #rosterModal, #newEventModal, #editEventModal, #specialEventModal, #specialTaskModal, #groupUpdateModal, #timetableModal, #paradeModal, #paradeReportModal, #profileModal, #historyModal, #passwordModal, #selfReportModal { padding: 0 !important; align-items: flex-end !important; }
+      #campModal > div, #serviceModal > div, #medicalModal > div, #rosterModal > div, #newEventModal > div, #editEventModal > div, #specialEventModal > div, #specialTaskModal > div, #groupUpdateModal > div, #timetableModal > div, #paradeModal > div, #paradeReportModal > div, #profileModal > div, #historyModal > div, #passwordModal > div, #selfReportModal > div {
         max-width: none !important; width: 100% !important; max-height: 94dvh !important; border-radius: 18px 18px 0 0 !important;
         border-left: 0; border-right: 0; border-bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; overflow-y: auto; }
       #rosterModal > div { height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; border-top: 0; overflow: hidden; }
@@ -656,7 +656,7 @@
   </style>
   <!-- Tailwind classes, built from this page by tools/build_css.mjs (npm run build:css). After its
        own styles, as the Tailwind CDN used to put them. Settings: tools/tailwind.config.cjs. -->
-  <link rel="stylesheet" href="cadetflow.css?v=06b580acda">
+  <link rel="stylesheet" href="cadetflow.css?v=eca8436087">
 </head>
 <body class="locked bg-slate-950 text-slate-200 min-h-screen flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200">
   <!-- Sign-in screen (body.locked): sign in, register, or wait for approval. Drawn by renderGate(). -->
@@ -706,6 +706,7 @@
             <button id="accountProfileBtn" type="button" onclick="closeAccountMenu(); openMyProfile()" class="hidden w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">My profile</button>
             <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('accounts')" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Accounts <span data-accounts-waiting class="ml-1 text-amber-400"></span></button>
             <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('activity')" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Activity log</button>
+            <button type="button" onclick="closeAccountMenu(); openAlbums()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Photo albums</button>
             <button type="button" onclick="closeAccountMenu(); openSuggestBox()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestion box</button>
             <button type="button" onclick="closeAccountMenu(); openSuggestions()" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestions received <span data-suggest-new class="ml-1 text-amber-400"></span></button>
             <button type="button" onclick="closeAccountMenu(); openPasswordModal()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Change password</button>
@@ -1427,6 +1428,7 @@
       </div>
       <div id="dirResults" class="grid lg:grid-cols-3 gap-4"></div>
       <div id="campsCard" class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="campsHeading"></div>
+      <div id="serviceCard" class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="serviceHeading"></div>
       <div id="certCard" class="requests-only bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3" aria-labelledby="certHeading"></div>
       <div id="alumniCard" class="admin-only bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 space-y-3"></div>
     </section>
@@ -2004,7 +2006,7 @@
           <input type="text" id="campName" maxlength="80" placeholder="e.g. CATC-III" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
         </label>
         <label class="col-span-2 block text-xs font-bold text-slate-300">Place
-          <input type="text" id="campPlace" maxlength="80" placeholder="e.g. Kohima" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+          <input type="text" id="campPlace" maxlength="80" placeholder="e.g. Battalion HQ" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
         </label>
         <label class="block text-xs font-bold text-slate-300">From
           <input type="date" id="campStart" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
@@ -2013,6 +2015,14 @@
           <input type="date" id="campEnd" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
         </label>
       </div>
+      <div id="campOpenTo" class="space-y-2">
+        <p class="text-xs font-bold text-slate-300">Vacancy open to <span class="font-normal text-slate-500">(optional: leave all off for everyone)</span></p>
+        <div class="flex flex-wrap items-center gap-1.5" id="campYears"><span class="w-12 text-[11px] text-slate-500">Years</span><button type="button" class="af-chip text-xs" data-y="1st" aria-pressed="false" onclick="toggleCampOpen(this)">1st</button><button type="button" class="af-chip text-xs" data-y="2nd" aria-pressed="false" onclick="toggleCampOpen(this)">2nd</button><button type="button" class="af-chip text-xs" data-y="3rd" aria-pressed="false" onclick="toggleCampOpen(this)">3rd</button></div>
+        <div class="flex flex-wrap items-center gap-1.5" id="campWings"><span class="w-12 text-[11px] text-slate-500">Wing</span><button type="button" class="af-chip text-xs" data-w="SD" aria-pressed="false" onclick="toggleCampOpen(this)">SD</button><button type="button" class="af-chip text-xs" data-w="SW" aria-pressed="false" onclick="toggleCampOpen(this)">SW</button></div>
+      </div>
+      <label class="block text-xs font-bold text-slate-300">Photos <span class="font-normal text-slate-500">(optional link to a Google Drive or Google Photos album)</span>
+        <input type="url" id="campPhotos" maxlength="500" placeholder="https://photos.app.goo.gl/…" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+      </label>
       <div>
         <div class="flex items-center justify-between"><span class="text-xs font-bold text-slate-300">Cadets who went</span><span id="campPickCount" class="text-[11px] text-slate-400">0 picked</span></div>
         <input type="search" id="campSearch" oninput="renderCampPicker()" placeholder="Search name or company…" autocomplete="off" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
@@ -2477,9 +2487,71 @@
         </div>
         <div id="trWinners" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
         <div id="trCompanies" class="space-y-2"></div>
+        <label class="block text-xs text-slate-400">Photos (optional link to the album)<input id="trPhotos" type="url" maxlength="500" placeholder="https://photos.app.goo.gl/…" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"></label>
         <p id="trError" class="hidden text-sm text-rose-300" role="alert"></p>
         <button type="submit" class="w-full px-4 py-2.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>
       </form>
+    </div>
+  </div>
+
+  <div id="medicalModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Medical exemption</p><h3 id="medicalHeading" class="text-lg font-extrabold text-white mt-1">Medical exemption</h3>
+        <p class="text-xs text-slate-400 mt-1">The cadet still comes to parades. Attendance shows what they are excused from, and mess duty is never filled with them automatically (they can still volunteer, or be picked by hand).</p></div>
+        <button type="button" onclick="app.closeModal('medicalModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-xs font-bold text-slate-300">From<input type="date" id="medFrom" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+        <label class="block text-xs font-bold text-slate-300">To<input type="date" id="medTo" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+      </div>
+      <div><span class="block text-xs font-bold text-slate-300">Excused from</span>
+        <div class="mt-1 flex flex-wrap gap-1.5" id="medCovers"><button type="button" class="af-chip text-xs" data-c="PT" aria-pressed="true" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">PT</button><button type="button" class="af-chip text-xs" data-c="Drill" aria-pressed="true" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">Drill</button><button type="button" class="af-chip text-xs" data-c="Firing" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">Firing</button><button type="button" class="af-chip text-xs" data-c="Field training" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') !== 'true')">Field training</button></div></div>
+      <label class="block text-xs font-bold text-slate-300">Instruction <span class="font-normal text-slate-500">(optional)</span>
+        <input type="text" id="medNote" maxlength="100" placeholder="e.g. no running, light duties only" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        <span class="block text-[11px] font-normal text-slate-500 mt-1">Shown to the cadet and to seniors at attendance. Keep the medical details out of it.</span></label>
+      <p id="medError" class="hidden text-xs text-rose-300" role="alert"></p>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="app.closeModal('medicalModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+        <button type="button" onclick="saveMedical()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="serviceModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Social service</p><h3 id="serviceHeadingModal" class="text-lg font-extrabold text-white mt-1">Add activity</h3></div>
+        <button type="button" onclick="app.closeModal('serviceModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="col-span-2 block text-xs font-bold text-slate-300">Activity<input type="text" id="svcTitle" maxlength="100" placeholder="e.g. Blood donation camp at the college" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+        <label class="block text-xs font-bold text-slate-300">Kind<select id="svcKind" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></select></label>
+        <label class="block text-xs font-bold text-slate-300">Date<input type="date" id="svcDate" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+        <label class="block text-xs font-bold text-slate-300">Hours for each cadet<input type="number" id="svcHours" min="0.5" max="100" step="0.5" value="2" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+        <label class="block text-xs font-bold text-slate-300">Place <span class="font-normal text-slate-500">(optional)</span><input type="text" id="svcPlace" maxlength="80" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+        <label class="col-span-2 block text-xs font-bold text-slate-300">Photos <span class="font-normal text-slate-500">(optional link to the album)</span><input type="url" id="svcPhotos" maxlength="500" placeholder="https://photos.app.goo.gl/…" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500"></label>
+      </div>
+      <div>
+        <div class="flex items-center justify-between gap-2"><span class="text-xs font-bold text-slate-300">Cadets who took part</span><span class="flex items-center gap-2"><button type="button" onclick="serviceAllShown()" class="text-[11px] font-bold text-sky-300 underline">Tick all shown</button><span id="svcPickCount" class="text-[11px] text-slate-400">0 picked</span></span></div>
+        <input type="search" id="svcSearch" oninput="renderServicePicker()" placeholder="Search name or company…" autocomplete="off" class="mt-1 w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm focus:outline-none focus:border-amber-500">
+        <div id="svcPickList" class="mt-2 max-h-60 overflow-y-auto border border-slate-800 rounded-xl p-1"></div>
+      </div>
+      <p id="svcError" class="hidden text-xs text-rose-300" role="alert"></p>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="app.closeModal('serviceModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+        <button type="button" onclick="saveService()" class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="albumsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Photos</p><h3 class="text-lg font-extrabold text-white mt-1">Photo albums</h3><p class="text-xs text-slate-400 mt-1">Links to the albums of parades, camps, social service and rolling trophy events. The photos stay in Google Drive or Google Photos.</p></div>
+        <button type="button" onclick="app.closeModal('albumsModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="albumsBody"></div>
     </div>
   </div>
 
@@ -5823,7 +5895,7 @@
     function cloneData(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
     function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
     // Newer parts of the shared data: lists of items with plain ids, plus the mess duty settings.
-    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment', 'trophy', 'awards'];
+    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment', 'trophy', 'awards', 'medical', 'service'];
     function extraLists(data) {
       const out = {};
       EXTRA_LISTS.forEach(k => { out[k] = (Array.isArray(data?.[k]) ? data[k] : []).filter(x => isPlainObject(x) && safeId(x.id)); });
@@ -7014,6 +7086,7 @@
             ${r ? `<p class="text-[11px] ${r.kind === 'absent' ? 'text-rose-300' : 'text-sky-300'} mt-0.5">${r.kind === 'absent' ? "Said they can't come" : 'Said they will be late'}: ${esc(r.reason)} · informed ${esc(informerName(r.informedTo))}</p>` : ''}
             ${!r && leaveOn(c.id, pd.reportAt) ? `<p class="text-[11px] text-amber-300 mt-0.5">On leave (approved) · not counted unless marked present</p>` : ''}
             ${!r && !leaveOn(c.id, pd.reportAt) && app.can('requests') && pendingLeaveFor(c.id, pd) ? `<p class="text-[11px] text-amber-300 mt-0.5">Leave requested for this day (waiting for a decision)</p>` : ''}
+            ${medicalTagHtml(c.id, pd)}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
             ${markBtn(c, 'present', 'Present', m === 'present')}${markBtn(c, 'late', 'Late', m === 'late')}${markBtn(c, 'absent', 'Absent', m === 'absent')}
@@ -8894,7 +8967,7 @@
       if (app.remoteReady && app.isApproved?.() && !renderFeatures.nudged) { renderFeatures.nudged = true; nudgeReminders(); }
       if (app.remoteReady && app.isApproved?.()) startPresence();
       renderNotices(); renderHomeNow();
-      if (isVisible('directoryPage')) { renderCamps(); renderAlumni(); }
+      if (isVisible('directoryPage')) { renderCamps(); renderServiceCard(); renderAlumni(); }
       if (isVisible('paradePage')) renderMessCard();
       if (isVisible('activityPage')) renderActivityPage();
       if (isVisible('uniformPage')) renderUniPaySummary();
@@ -9240,11 +9313,12 @@
             <button type="button" class="camp-row w-full text-left px-3 py-3 flex flex-wrap items-center gap-x-3 gap-y-1" aria-expanded="${open}" onclick="CAMP.open = CAMP.open === '${esc(c.id)}' ? null : '${esc(c.id)}'; renderCamps()">
               <span class="camp-kind">${esc(c.kind)}</span>
               <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-white">${esc(c.kind === 'Other' ? (c.name || 'Camp') : (c.name || c.kind))}</span>
-              <span class="block text-[11px] text-slate-400">${esc(campDates(c))}${c.place ? ' · ' + esc(c.place) : ''}</span></span>
+              <span class="block text-[11px] text-slate-400">${esc(campDates(c))}${c.place ? ' · ' + esc(c.place) : ''}${campOpenText(c) ? ` · <span class="text-amber-300">For ${esc(campOpenText(c))}</span>` : ''}</span></span>
               <span class="text-xs text-slate-300 font-mono-num">${(c.cadetIds || []).length} cadet${(c.cadetIds || []).length === 1 ? '' : 's'}</span>
             </button>
             ${open ? `<div class="px-3 pb-3 space-y-2 fx-enter">
               <div class="flex flex-wrap gap-1.5">${(c.cadetIds || []).map(id => `<button type="button" onclick="openCadetProfile('${esc(id)}')" class="af-chip text-[11px]">${esc(cadetLabel(id))}</button>`).join('') || '<span class="text-xs text-slate-500">No cadets added.</span>'}</div>
+              ${photoLinkHtml(c.photos, 'Photos of this camp')}
               ${edit ? `<div class="flex gap-2"><button type="button" onclick="openCampModal('${esc(c.id)}')" class="px-3 py-1.5 text-xs font-bold border border-slate-700 text-slate-200 rounded-lg">Edit</button>
                 <button type="button" onclick="deleteCamp('${esc(c.id)}')" class="px-3 py-1.5 text-xs font-bold border border-rose-900/60 text-rose-300 rounded-lg">Delete</button></div>` : ''}
             </div>` : ''}
@@ -9263,6 +9337,9 @@
       document.getElementById('campPlace').value = c?.place || '';
       document.getElementById('campStart').value = c?.start || '';
       document.getElementById('campEnd').value = c?.end || '';
+      document.getElementById('campPhotos').value = c?.photos || '';
+      document.querySelectorAll('#campYears [data-y]').forEach(b => b.setAttribute('aria-pressed', String(!!c?.years?.includes(b.dataset.y))));
+      document.querySelectorAll('#campWings [data-w]').forEach(b => b.setAttribute('aria-pressed', String(!!c?.wings?.includes(b.dataset.w))));
       document.getElementById('campSearch').value = '';
       document.getElementById('campError').classList.add('hidden');
       renderCampPicker();
@@ -9272,10 +9349,12 @@
       const host = document.getElementById('campPickList'); if (!host) return;
       const q = document.getElementById('campSearch').value.trim().toLowerCase();
       const esc = escapeHtml;
-      const list = (app.state.cadets || []).filter(c => !q || c.name.toLowerCase().includes(q) || String(c.company).toLowerCase().includes(q));
-      host.innerHTML = list.map(c => `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 text-sm text-slate-200">
+      const open = { years: campOpenPicked('y'), wings: campOpenPicked('w') };
+      const list = (app.state.cadets || []).filter(c => (CAMP.picked.has(c.id) || campOpenFor(open, c)) && (!q || c.name.toLowerCase().includes(q) || String(c.company).toLowerCase().includes(q)));
+      const limited = campOpenText(open);
+      host.innerHTML = (limited ? `<p class="text-[11px] text-amber-300 px-2 py-1">Showing the cadets the vacancy is open to: ${esc(limited)}.</p>` : '') + (list.map(c => `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 text-sm text-slate-200">
         <input type="checkbox" ${CAMP.picked.has(c.id) ? 'checked' : ''} onchange="campPick('${esc(c.id)}', this.checked)">
-        <span>${esc(c.rank || 'CDT')} ${esc(c.name)}</span><span class="ml-auto text-[11px] text-slate-500">${esc(c.company)} · ${esc(c.year || '')}</span></label>`).join('') || '<p class="text-xs text-slate-500 px-2">No cadet matches.</p>';
+        <span>${esc(c.rank || 'CDT')} ${esc(c.name)}${campOpenFor(open, c) ? '' : ' <span class="text-[11px] text-rose-300">not in the vacancy</span>'}</span><span class="ml-auto text-[11px] text-slate-500">${esc(c.company)} · ${esc(c.year || '')}${c.wing ? ' · ' + esc(c.wing) : ''}</span></label>`).join('') || '<p class="text-xs text-slate-500 px-2">No cadet matches.</p>');
       document.getElementById('campPickCount').textContent = `${CAMP.picked.size} picked`;
     }
     function campPick(id, on) { if (on) CAMP.picked.add(id); else CAMP.picked.delete(id); document.getElementById('campPickCount').textContent = `${CAMP.picked.size} picked`; }
@@ -9291,7 +9370,10 @@
       if (kind === 'Other' && !name) { fail('Write the name of the camp.'); return; }
       if (!start) { fail('Pick the date it started.'); return; }
       if (end && end < start) { fail('The end date is before the start date.'); return; }
-      const data = { kind, name, place, start, end: end || start, cadetIds: [...CAMP.picked].filter(id => cadetById(id)) };
+      const photosRaw = document.getElementById('campPhotos').value.trim(), photos = cleanLinkUrl(photosRaw);
+      if (photosRaw && !photos) { fail('The photos link must be a full link starting with https://'); return; }
+      const open = campOpenNormal({ years: campOpenPicked('y'), wings: campOpenPicked('w') });
+      const data = { kind, name, place, start, end: end || start, years: open.years, wings: open.wings, photos, cadetIds: [...CAMP.picked].filter(id => cadetById(id)) };
       if (!Array.isArray(app.state.camps)) app.state.camps = [];
       if (CAMP.editId) {
         const c = app.state.camps.find(x => x.id === CAMP.editId);
@@ -9457,7 +9539,7 @@
     }
     /** The fairest cadets for a parade: fewest duties, then longest since the last (same as rules.mjs messFairPick). */
     function messPick(d, count, counts, skip) {
-      return messPool(d, skip)
+      return messPool(d, skip).filter(c => !medicalOn(c.id, d.date))
         .map(c => ({ c, n: counts.get(c.id)?.n || 0, last: counts.get(c.id)?.last || '', h: messHash(c.id + d.date) }))
         .sort((a, b) => a.n - b.n || a.last.localeCompare(b.last) || a.h - b.h)
         .slice(0, count).map(x => x.c.id);
@@ -9649,7 +9731,7 @@
       document.getElementById('messPickBody').innerHTML = `<div class="space-y-3">
         <p class="text-xs text-slate-400">Cadets expected at this parade who can do it. Locals, rank holders and anyone on leave are not listed. Fewest duties first.</p>
         <input type="search" id="messPickSearch" value="${esc(MPICK.q)}" oninput="MPICK.q = this.value; renderMessPick(); const b = document.getElementById('messPickSearch'); b.focus(); b.setSelectionRange(b.value.length, b.value.length)" placeholder="Search name…" autocomplete="off" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-white placeholder-slate-600 rounded-xl text-sm">
-        <ul class="max-h-72 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800">${pool.map(({ c, n }) => `<li><button type="button" data-id="${esc(c.id)}" onclick="pickMessCadet(this.dataset.id)" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-800/60"><span class="text-sm text-slate-100">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span></span><span class="text-[11px] text-slate-400 font-mono-num">${n}×</span></button></li>`).join('') || '<li class="p-3 text-xs text-slate-500">Nobody matches.</li>'}</ul>
+        <ul class="max-h-72 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800">${pool.map(({ c, n }) => `<li><button type="button" data-id="${esc(c.id)}" onclick="pickMessCadet(this.dataset.id)" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-800/60"><span class="text-sm text-slate-100">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company)} · ${esc(yearLabel(c.year))}</span>${medicalOn(c.id, d.date) ? ' <span class="text-[11px] font-bold text-violet-300">Medical exemption</span>' : ''}</span><span class="text-[11px] text-slate-400 font-mono-num">${n}×</span></button></li>`).join('') || '<li class="p-3 text-xs text-slate-500">Nobody matches.</li>'}</ul>
         <div class="flex flex-wrap justify-end gap-2">
           ${MPICK.out ? `<button type="button" onclick="app.closeModal('messPickModal'); swapMess(MPICK.dayId, MPICK.out)" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-200 rounded-xl">Pick the fairest for me</button>` : ''}
           <button type="button" onclick="app.closeModal('messPickModal')" class="px-4 py-2 text-xs font-bold border border-slate-700 text-slate-300 rounded-xl">Close</button></div></div>`;
@@ -12990,6 +13072,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         <h2>Camps and courses</h2>${camps.length ? `<table><tbody>${camps.map(k => `<tr><td>${esc(campTitle(k))}</td><td>${esc(campDates(k))}</td><td>${esc(k.place || '')}</td></tr>`).join('')}</tbody></table>` : '<p>None recorded.</p>'}
         <h2>Certificates</h2>${certs.length ? `<table><tbody>${certs.map(([k, v]) => `<tr><td>'${esc(k)}' certificate</td><td>Grade ${esc(v.grade || '')}</td><td>${esc(v.year || '')}</td></tr>`).join('')}</tbody></table>` : ''}${ready ? `<p>'${esc(cert)}' certificate: ${esc(certPlainText(ready))}</p>` : certs.length ? '' : '<p>None yet.</p>'}
         ${signups.length ? `<h2>Selected for</h2><ul>${signups.map(x => `<li>${esc(x.title)}</li>`).join('')}</ul>` : ''}
+        ${serviceRecordHtml(c.id)}
         <h2>Other</h2><table><tbody>
           <tr><td>Mess duty done</td><td>${mess} day${mess === 1 ? '' : 's'}</td></tr>
           <tr><td>Called for work</td><td>${availDuties().filter(d => (d.cadetIds || []).includes(c.id)).length} time(s)</td></tr>
@@ -13111,6 +13194,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         <div class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-sm font-bold text-white">${esc(e.title)}</span><span class="text-[11px] text-slate-500">${esc(e.date || '')} · ${e.type === 'individual' ? 'Individual' : 'Company event'}</span></div>
         <p class="text-xs text-slate-200 mt-0.5">${esc(trophyResultText(e))}</p>
         ${mvps.length ? `<p class="text-[11px] text-amber-300 mt-0.5">MVP · ${esc(mvps.join(' · '))}</p>` : ''}
+        ${full ? photoLinkHtml(e.photos, 'Photos') : ''}
         ${full && canTrophy() ? `<p class="text-[11px] text-slate-400 mt-0.5">Points: ${TROPHY_COYS.map(k => `${esc(k)} ${trophyNum(Number(e.points?.[k]) || 0)}`).join(', ')}</p>
           <div class="flex gap-2 mt-1.5"><button type="button" onclick="openTrophyEvent('${esc(e.id)}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Edit</button>
           <button type="button" onclick="removeTrophyEvent('${esc(e.id)}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-900/60 text-rose-300">Remove</button></div>` : ''}
@@ -13157,6 +13241,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
       document.getElementById('trTitle').value = e?.title || '';
       document.getElementById('trDate').value = e?.date || ymd(new Date());
       document.getElementById('trType').value = e?.type === 'individual' ? 'individual' : 'group';
+      document.getElementById('trPhotos').value = e?.photos || '';
       const cadets = (cfState()?.cadets || []).slice().sort((a, b) => a.name.localeCompare(b.name)), esc = escapeHtml;
       const opts = (list, sel) => `<option value="">None</option>${list.map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.rank || 'CDT')} ${esc(c.name)}${c.company ? ' · ' + esc(c.company) : ''}</option>`).join('')}`;
       const field = 'w-full px-2 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white';
@@ -13197,9 +13282,11 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         }
       }
       const winners = type === 'individual' ? [1, 2, 3].map(n => document.getElementById(`trWin${n}`).value || '') : [];
+      const photosRaw = document.getElementById('trPhotos').value.trim(), photos = cleanLinkUrl(photosRaw);
+      if (photosRaw && !photos) { fail('The photos link must be a full link starting with https://'); return; }
       if (type === 'individual') { while (winners.length && !winners[winners.length - 1]) winners.pop(); if (!winners.length) { fail('Pick who came first.'); return; } }
       if (type === 'group' && !Object.keys(places).length) { fail('Give at least one company its place.'); return; }
-      const data = { title, date, type, points, ...(type === 'group' ? { places, mvps } : { winners }) };
+      const data = { title, date, type, points, photos, ...(type === 'group' ? { places, mvps } : { winners }) };
       if (!Array.isArray(app.state.trophy)) app.state.trophy = [];
       if (TROPHY_UI.editId) {
         const e = app.state.trophy.find(x => x.id === TROPHY_UI.editId);
@@ -13401,6 +13488,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         <h2>Rolling trophy</h2>${events.length ? `<p>${TROPHY_COYS.map(k => `${esc(k)} ${trophyNum(tally[k])}`).join(' · ')}</p><table><tbody>${events.map(e => `<tr><td>${esc(e.date)}</td><td>${esc(e.title)}</td><td>${esc(trophyResultText(e))}</td></tr>`).join('')}</tbody></table>` : '<p>No events in these dates.</p>'}
         <h2>Camps and courses</h2>${camps.length ? `<table><tbody>${camps.map(k => `<tr><td>${esc(campTitle(k))}</td><td>${esc(k.start || '')}${k.end && k.end !== k.start ? ' to ' + esc(k.end) : ''}</td><td>${(k.cadetIds || []).length} cadets</td></tr>`).join('')}</tbody></table>` : '<p>None in these dates.</p>'}
         <h2>Certificates</h2><p>${certs.length ? esc(certs.join('; ')) : 'No results recorded.'}</p>
+        ${serviceReportHtml(from, to)}
         <h2>Awards</h2><p>${awards.length ? esc(awards.map(a => `${cadetLabel(a.cadetId)}: ${a.title} (${a.date})`).join('; ')) : 'None recorded.'}</p>
         <h2>Other</h2><p>${mess.length} mess duty day${mess.length === 1 ? '' : 's'} · ${leaves.length} approved leave${leaves.length === 1 ? '' : 's'} · ${(st.cadets || []).length} cadets on the roster.</p>`;
     }
@@ -13552,6 +13640,10 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ...trophyList().slice().reverse().map(e => [e.date || '', e.title || '', e.type === 'individual' ? 'Individual' : 'Company', trophyResultText(e), ...TROPHY_COYS.map(k => Number(e.points?.[k]) || 0),
           TROPHY_COYS.filter(k => e.mvps?.[k]).map(k => `${k}: ${cadetLabel(e.mvps[k])}`).join(', ')])]]);
       sheets.push(['Awards', [['Cadet', 'Award', 'Date', 'Added by'], ...awardList().map(x => [cadetLabel(x.cadetId), x.title || '', x.date || '', x.by || ''])]]);
+      sheets.push(['Social service', [['Date', 'Activity', 'Kind', 'Place', 'Hours each', 'Cadets', 'Names', 'Photos'],
+        ...serviceList().slice().reverse().map(x => [x.date || '', x.title || '', x.kind || '', x.place || '', Number(x.hours) || 0, (x.cadetIds || []).length, names(x.cadetIds), x.photos || ''])]]);
+      sheets.push(['Medical exemptions', [['Cadet', 'From', 'To', 'Excused from', 'Instruction', 'Added by'],
+        ...medicalList().map(m => [cadetLabel(m.cadetId), m.from, m.to, (m.covers || []).join(', '), m.note || '', m.by || ''])]]);
       sheets.push(['Past cadets', [['Rank', 'Name', 'Company', 'Year', 'Regimental no.'],
         ...(Array.isArray(st.alumni) ? st.alumni : []).map(c => [c.rank || 'CDT', c.name || '', c.company || '', c.year || '', c.regNo || ''])]]);
       sheets.push(['Activity', [['Date', 'Time', 'Kind', 'Details'],
@@ -13617,6 +13709,8 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['Notification choices', 'Account menu, Notification choices: turn off the kinds you do not want (new parades, reminders, notices, sign-ups, mess duty calls). Decisions on your own requests and your own duties always come.'],
         ['Rolling trophy', 'Home shows the rolling trophy: the points tally between Jessami, Kohima and Naushera for the tenure, and each event\'s result, winners and MVPs. All results lists every event and the top performers.'],
         ['Birthday', 'Open your profile and add your birthday (day and month only). Home shows birthdays on the day.'],
+        ['Photo albums', 'Account menu, Photo albums: the photos of parades, camps, social service and rolling trophy events, as links to Google Drive or Google Photos.'],
+        ['Social service hours', 'Your profile shows the social service you took part in and your hours. They are on your printed record too.'],
         ['Suggestion box', 'Account menu, Suggestion box. Send it with your name or without. The administrator can reply to named suggestions.'],
       ] },
       { id: 'learn', title: 'Learn', who: 'Everyone', items: [
@@ -13628,7 +13722,9 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['Post a notice', 'Home, Post a notice. Tick Notify everyone to send a notification. Tick Ask a question to add 2 to 6 answers and see who answered what. Choose Sign-up to open applications with places and a closing time.'],
         ['Call-outs', 'Cadet Availability: +1 call-outs for work done.'],
         ['Timetables (POCs)', 'POCs and the administrator fill in any cadet\'s free periods from Cadet Availability, so availability searches work.'],
-        ['Mess duty picks', 'Lance corporals and corporals: the Pick mess duty button in the Mess duty dialog picks by hand or fills the rest fairly.'],
+        ['Mess duty picks', 'Lance corporals and corporals: the Pick mess duty button in the Mess duty dialog picks by hand or fills the rest fairly. Fill the rest fairly never picks a cadet on medical exemption; the hand-pick list marks them.'],
+        ['Social service', 'Cadet Roster page, Social service, Add activity: what it was (blood donation, tree plantation, cleanliness drive and so on), the date, the hours for each cadet and who took part. Tick all shown ticks every cadet the search shows. The hours show on each profile, the printed record, the unit report and the Excel download.'],
+        ['Photos of a parade', 'Under a parade\'s minutes, Add album link: paste the link of a Google Drive or Google Photos album shared with anyone who has the link.'],
       ] },
       { id: 'seniors', title: 'Requests, attendance and the register', who: 'Sergeants and above (attendance also POCs)', items: [
         ['Decide requests', 'Parades page, Requests box: late and absence requests, leave and mess duty let-off requests, with filters. Approve or not. For leave you can excuse a cadet from one parade while the leave itself still waits.'],
@@ -13637,6 +13733,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['Who sees which request', 'A sergeant sees and decides the requests of cadets in their own company only. The CSM, CQMS, JUOs, SUOs and the administrator see all of them.'],
         ['Rolling trophy and awards', 'Home, Rolling trophy, Add event: the event, date, company event or individual, the place of each company or the first three cadets, the points for each company, and an MVP for each company. Cadets see the totals and results, not each event\'s points. Add awards on a cadet\'s profile.'],
         ['On leave', 'Your day shows who is on leave today and this week (your company, or everyone for the CSM, CQMS, JUOs and SUOs).'],
+        ['Medical exemption', 'Open the cadet\'s profile, Medical exemption, Add: the dates and what they are excused from (PT, drill, firing, field training), with a short instruction if needed. They still come to parades: attendance shows it, Your day lists who is on it today, and mess duty is never filled with them automatically (they can still volunteer or be picked by hand). Fit again ends it. A sergeant does this for their own company.'],
         ['Unit report', 'Data menu, Unit report: the year on one printable page: parades and attendance by company and year, full attendance, rolling trophy, camps, certificates, awards.'],
         ['Certificates', 'The certificate card on the Cadet Roster page shows who is ready for B and C (attendance and camps).'],
       ] },
@@ -13644,7 +13741,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ['New parade', 'Parades page, New parade: kind, date and reporting time, venue, turnout (required), what to bring, and who it is for (company, years or picked cadets). Repeat makes weekly copies. Cadets it is for are notified.'],
         ['Change or cancel', 'Changing the time or venue of an upcoming parade offers to tell its cadets. Deleting one offers to tell them it is cancelled first.'],
         ['Refreshments', 'Switch Refreshments on in the parade (JUO, SUO, CQMS, administrator) to start the mess duty calls for it.'],
-        ['Camps', 'Cadet Roster page, Camps: record who went where. Camps count towards certificates.'],
+        ['Camps', 'Cadet Roster page, Camps: record who went where. Vacancy open to limits the list to some years or one wing (SD or SW) when the vacancy is only for them. Add a link to the photos if there is an album. Camps count towards certificates.'],
       ] },
       { id: 'cqms', title: 'Uniform orders and payments', who: 'CQMS and the administrator', items: [
         ['Orders', 'Uniform page: place the order for everything requested (prices are copied onto it), mark it arrived when the items come. Use current prices re-prices a placed order.'],
@@ -13757,6 +13854,332 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
           : '<p class="text-sm text-slate-400">None reported.</p>'}` : ''}
         <h4 class="text-xs font-bold text-slate-400 mt-5 mb-2">This device</h4>
         ${list(device)}`;
+    }
+
+    // ==== CAMP VACANCIES, MEDICAL EXEMPTION, SOCIAL SERVICE, PHOTO ALBUMS (2026-11-14) ===========================
+    const WINGS = ['SD', 'SW'];
+    const andList = a => a.length < 2 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+    const fullDay = s => (DAY_RE.test(String(s || '')) ? fromYmd(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+
+    // ---- Camps: the vacancy can be only for some years and/or one wing (SD or SW). Nothing ticked = everyone.
+    function campOpenPicked(kind) {
+      return [...document.querySelectorAll(kind === 'y' ? '#campYears [data-y][aria-pressed="true"]' : '#campWings [data-w][aria-pressed="true"]')].map(b => (kind === 'y' ? b.dataset.y : b.dataset.w));
+    }
+    function campOpenNormal(o) {
+      const years = YEARS.filter(y => (o?.years || []).includes(y)), wings = WINGS.filter(w => (o?.wings || []).includes(w));
+      return { years: years.length === YEARS.length ? [] : years, wings: wings.length === WINGS.length ? [] : wings };
+    }
+    function campOpenFor(o, cadet) {
+      const { years, wings } = campOpenNormal(o);
+      return !!cadet && (!years.length || years.includes(cadet.year)) && (!wings.length || wings.includes(cadet.wing));
+    }
+    /** "2nd and 3rd years, SW only", or '' when the vacancy is for everyone. */
+    function campOpenText(o) {
+      const { years, wings } = campOpenNormal(o);
+      return [years.length ? `${andList(years)} years` : '', wings.length ? `${wings[0]} only` : ''].filter(Boolean).join(', ');
+    }
+    function toggleCampOpen(b) { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); renderCampPicker(); }
+
+    // ---- Medical exemption: state.medical = [{ id, cadetId, from, to, covers: ['PT', 'Drill', ...], note, by, at }].
+    // Sergeants and above add it from the cadet's profile (a sergeant for their own company). The cadet still comes to
+    // parades: attendance shows it, and mess duty is never filled with them automatically (messPick skips them); they
+    // can still volunteer or be picked by hand. Only the cadet and seniors see it on screen.
+    const MED_COVERS = ['PT', 'Drill', 'Firing', 'Field training'];
+    const MED = { cadetId: null, editId: null };
+    function medicalList() { return (cfState()?.medical || []).filter(m => m && safeId(m.id) && m.cadetId && DAY_RE.test(m.from || '') && DAY_RE.test(m.to || '')); }
+    function medicalOn(cadetId, day) { return medicalList().find(m => m.cadetId === cadetId && m.from <= day && day <= m.to) || null; }
+    function medicalCovers(m) { const list = MED_COVERS.filter(k => (m?.covers || []).includes(k)); return list.length ? andList(list) : 'physical training'; }
+    function canMedical(cadetId) { return !!cadetById(cadetId) && requestsForCadet(cadetId); }
+    function medicalSees(cadetId) { return cadetId === app?.myCadet?.()?.id || !!app?.can?.('attendance') || !!app?.can?.('requests'); }
+    function medicalTagHtml(cadetId, pd) {
+      const m = medicalOn(cadetId, ymd(new Date(pd.reportAt)));
+      if (!m || !medicalSees(cadetId)) return '';
+      return `<p class="text-[11px] text-violet-300 mt-0.5" data-medical>Medical exemption: excused from ${escapeHtml(medicalCovers(m))}${m.note ? ' · ' + escapeHtml(m.note) : ''}</p>`;
+    }
+    function medicalRedraw() {
+      if (!document.getElementById('profileModal')?.classList.contains('hidden')) renderCadetProfile();
+      if (isVisible('paradePage')) renderParadePage();
+      renderMyDay?.();
+    }
+    function openMedical(cadetId, id = null) {
+      if (!canMedical(cadetId)) { app?.showToast?.(SCOPE_TEXT_MEDICAL); return; }
+      const m = id ? medicalList().find(x => x.id === id) : null;
+      MED.cadetId = cadetId; MED.editId = m ? m.id : null;
+      document.getElementById('medicalHeading').textContent = `${m ? 'Change' : 'Add'}: ${cadetLabel(cadetId)}`;
+      document.getElementById('medFrom').value = m?.from || ymd(new Date());
+      document.getElementById('medTo').value = m?.to || ymd(new Date(Date.now() + 6 * 86400000));
+      document.getElementById('medNote').value = m?.note || '';
+      document.querySelectorAll('#medCovers [data-c]').forEach(b => b.setAttribute('aria-pressed', String(m ? (m.covers || []).includes(b.dataset.c) : ['PT', 'Drill'].includes(b.dataset.c))));
+      document.getElementById('medError').classList.add('hidden');
+      document.getElementById('medicalModal').classList.remove('hidden');
+    }
+    const SCOPE_TEXT_MEDICAL = "Only a sergeant of the cadet's company, or the CSM, CQMS, JUOs, SUOs and the administrator, can do this.";
+    function saveMedical() {
+      const cadetId = MED.cadetId;
+      if (!canMedical(cadetId)) return;
+      const err = document.getElementById('medError'), fail = t => { err.textContent = t; err.classList.remove('hidden'); };
+      const from = document.getElementById('medFrom').value, to = document.getElementById('medTo').value;
+      const covers = [...document.querySelectorAll('#medCovers [data-c][aria-pressed="true"]')].map(b => b.dataset.c).filter(k => MED_COVERS.includes(k));
+      const note = document.getElementById('medNote').value.trim().slice(0, 100);
+      if (!DAY_RE.test(from) || !DAY_RE.test(to)) return fail('Pick both dates.');
+      if (to < from) return fail('The end date is before the start date.');
+      if ((fromYmd(to) - fromYmd(from)) / 86400000 > 183) return fail('At most 6 months at a time. Add another one after that.');
+      if (!covers.length) return fail('Pick at least one thing they are excused from.');
+      if (!Array.isArray(app.state.medical)) app.state.medical = [];
+      const data = { from, to, covers, note };
+      if (MED.editId) {
+        const m = app.state.medical.find(x => x.id === MED.editId);
+        if (!m) return fail('This was removed meanwhile.');
+        Object.assign(m, data, { editedBy: app.authorName(), editedAt: Date.now() });
+      } else app.state.medical.push({ id: newId('med'), cadetId, ...data, by: app.authorName(), at: Date.now() });
+      // The activity log is open to every cadet, so it keeps no name or detail.
+      app.logHistory('medical-set', null, MED.editId ? 'A medical exemption was changed' : 'A medical exemption was added');
+      app.saveStorage();
+      app.closeModal('medicalModal');
+      medicalRedraw();
+      app.showToast('Medical exemption saved.');
+    }
+    /** Fit again: ends it yesterday, or removes it when it had not started before today. Undo puts it back. */
+    function endMedical(id) {
+      const list = app.state.medical || [], i = list.findIndex(x => x && x.id === id); if (i < 0) return;
+      const m = list[i]; if (!canMedical(m.cadetId)) return;
+      const before = { ...m }, yesterday = ymd(new Date(Date.now() - 86400000));
+      if (m.from <= yesterday) m.to = yesterday; else list.splice(i, 1);
+      app.logHistory('medical-ended', null, 'A medical exemption was ended');
+      app.saveStorage(); medicalRedraw();
+      app.showToast(`${cadetLabel(m.cadetId)} is fit again.`, { undo: () => {
+        const l = app.state.medical || [], j = l.findIndex(x => x && x.id === id);
+        if (j >= 0) l[j] = before; else app.state.medical = putBack(l, before, i);
+        app.saveStorage(); medicalRedraw();
+      } });
+    }
+    function cadetMedicalHtml(c) {
+      if (!medicalSees(c.id)) return '';
+      const today = ymd(new Date()), can = canMedical(c.id), esc = escapeHtml;
+      const list = medicalList().filter(m => m.cadetId === c.id && m.to >= today).sort((a, b) => a.from.localeCompare(b.from));
+      if (!list.length && !can) return '';
+      return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4" id="profileMedical">
+        <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="font-extrabold text-white">Medical exemption</h4>
+        ${can ? `<button type="button" data-id="${esc(c.id)}" onclick="openMedical(this.dataset.id)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Add</button>` : ''}</div>
+        ${list.length ? `<ul class="mt-2 space-y-2">${list.map(m => `<li class="text-sm text-slate-200"><span class="block">${m.from <= today ? 'Now' : 'From ' + esc(dayLabel(m.from))}: excused from ${esc(medicalCovers(m))} until ${esc(dayLabel(m.to))}</span>${m.note ? `<span class="block text-[11px] text-slate-400">${esc(m.note)}</span>` : ''}
+          ${can ? `<span class="flex gap-3 mt-1"><button type="button" data-id="${esc(m.id)}" data-c="${esc(c.id)}" onclick="openMedical(this.dataset.c, this.dataset.id)" class="text-[11px] font-bold text-sky-300 underline">Change</button><button type="button" data-id="${esc(m.id)}" onclick="endMedical(this.dataset.id)" class="text-[11px] font-bold text-emerald-300 underline">Fit again</button></span>` : ''}</li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">None now.</p>'}
+      </section>`;
+    }
+
+    // ---- Social service: state.service = [{ id, title, kind, date, hours, place, photos, cadetIds, by, at }].
+    // Lance corporals and above (and POCs) record each activity and who took part; the hours show on each profile,
+    // the printed record, the unit report and the Excel download.
+    const SERVICE_KINDS = ['Blood donation', 'Tree plantation', 'Cleanliness drive', 'Awareness rally', 'Community visit', 'Relief work', 'Other'];
+    const SVC = { editId: null, picked: new Set(), open: null, all: false };
+    function serviceList() { return (cfState()?.service || []).filter(x => x && safeId(x.id) && DAY_RE.test(x.date || '')).slice().sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0)); }
+    function serviceHours(x) { const h = Number(x?.hours); return Number.isFinite(h) && h > 0 ? Math.min(100, h) : 0; }
+    function serviceOf(cadetId) { return serviceList().filter(x => (x.cadetIds || []).includes(cadetId)); }
+    function serviceTotal(cadetId) { return serviceOf(cadetId).reduce((sum, x) => sum + serviceHours(x), 0); }
+    function hoursText(h) { const n = Math.round(h * 10) / 10; return `${n.toLocaleString('en-IN')} hour${n === 1 ? '' : 's'}`; }
+    function renderServiceCard() {
+      const host = document.getElementById('serviceCard'); if (!host || !cfState()) return;
+      const esc = escapeHtml, list = serviceList(), edit = !!app?.canEdit?.(), cadets = cfState().cadets || [];
+      const per = cadets.map(c => ({ c, h: serviceTotal(c.id) })).filter(x => x.h > 0).sort((a, b) => b.h - a.h || a.c.name.localeCompare(b.c.name));
+      const coy = TROPHY_COYS.map(k => ({ k, h: per.filter(x => x.c.company === k).reduce((sum, x) => sum + x.h, 0) }));
+      const shown = SVC.all ? list : list.slice(0, 8);
+      const row = x => {
+        const open = SVC.open === x.id, n = (x.cadetIds || []).length;
+        return `<li data-service="${esc(x.id)}">
+          <button type="button" class="camp-row w-full text-left px-3 py-3 flex flex-wrap items-center gap-x-3 gap-y-1" aria-expanded="${open}" data-id="${esc(x.id)}" onclick="SVC.open = SVC.open === this.dataset.id ? null : this.dataset.id; renderServiceCard()">
+            <span class="camp-kind">${esc(x.kind || 'Other')}</span>
+            <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-white">${esc(x.title)}</span>
+            <span class="block text-[11px] text-slate-400">${esc(fullDay(x.date))}${x.place ? ' · ' + esc(x.place) : ''} · ${esc(hoursText(serviceHours(x)))} each</span></span>
+            <span class="text-xs text-slate-300 font-mono-num">${n} cadet${n === 1 ? '' : 's'}</span>
+          </button>
+          ${open ? `<div class="px-3 pb-3 space-y-2 fx-enter">
+            <div class="flex flex-wrap gap-1.5">${(x.cadetIds || []).map(id => `<button type="button" data-id="${esc(id)}" onclick="openCadetProfile(this.dataset.id)" class="af-chip text-[11px]">${esc(cadetLabel(id))}</button>`).join('') || '<span class="text-xs text-slate-500">No cadets added.</span>'}</div>
+            ${photoLinkHtml(x.photos, 'Photos')}
+            ${edit ? `<div class="flex gap-2"><button type="button" data-id="${esc(x.id)}" onclick="openServiceModal(this.dataset.id)" class="px-3 py-1.5 text-xs font-bold border border-slate-700 text-slate-200 rounded-lg">Edit</button>
+              <button type="button" data-id="${esc(x.id)}" onclick="deleteService(this.dataset.id)" class="px-3 py-1.5 text-xs font-bold border border-rose-900/60 text-rose-300 rounded-lg">Delete</button></div>` : ''}
+          </div>` : ''}
+        </li>`;
+      };
+      host.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 id="serviceHeading" class="font-extrabold text-white">Social service <span class="text-sm text-slate-500 font-mono-num">${list.length}</span></h3>
+          <p class="text-xs text-slate-400 mt-0.5">Blood donation, tree plantation, cleanliness drives and the rest. The hours show on each cadet's profile and printed record.</p></div>
+          ${edit ? '<button type="button" onclick="openServiceModal()" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Add activity</button>' : ''}
+        </div>
+        ${per.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="serviceTotals">
+          <div><p class="text-[11px] font-bold text-slate-400">Hours by company</p><ul class="mt-1 text-sm text-slate-200 space-y-0.5">${coy.map(x => `<li class="flex justify-between gap-2"><span>${esc(x.k)}</span><span class="font-mono-num">${esc(hoursText(x.h))}</span></li>`).join('')}</ul></div>
+          <div><p class="text-[11px] font-bold text-slate-400">Most hours</p><ol class="mt-1 text-sm text-slate-200 space-y-0.5">${per.slice(0, 5).map(x => `<li class="flex justify-between gap-2"><button type="button" data-id="${esc(x.c.id)}" onclick="openCadetProfile(this.dataset.id)" class="cf-name-link text-left truncate">${esc(x.c.rank || 'CDT')} ${esc(x.c.name)}</button><span class="font-mono-num shrink-0">${esc(hoursText(x.h))}</span></li>`).join('')}</ol></div>
+        </div>` : ''}
+        ${list.length ? `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${shown.map(row).join('')}</ul>
+          ${list.length > shown.length ? `<button type="button" onclick="SVC.all = true; renderServiceCard()" class="text-xs font-bold text-sky-300 underline">Show all ${list.length}</button>` : ''}` : '<p class="text-xs text-slate-500">No activities recorded yet.</p>'}`;
+    }
+    function openServiceModal(id) {
+      if (!app?.canEdit?.()) { app?.showToast?.('Lance corporals and above, and POCs, record social service.'); return; }
+      const x = id ? serviceList().find(v => v.id === id) : null;
+      SVC.editId = x ? x.id : null;
+      SVC.picked = new Set(x ? x.cadetIds || [] : []);
+      document.getElementById('serviceHeadingModal').textContent = x ? 'Edit activity' : 'Add activity';
+      const kind = document.getElementById('svcKind');
+      kind.innerHTML = SERVICE_KINDS.map(k => `<option>${escapeHtml(k)}</option>`).join('');
+      kind.value = x && SERVICE_KINDS.includes(x.kind) ? x.kind : SERVICE_KINDS[0];
+      document.getElementById('svcTitle').value = x?.title || '';
+      document.getElementById('svcDate').value = x?.date || ymd(new Date());
+      document.getElementById('svcHours').value = x ? serviceHours(x) || 2 : 2;
+      document.getElementById('svcPlace').value = x?.place || '';
+      document.getElementById('svcPhotos').value = x?.photos || '';
+      document.getElementById('svcSearch').value = '';
+      document.getElementById('svcError').classList.add('hidden');
+      renderServicePicker();
+      document.getElementById('serviceModal').classList.remove('hidden');
+    }
+    /** Cadets the search shows: name or company, or exactly a year (2nd) or wing (SW). */
+    function serviceShown() {
+      const q = (document.getElementById('svcSearch')?.value || '').trim().toLowerCase();
+      return (cfState()?.cadets || []).filter(c => !q || c.name.toLowerCase().includes(q) || String(c.company || '').toLowerCase().includes(q) || String(c.year || '').toLowerCase() === q || String(c.wing || '').toLowerCase() === q);
+    }
+    function renderServicePicker() {
+      const host = document.getElementById('svcPickList'); if (!host) return;
+      const esc = escapeHtml, list = serviceShown();
+      host.innerHTML = list.map(c => `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 text-sm text-slate-200">
+        <input type="checkbox" ${SVC.picked.has(c.id) ? 'checked' : ''} data-id="${esc(c.id)}" onchange="servicePick(this.dataset.id, this.checked)">
+        <span>${esc(c.rank || 'CDT')} ${esc(c.name)}</span><span class="ml-auto text-[11px] text-slate-500">${esc(c.company)} · ${esc(c.year || '')}</span></label>`).join('') || '<p class="text-xs text-slate-500 px-2">No cadet matches.</p>';
+      document.getElementById('svcPickCount').textContent = `${SVC.picked.size} picked`;
+    }
+    function servicePick(id, on) { if (on) SVC.picked.add(id); else SVC.picked.delete(id); document.getElementById('svcPickCount').textContent = `${SVC.picked.size} picked`; }
+    function serviceAllShown() { serviceShown().forEach(c => SVC.picked.add(c.id)); renderServicePicker(); }
+    function saveService() {
+      if (!app?.canEdit?.()) return;
+      const err = document.getElementById('svcError'), fail = t => { err.textContent = t; err.classList.remove('hidden'); };
+      const title = document.getElementById('svcTitle').value.trim().slice(0, 100), kind = document.getElementById('svcKind').value;
+      const date = document.getElementById('svcDate').value, hours = Number(document.getElementById('svcHours').value);
+      const place = document.getElementById('svcPlace').value.trim().slice(0, 80);
+      const photosRaw = document.getElementById('svcPhotos').value.trim(), photos = cleanLinkUrl(photosRaw);
+      if (!title) return fail('Write what the activity was.');
+      if (!SERVICE_KINDS.includes(kind)) return fail('Pick the kind of activity.');
+      if (!DAY_RE.test(date)) return fail('Pick the date.');
+      if (!(hours > 0 && hours <= 100)) return fail('Hours for each cadet: from 0.5 to 100.');
+      if (photosRaw && !photos) return fail('The photos link must be a full link starting with https://');
+      const cadetIds = [...SVC.picked].filter(id => cadetById(id));
+      if (!cadetIds.length) return fail('Tick the cadets who took part.');
+      const data = { title, kind, date, hours: Math.max(0.5, Math.round(hours * 2) / 2), place, photos, cadetIds };
+      if (!Array.isArray(app.state.service)) app.state.service = [];
+      if (SVC.editId) {
+        const x = app.state.service.find(v => v && v.id === SVC.editId);
+        if (!x) return fail('This activity was deleted meanwhile.');
+        Object.assign(x, data, { editedBy: app.authorName(), editedAt: Date.now() });
+        app.logHistory('service-edited', null, `Edited social service: ${title} (${cadetIds.length} cadets)`);
+      } else {
+        const x = { id: newId('svc'), ...data, by: app.authorName(), at: Date.now() };
+        app.state.service.push(x);
+        SVC.open = x.id;
+        app.logHistory('service-added', null, `Social service: ${title}, ${date} (${cadetIds.length} cadets, ${hoursText(data.hours)} each)`);
+      }
+      app.saveStorage();
+      app.closeModal('serviceModal');
+      renderServiceCard();
+      app.showToast('Saved.');
+    }
+    function deleteService(id) {
+      if (!app?.canEdit?.()) return;
+      const list = app.state.service || [], i = list.findIndex(x => x && x.id === id); if (i < 0) return;
+      const [x] = list.splice(i, 1);
+      app.logHistory('service-deleted', null, `Deleted social service: ${x.title}`);
+      app.saveStorage(); renderServiceCard();
+      app.showToast(`${x.title} deleted.`, { undo: () => { app.state.service = putBack(app.state.service || [], x, i); app.saveStorage(); renderServiceCard(); } });
+    }
+    function cadetServiceHtml(c) {
+      const list = serviceOf(c.id), total = list.reduce((sum, x) => sum + serviceHours(x), 0), esc = escapeHtml;
+      return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4" id="profileService">
+        <h4 class="font-extrabold text-white">Social service <span class="text-sm text-slate-500 font-mono-num">${esc(hoursText(total))}</span></h4>
+        ${list.length ? `<ul class="mt-2 space-y-1">${list.map(x => `<li class="text-xs text-slate-300"><span class="camp-kind">${esc(x.kind || 'Other')}</span> ${esc(x.title)} <span class="text-slate-500">· ${esc(fullDay(x.date))} · ${esc(hoursText(serviceHours(x)))}</span></li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-1">None recorded.</p>'}
+      </section>`;
+    }
+    function serviceRecordHtml(cadetId) {
+      const list = serviceOf(cadetId); if (!list.length) return '';
+      const esc = escapeHtml, total = list.reduce((sum, x) => sum + serviceHours(x), 0);
+      return `<h2>Social service: ${esc(hoursText(total))}</h2><table><tbody>${list.map(x => `<tr><td>${esc(fullDay(x.date))}</td><td>${esc(x.title)}</td><td>${esc(x.kind || '')}</td><td>${esc(hoursText(serviceHours(x)))}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function serviceReportHtml(from, to) {
+      const esc = escapeHtml, list = serviceList().filter(x => x.date >= from && x.date <= to);
+      if (!list.length) return '<h2>Social service</h2><p>None in these dates.</p>';
+      const people = new Set(list.flatMap(x => x.cadetIds || [])).size, all = list.reduce((sum, x) => sum + serviceHours(x) * (x.cadetIds || []).length, 0);
+      return `<h2>Social service</h2><p>${list.length} activit${list.length === 1 ? 'y' : 'ies'}, ${people} cadet${people === 1 ? '' : 's'} took part, ${esc(hoursText(all))} in all.</p>
+        <table><tbody>${list.map(x => `<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${(x.cadetIds || []).length} cadets</td><td>${esc(hoursText(serviceHours(x)))} each</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    // ---- Photo albums: links (https only) on parades (pd.photos, under the minutes), camps, social service and
+    // rolling trophy events. Nothing is uploaded: the photos stay in Google Drive or Google Photos.
+    function photoLinkHtml(url, label = 'Photos') {
+      const href = cleanLinkUrl(url); if (!href) return '';
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" data-photos class="inline-block text-xs font-bold text-sky-300 hover:text-sky-200 underline underline-offset-2">${escapeHtml(label)}</a>`;
+    }
+    function paradePhotosHtml(pd) {
+      const can = !!app?.canEdit?.(), link = photoLinkHtml(pd.photos, 'Open the photo album');
+      if (!link && !can) return '';
+      return `<div class="border-t border-slate-800 pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5" id="paradePhotos"><span class="text-xs font-bold text-slate-300">Photos</span>${link || '<span class="text-xs text-slate-500">No album yet.</span>'}
+        ${can ? `<button type="button" data-id="${escapeHtml(pd.id)}" onclick="setParadePhotos(this.dataset.id)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">${link ? 'Change link' : 'Add album link'}</button>` : ''}</div>`;
+    }
+    async function setParadePhotos(id) {
+      if (!app?.canEdit?.()) return;
+      const pd = findParade(id); if (!pd) return;
+      const had = pd.photos || '';
+      const text = await askText('Link to the photo album (Google Drive or Google Photos), shared so anyone with the link can see it. Leave it empty to remove it.', had, { title: 'Photos', ok: 'Save' });
+      if (text === null) return;
+      const raw = String(text).trim(), url = cleanLinkUrl(raw);
+      if (raw && !url) { app.showToast('Paste a full link starting with https://'); return; }
+      const p = findParade(id); if (!p) return;
+      if (url) p.photos = url; else delete p.photos;
+      app.logHistory('parade-photos', null, `${url ? 'Photos added to' : 'Photos removed from'} ${p.title} (${paradeDay(p.reportAt)})`);
+      app.saveStorage();
+      renderParadePage();
+      app.showToast(url ? 'Photos link saved.' : 'Photos link removed.', had && !url ? { undo: () => { const x = findParade(id); if (x) { x.photos = had; app.saveStorage(); renderParadePage(); } } } : {});
+    }
+    function albumItems() {
+      const out = [], add = (kind, title, date, url) => { if (cleanLinkUrl(url)) out.push({ kind, title, date: date || '', url }); };
+      paradeList().forEach(pd => add('Parade', pd.title, ymd(new Date(pd.reportAt)), pd.photos));
+      campList().forEach(c => add('Camp', campTitle(c), c.start, c.photos));
+      serviceList().forEach(x => add('Social service', x.title, x.date, x.photos));
+      trophyList().forEach(e => add('Rolling trophy', e.title, e.date, e.photos));
+      return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    }
+    function openAlbums() { document.getElementById('albumsModal').classList.remove('hidden'); renderAlbums(); }
+    function renderAlbums() {
+      const host = document.getElementById('albumsBody'); if (!host) return;
+      const list = albumItems(), esc = escapeHtml;
+      host.innerHTML = list.length ? `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${list.map(a => `<li class="px-3 py-2.5 flex items-center justify-between gap-3">
+          <span class="min-w-0"><span class="block text-sm font-bold text-white truncate">${esc(a.title)}</span><span class="block text-[11px] text-slate-400">${esc(a.kind)}${a.date ? ' · ' + esc(fullDay(a.date)) : ''}</span></span>${photoLinkHtml(a.url, 'Open')}</li>`).join('')}</ul>`
+        : '<p class="text-sm text-slate-400">No albums yet. Add a link under a parade\'s minutes, or on a camp, a social service activity or a rolling trophy event.</p>';
+    }
+
+    // ---- Hooks into the existing pages.
+    {
+      const baseProfile = renderCadetProfile;
+      renderCadetProfile = function () {
+        const r = baseProfile.apply(this, arguments);
+        const modal = document.getElementById('profileModal'), c = cadetById(PROF.id);
+        if (c && modal && !modal.classList.contains('hidden')) {
+          const html = cadetMedicalHtml(c) + cadetServiceHtml(c), bday = document.getElementById('profileBirthday');
+          if (bday) bday.insertAdjacentHTML('beforebegin', html); else document.getElementById('profileBody').insertAdjacentHTML('beforeend', html);
+        }
+        return r;
+      };
+      const baseMinutes = renderMinutesCard;
+      renderMinutesCard = function (pd) {
+        const html = baseMinutes(pd);
+        if (!html) return html;
+        const photos = paradePhotosHtml(pd);
+        return photos ? html.replace(/<\/div>$/, `${photos}</div>`) : html;
+      };
+      const baseExtra = myDayExtraCards;
+      myDayExtraCards = function (card) {
+        const out = baseExtra(card), esc = escapeHtml, me = app.myCadet(), today = ymd(new Date());
+        const mine = me ? medicalOn(me.id, today) : null;
+        if (mine) out.push(card('Medical exemption', esc(`Excused from ${medicalCovers(mine)}`), esc(`Until ${dayLabel(mine.to)}${mine.note ? ' · ' + mine.note : ''}`)));
+        if (app.can('requests')) {
+          const now = medicalList().filter(m => m.from <= today && today <= m.to && m.cadetId !== me?.id && requestsForCadet(m.cadetId));
+          if (now.length) out.push(card('On medical exemption', `${now.length} today`, esc(now.slice(0, 6).map(m => cadetLabel(m.cadetId)).join(', ') + (now.length > 6 ? ` and ${now.length - 6} more` : ''))));
+        }
+        return out;
+      };
     }
 
     async function clearSystemErrors() {

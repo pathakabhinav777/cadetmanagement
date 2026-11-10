@@ -49,14 +49,14 @@ The rank of the cadet an account is linked to decides its powers.
 
 | Who | Powers |
 |-----|--------|
-| Lance corporal and above | Tasks, notices, call-outs |
-| Sergeant and above | Late/absence requests, leave, mess duty let-offs, attendance, the register, the rolling trophy and awards |
+| Lance corporal and above | Tasks, notices, call-outs, social service records, photo album links |
+| Sergeant and above | Late/absence requests, leave, mess duty let-offs, medical exemptions, attendance, the register, the rolling trophy and awards |
 | JUO and SUO | Create and change parades, record camps |
 | CQMS | Uniform orders, payments, equipment |
 | POC (tick on the roster) | Tasks, notices, call-outs and attendance, whatever their rank, plus filling in anyone's timetable |
 | Administrator | Everything, plus the roster, accounts, deleting tasks and parades, and backups |
 
-Sergeants see and decide only the requests of cadets in their own company. The CSM, CQMS, JUOs, SUOs and the administrator see all of them.
+Sergeants see and decide only the requests of cadets in their own company, and add medical exemptions only for them. The CSM, CQMS, JUOs, SUOs and the administrator see all of them.
 
 The Help page on the site (account menu, Help) explains every part in plain words for cadets and seniors.
 
