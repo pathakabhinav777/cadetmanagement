@@ -29,6 +29,22 @@ export function can(who, perm) {
   return !!rank && !!PERMISSIONS[perm]?.(rank);
 }
 
+// Requests (late/absence, leave, mess duty let-off): a sergeant sees and decides only those of cadets in their own
+// company; the CQMS, CSM, JUOs, SUOs and the administrator see all. A sergeant with no company set sees all.
+export const ALL_REQUEST_RANKS = ['CQMS', 'CSM', 'JUO', 'SUO'];
+/** who: { admin, poc?, rank, cadet } of the senior; cadet: the roster entry the request is about. */
+export function requestsFor(who, cadet) {
+  if (!can(who, 'requests')) return false;
+  if (who.admin || ALL_REQUEST_RANKS.includes(who.rank)) return true;
+  const mine = String(who.cadet?.company || '');
+  if (!mine || mine === 'No company') return true;
+  return !!cadet && String(cadet.company || '') === mine;
+}
+export const SCOPE_DENIED = "Only a sergeant of that cadet's company, or the CSM, CQMS, JUOs and SUOs, can do this.";
+
+// Notifications each person can switch off (account menu, Notification choices). Everything else always goes.
+export const NOTIFY_KINDS = ['parades', 'reminders', 'notices', 'signups', 'messCalls', 'weekly'];
+
 /** Years a parade is limited to; [] = every year (same as the site's normalizeYears). */
 export function paradeYears(pd) {
   const list = YEARS.filter(y => Array.isArray(pd?.years) && pd.years.includes(y));

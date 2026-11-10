@@ -25,6 +25,10 @@
 //   payInfo                                -> { upi, payee, note, qrUrl }      where to pay CQMS
 //   myRegNo   { regNo }                    -> { ok }             own regimental number, once, if the roster has none
 //   seen      { items: ['notice:<id>' | 'parade:<id>'] } -> { ok }   this person has seen these
+//   reportError { message, place, page }   -> { ok }             a problem the page ran into (System check)
+//   myBirthday { md: 'MM-DD' | '' }        -> { ok }             own birthday (no year), shown on Home on the day
+//   setTimetable { cadetId, free: ['MON1', ...], detail? } -> { ok }   POCs and the administrator
+//   myPrefs / setPrefs { off: [kinds] }    -> { off }            notifications switched off (NOTIFY_KINDS in rules.mjs)
 //   leave     { from, to, reason, image? } -> { request }        own leave for several days (SGT and above decide it)
 //   answer    { noticeId, choice }         -> { mine, counts, total }   own answer to a notice's question
 //   answers   { ids: [noticeId] }          -> { answers: { id: { mine, counts, total } } }
@@ -58,7 +62,9 @@
 //                  paradeChange { paradeId, was: { reportAt, venue } }  "parade changed" to its cadets (once per change)
 //                  paradeCancel { paradeId }   "parade cancelled" to its cadets, sent just before the site deletes it
 // CQMS:            payImage { proofId }, payDecide { proofId, ok, note? }, setPayInfo { upi, payee, note, image?, removeQr? }
-// Administrator:   backups -> { backups: [{ id, at, kind, size, cadets, parades, tasks }] }, backupNow, restoreBackup { id }
+// SGT: requests, decide, excuse, reportImage and messOutDecide only for cadets of their own company (rules requestsFor).
+// Administrator:   health -> System check; errorsClear; archive { before: 'YYYY-MM-DD' } (copy kept as an "archive" backup)
+//                  backups -> { backups: [{ id, at, kind, size, cadets, parades, tasks }] }, backupNow, restoreBackup { id }
 //                  suggestions -> { suggestions }, suggestionUpdate { id, status?, reply? }
 //                  accounts (with each person's number of devices for notifications),
 //                  invite { people: [{ cadetId, email, regNo }], send, site },
@@ -78,11 +84,12 @@ import webpush from "npm:web-push@3.6.7";
 // @ts-ignore plain JavaScript module shared with the tests
 import * as rules from "./rules.mjs";
 
-const { approvedReport, attendanceDrops, audienceText, can, cleanLink, cleanQuestion, CUTOFF_MIN, equipmentOverdue, hasRefreshments, inParade, isLeaveRequest, istDay, istWeekday,
+const { approvedReport, attendanceDrops, audienceText, can, cleanLink, NOTIFY_KINDS, requestsFor, SCOPE_DENIED, cleanQuestion, CUTOFF_MIN, equipmentOverdue, hasRefreshments, inParade, isLeaveRequest, istDay, istWeekday,
   excusedFrom, messCallsDue, messCanDo, messLeadRank, messPerDay, messStandbyIds, messToRemind, paradeRecipients, paradesToRemind, payProofsToDelete, REMIND_BEFORE_MS, requestCleanup, requestsOpen, SEEN_ITEM, signupOpen, uniformKeyOf,
   uniformLabelOf, uniformReceiveBlock, uniformUnitOf, UNIFORM_ITEMS, weekSummary, WEEKLY_HOUR } = rules;
 
 const SITE = "https://pathakabhinav777.github.io/cadetmanagement/";
+const BUILD = "2026-11-13"; // shown in the administrator's System check
 const BUCKET = "cadetflow-report-files";
 const ROLES = ["admin", "viewer"];
 
@@ -223,7 +230,13 @@ async function sendTo(subs: Sub[], payload: Obj) {
   if (gone.length) await db.from("cadetflow_push_subscriptions").delete().in("endpoint", gone);
   return { sent, failed, removed: gone.length };
 }
-async function devicesOf(userIds: string[]): Promise<Sub[]> {
+/** Devices of these people. kind: a notification people can switch off (NOTIFY_KINDS); those who did are left out. */
+async function devicesOf(userIds: string[], kind?: string): Promise<Sub[]> {
+  if (kind && userIds.length) {
+    const { data: prefs } = await db.from("cadetflow_settings").select("key, value").in("key", userIds.map((u) => "prefs:" + u));
+    const off = new Set(((prefs || []) as Obj[]).filter((p) => Array.isArray(p.value?.off) && p.value.off.includes(kind)).map((p) => String(p.key).slice(6)));
+    userIds = userIds.filter((u) => !off.has(u));
+  }
   if (!userIds.length) return [];
   const { data, error } = await db.from("cadetflow_push_subscriptions").select("endpoint, p256dh, auth").in("user_id", userIds);
   if (error) throw new Error("could not read devices: " + error.message);
@@ -271,7 +284,7 @@ async function runMessCalls(only: string | null) {
         payload = { title: `Pick mess duty: ${title}`, body: `${places} still empty at ${when(Number(pd.reportAt))}. Pick cadets on the Parades page.` };
       }
       const people = profiles.filter((p) => p.cadet_id && ids.includes(String(p.cadet_id))).map((p) => p.user_id);
-      if (await claimOnce(`messcall:${pd.id}:${stage}`) && people.length) await tell(people, { ...payload, tag: `messcall-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
+      if (await claimOnce(`messcall:${pd.id}:${stage}`) && people.length) await tell(people, { ...payload, tag: `messcall-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` }, stage === "leads" ? undefined : "messCalls");
       state = await changeState(null, (s) => {
         const p = findParade(s, pd.id); if (!p) return false;
         if (!Array.isArray(s.messDuty)) s.messDuty = [];
@@ -301,8 +314,8 @@ async function cqmsPeople(state: Obj) {
 }
 async function adminPeople() { return (await approvedProfiles()).filter((p) => p.role === "admin").map((p) => p.user_id); }
 /** Send without failing the action that triggered it. */
-async function tell(userIds: string[], payload: Obj) {
-  try { return await sendTo(await devicesOf(userIds), payload); } catch (e) { console.error("notify", e); return { sent: 0, failed: 0, removed: 0 }; }
+async function tell(userIds: string[], payload: Obj, kind?: string) {
+  try { return await sendTo(await devicesOf(userIds, kind), payload); } catch (e) { console.error("notify", e); return { sent: 0, failed: 0, removed: 0 }; }
 }
 
 // ---- files ---------------------------------------------------------------------------------------
@@ -529,11 +542,12 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       const people = paradeRecipients(profiles, cadetsOf(state), pd, state.leaves || []); // not those on leave
       const mins = Math.round((Number(pd.reportAt) - now) / 60000);
       const left = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min` : `${mins} min`;
-      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", pd.kit ? `Bring: ${String(pd.kit)}` : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` });
+      await tell(people, { title: `In ${left}: ${String(pd.title || "Parade")}`, body: [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", pd.kit ? `Bring: ${String(pd.kit)}` : ""].filter(Boolean).join(" · "), tag: `remind-${pd.id}`, url: `./?parade=${encodeURIComponent(pd.id)}` }, "reminders");
       parades++;
     }
     for (const d of days) {
       const pd = d.paradeId ? findParade(state, d.paradeId) : null;
+      if (d.paradeId && !pd) continue; // the parade was cancelled: no mess duty
       if (pd && !hasRefreshments(pd, state.messDuty)) continue; // the CQMS turned refreshments off for it
       // Each cadet once (so someone put on it later still hears); a day reminded before keys carried the
       // cadet ("mess:<id>") is done.
@@ -583,10 +597,14 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         w.owed ? `${rupees(w.owed)} uniform money owed` : "",
         waitingAccounts ? `${waitingAccounts} account${waitingAccounts === 1 ? "" : "s"} to approve` : "",
       ].filter(Boolean);
-      await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" });
+      await tell(await adminPeople(), { title: "The week in CadetFlow", body: parts.join(" · "), tag: "weekly", url: "./?page=home" }, "weekly");
       weekly = 1;
     }
-    return json({ parades, mess, calls, weekly, drops, overdue });
+    // Kept for the administrator's System check: when the reminders last ran (the job runs every 10 minutes).
+    const result = { parades, mess, calls, weekly, drops, overdue };
+    const { error: recErr } = await db.from("cadetflow_settings").upsert({ key: "remind", value: { at: new Date().toISOString(), ...result }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (recErr) console.error("remind record", recErr.message);
+    return json(result);
   }
   if (action === "subscribe") {
     const a = await access(me, null);
@@ -713,12 +731,15 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     if (!everyone) q = q.eq("user_id", a.me.id).is("dismissed_at", null); // a cadet's cleared requests stay with the seniors
     const { data, error } = await q;
     if (error) throw new Error("could not read requests: " + error.message);
-    return json({ requests: (data || []).map((r) => ({ ...requestOut(r), mine: r.user_id === a.me.id })) });
+    // Sergeants: only cadets of their own company (rules requestsFor); their own requests always.
+    const shown = (data || []).filter((r) => !everyone || r.user_id === a.me.id || requestsFor(a.who, findCadet(a.state, r.cadet_id)));
+    return json({ requests: shown.map((r) => ({ ...requestOut(r), mine: r.user_id === a.me.id })) });
   }
 
   if (action === "reportImage") {
-    await access(me, "requests");
-    const { data: r } = await db.from("cadetflow_requests").select("image_path").eq("id", String(body.id || "")).maybeSingle();
+    const a = await access(me, "requests");
+    const { data: r } = await db.from("cadetflow_requests").select("image_path, cadet_id").eq("id", String(body.id || "")).maybeSingle();
+    if (r && !requestsFor(a.who, findCadet(a.state, r.cadet_id))) fail(403, SCOPE_DENIED);
     if (!r?.image_path) fail(404, "The screenshot was already deleted.");
     return json({ url: await signed(r.image_path) });
   }
@@ -730,6 +751,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     if (!r) fail(404, "That request was withdrawn.");
     if (r.status !== "pending") return json({ request: requestOut(r), already: true });
     if (r.user_id === a.me.id && !a.who.admin) fail(403, "Another senior has to decide on your own request.");
+    if (!requestsFor(a.who, findCadet(a.state, r.cadet_id))) fail(403, SCOPE_DENIED);
     const approve = body.approve === true;
     const note = String(body.note || "").trim().slice(0, 300);
     const decider = nameOf(a);
@@ -779,6 +801,72 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     }
     await cleanup(state, a.me.id, true);
     return json({ request: requestOut(done) });
+  }
+
+  // ---- a page ran into a problem: kept for the administrator's System check (same message counted, not repeated)
+  if (action === "reportError") {
+    const a = await access(me, null);
+    const message = String(body.message || "").slice(0, 300).trim();
+    if (!message) return json({ ok: true });
+    const place = String(body.place || "").slice(0, 200), agent = String(req.headers.get("user-agent") || "").slice(0, 200), page = String(body.page || "").slice(0, 40);
+    const id = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(message + "|" + place)))).slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const { data: old } = await db.from("cadetflow_errors").select("id, count").eq("id", id).maybeSingle();
+    const now = new Date().toISOString();
+    if (old) await db.from("cadetflow_errors").update({ count: Math.min(1000000, (old.count || 1) + 1), last_at: now, agent, page, name: nameOf(a) }).eq("id", id);
+    else {
+      const { count } = await db.from("cadetflow_errors").select("id", { count: "exact", head: true });
+      if ((count || 0) < 500) await db.from("cadetflow_errors").insert({ id, message, place, agent, page, count: 1, first_at: now, last_at: now, name: nameOf(a) });
+    }
+    return json({ ok: true });
+  }
+
+  // ---- timetables: the administrator edits the roster directly; POCs change anyone's timetable through here
+  // (the roster itself stays locked to the administrator).
+  if (action === "setTimetable") {
+    const a = await access(me, null);
+    if (!a.who.admin && !a.who.poc) fail(403, "Only POCs and the administrator can edit timetables.");
+    const SLOTS = ["MON1", "MON2", "TUE1", "TUE2", "WED1", "WED2", "THU1", "THU2", "FRI1", "FRI2", "SAT1", "SAT2"];
+    const free = SLOTS.filter((x) => (Array.isArray(body.free) ? body.free : []).map(String).includes(x));
+    const cadetId = String(body.cadetId || ""), detail = String(body.detail || "timetable edited").slice(0, 120);
+    await changeState(a.me.id, (s) => {
+      const c = findCadet(s, cadetId);
+      if (!c) fail(404, "That cadet is no longer on the roster.");
+      c.free = free;
+      addHistory(s, "timetable-edited", cadetId, `${c.name}: ${detail} (${nameOf(a)})`);
+      return true;
+    });
+    return json({ ok: true, free });
+  }
+
+  // ---- own birthday (month and day only), shown on Home on the day; the cadet adds, changes or removes it
+  if (action === "myBirthday") {
+    const a = await access(me, null);
+    if (!a.who.cadet) fail(400, "Your account is not linked to your name on the roster. Ask the administrator.");
+    const md = String(body.md || "");
+    if (md && !/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(md)) fail(400, "Pick the month and day.");
+    const cadetId = String(a.who.cadet.id);
+    await changeState(a.me.id, (s) => {
+      const c = findCadet(s, cadetId);
+      if (!c) fail(404, "You are no longer on the roster.");
+      if ((c.birthday || "") === md) return false;
+      if (md) c.birthday = md; else delete c.birthday;
+      return true;
+    });
+    return json({ ok: true });
+  }
+
+  // ---- notification choices: { off: [kinds] } in cadetflow_settings "prefs:<user>"
+  if (action === "myPrefs" || action === "setPrefs") {
+    const a = await access(me, null);
+    const key = "prefs:" + a.me.id;
+    if (action === "setPrefs") {
+      const off = [...new Set((Array.isArray(body.off) ? body.off : []).map(String).filter((k) => NOTIFY_KINDS.includes(k)))];
+      const { error } = await db.from("cadetflow_settings").upsert({ key, value: { off }, updated_at: new Date().toISOString(), updated_by: a.me.id }, { onConflict: "key" });
+      if (error) throw new Error("could not save: " + error.message);
+      return json({ off });
+    }
+    const { data } = await db.from("cadetflow_settings").select("value").eq("key", key).maybeSingle();
+    return json({ off: Array.isArray((data?.value as Obj)?.off) ? (data!.value as Obj).off : [] });
   }
 
   // ---- parades
@@ -869,7 +957,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     if (claim?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
     if (claim) throw new Error("could not record the send: " + claim.message);
     const people = (await approvedProfiles()).map((p) => p.user_id).filter((u) => u !== a.me.id);
-    const subs = await devicesOf(people);
+    const subs = await devicesOf(people, "notices");
     const text = String(n.text || "");
     const r = await sendTo(subs, { title: `Notice from ${String(n.by || nameOf(a))}`, body: text.length > 180 ? text.slice(0, 177) + "…" : text, tag: `notice-${id}`, url: "./?page=home" });
     return json({ ...r, devices: subs.length, people: people.length });
@@ -895,7 +983,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     let people: string[] = [], subs: Sub[] = [], r: { sent: number; failed: number; removed: number };
     try {
       people = paradeRecipients(await approvedProfiles(), cadetsOf(a.state), pd, a.state.leaves || []); // not those on leave
-      subs = await devicesOf(people);
+      subs = await devicesOf(people, "parades");
       const lines = [when(Number(pd.reportAt)), pd.venue ? String(pd.venue) : "", pd.dress ? `Turnout: ${String(pd.dress)}` : "", `For: ${audienceText(pd)}`].filter(Boolean);
       r = await sendTo(subs, { title: `New parade: ${String(pd.title || "Parade")}`, body: lines.join(" · "), tag: `parade-${paradeId}`, url: `./?parade=${encodeURIComponent(paradeId)}` });
     } catch (e) {
@@ -951,6 +1039,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     if (!r || !isLeaveRequest(r)) fail(404, "That leave request was withdrawn.");
     if (r.status !== "pending") fail(409, "That leave request was already decided.");
     if (r.user_id === a.me.id && !a.who.admin) fail(403, "Another senior has to decide on your own request.");
+    if (!requestsFor(a.who, findCadet(a.state, r.cadet_id))) fail(403, SCOPE_DENIED);
     const from = String(r.from_date || "").slice(0, 10), to = String(r.to_date || "").slice(0, 10);
     const decider = nameOf(a);
     let title = "", at = 0;
@@ -1022,7 +1111,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const { error: claimErr } = await db.from("cadetflow_push_sent").insert({ parade_id: key, sent_by: a.me.id });
     if (claimErr?.code === "23505") return json({ alreadySent: true, sent: 0, devices: 0, people: 0 });
     if (claimErr) throw new Error("could not record the send: " + claimErr.message);
-    const subs = await devicesOf(people);
+    const subs = await devicesOf(people, action === "signupAnnounce" ? "signups" : undefined);
     const r = await sendTo(subs, payload);
     return json({ ...r, devices: subs.length, people: people.length });
   }
@@ -1112,7 +1201,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
         if (reason.length < 3) fail(400, "Write why you cannot do it.");
         swaps.push({ id: rid("swap"), kind: "out", dayId: d!.id, date: d!.date, from: myId, to: null, reason, status: "asked", at: Date.now() });
         // Sergeants and above expected at that parade (all of them if none); the administrator when there are none.
-        const seniors = cadetsOf(s).filter((c) => can({ admin: false, rank: String(c.rank || "").toUpperCase() }, "requests"));
+        const seniors = cadetsOf(s).filter((c) => requestsFor({ admin: false, rank: String(c.rank || "").toUpperCase(), cadet: c }, findCadet(s, myId)));
         const there = pd ? seniors.filter((c) => inParade(c, pd)) : [];
         const to = (there.length ? there : seniors).map((c) => String(c.id));
         if (!to.length) tellAdmins = true;
@@ -1124,6 +1213,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
       if (!sw) fail(404, "That request was removed.");
       if (deciding) {
         if (sw!.kind !== "out") fail(400, "That is a swap between cadets: they settle it themselves.");
+        if (!requestsFor(a.who, findCadet(s, sw!.from))) fail(403, SCOPE_DENIED);
         if (sw!.status !== "asked") fail(409, "That request was already decided or withdrawn.");
         const d = days.find((x) => x && x.id === sw!.dayId) || null;
         sw!.decidedBy = nameOf(a); sw!.answeredAt = Date.now();
@@ -1542,6 +1632,75 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     return json({ accounts });
   }
 
+  // ---- System check for the administrator: is the scheduled job running, how big is the data, who is waiting,
+  // and the problems pages ran into (table cadetflow_errors).
+  if (action === "health") {
+    await access(me, "admin");
+    const { state, updatedAt } = await readState();
+    const [rem, profs, subs, reqs, backs, sugg, errs] = await Promise.all([
+      db.from("cadetflow_settings").select("value").eq("key", "remind").maybeSingle(),
+      db.from("cadetflow_profiles").select("user_id, status, role, cadet_id"),
+      db.from("cadetflow_push_subscriptions").select("user_id"),
+      db.from("cadetflow_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      db.from("cadetflow_backups").select("taken_at, kind").order("taken_at", { ascending: false }).limit(50),
+      db.from("cadetflow_suggestions").select("id", { count: "exact", head: true }).eq("status", "new"),
+      db.from("cadetflow_errors").select("id, message, place, agent, page, count, first_at, last_at, name").order("last_at", { ascending: false }).limit(50),
+    ]);
+    const people = (profs.data || []) as Obj[], approved = people.filter((p) => p.status === "approved");
+    const withDevice = new Set(((subs.data || []) as Obj[]).map((x) => x.user_id).filter(Boolean));
+    const list = (k: string) => (Array.isArray(state[k]) ? state[k].length : 0);
+    const copies = ((backs.data || []) as Obj[]).filter((b) => b.kind !== "archive");
+    return json({
+      build: BUILD,
+      remind: (rem.data?.value as Obj) || null,
+      state: { size: JSON.stringify(state).length, updatedAt, cadets: cadetsOf(state).length, parades: list("parades"), history: list("history"), tasks: list("events") },
+      accounts: { approved: approved.length, waiting: people.filter((p) => p.status === "pending").length, admins: approved.filter((p) => p.role === "admin").length,
+        unlinked: approved.filter((p) => !p.cadet_id).length, devices: (subs.data || []).length, withDevice: approved.filter((p) => withDevice.has(p.user_id)).length },
+      waiting: { requests: reqs.count || 0, suggestions: sugg.count || 0 },
+      backups: { last: copies[0]?.taken_at || null },
+      errors: ((errs.data || []) as Obj[]).map((e) => ({ id: e.id, message: e.message, place: e.place || "", agent: e.agent || "", page: e.page || "", count: e.count || 1, first: Date.parse(e.first_at), last: Date.parse(e.last_at), name: e.name || "" })),
+    });
+  }
+  if (action === "errorsClear") {
+    await access(me, "admin");
+    const { error } = await db.from("cadetflow_errors").delete().lt("first_at", new Date(Date.now() + 86400000).toISOString());
+    if (error) throw new Error("could not clear them: " + error.message);
+    return json({ ok: true });
+  }
+
+  // ---- Archive (administrator): parades, finished tasks, mess duty, leave and activity from before a date leave the
+  // shared data (so every page stays quick); a full copy of the data as it was is kept as an "archive" backup that is
+  // never deleted, and can be restored from Backups.
+  if (action === "archive") {
+    const a = await access(me, "admin");
+    const before = String(body.before || "");
+    if (!/^\d{4}-\d\d-\d\d$/.test(before) || !Number.isFinite(Date.parse(before))) fail(400, "Pick the date: records from before it are archived.");
+    const cut = Date.parse(`${before}T00:00:00+05:30`);
+    if (cut > Date.now() - 30 * 86400000) fail(400, "Pick a date at least a month ago.");
+    const { state: was } = await readState();
+    const { error: bErr } = await db.from("cadetflow_backups").insert({ kind: "archive", state: was, taken_at: new Date().toISOString(), taken_by: a.me.id,
+      size: JSON.stringify(was).length, cadets: cadetsOf(was).length, parades: Array.isArray(was.parades) ? was.parades.length : 0, tasks: Array.isArray(was.events) ? was.events.length : 0 });
+    if (bErr) throw new Error("could not keep the archive copy: " + bErr.message);
+    const n = { parades: 0, tasks: 0, history: 0, other: 0 };
+    await changeState(a.me.id, (s) => {
+      const keep = (k: string, ok: (x: Obj) => boolean, count: keyof typeof n) => {
+        if (!Array.isArray(s[k])) return;
+        const len = s[k].length; s[k] = s[k].filter((x: Obj) => !x || ok(x)); n[count] += len - s[k].length;
+      };
+      keep("parades", (p) => !(Number(p.reportAt) < cut), "parades");
+      keep("events", (e) => !(e.archived === true && Number(e.archivedAt || e.createdAt || 0) < cut && e.id !== s.activeEventId), "tasks");
+      keep("history", (h) => !(Number(h.at) < cut), "history");
+      keep("messDuty", (d) => !(String(d.date || "9") < before), "other");
+      keep("messSwaps", (d) => !(String(d.date || "9") < before), "other");
+      keep("leaves", (l) => !(String(l.to || "9") < before), "other");
+      keep("signups", (x) => !(Number(x.closesAt) < cut), "other");
+      keep("notices", (x) => !(Number(x.until || x.at || Infinity) < cut), "other");
+      addHistory(s, "archived", null, `Archived records from before ${before} (${n.parades} parades, ${n.tasks} tasks, ${n.history} activity entries) by ${nameOf(a)}. A copy is in Backups.`);
+      return true;
+    });
+    return json({ ok: true, ...n });
+  }
+
   // ---- backups of the shared data (table cadetflow_backups), made by hand by the administrator,
   // plus one just before each restore. Kept 30 days. There is no nightly copy.
   if (action === "backups" || action === "backupNow" || action === "restoreBackup") {
@@ -1553,7 +1712,7 @@ async function handle(req: Request, body: Obj): Promise<Response> {
     const keep = async (kind: string, s: Obj) => {
       const { error } = await db.from("cadetflow_backups").insert({ kind, state: s, taken_at: new Date().toISOString(), taken_by: a.me.id, ...summary(s) });
       if (error) throw new Error("could not save the backup: " + error.message);
-      await db.from("cadetflow_backups").delete().lt("taken_at", new Date(Date.now() - 30 * 86400_000).toISOString());
+      await db.from("cadetflow_backups").delete().neq("kind", "archive").lt("taken_at", new Date(Date.now() - 30 * 86400_000).toISOString());
     };
     if (action === "backupNow") { await keep("manual", (await readState()).state); return json({ ok: true }); }
     if (action === "restoreBackup") {

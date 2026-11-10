@@ -539,7 +539,7 @@
     body:not(.can-edit) button[onclick*="openSpecialTaskModal"],
     body:not(.can-edit) button[onclick*="deleteSpecialTask"],
     body:not(.can-edit) button[onclick*="recordCallOut"],
-    body:not(.can-edit) button[onclick*="openTimetableEditor"],
+    body:not(.can-timetables) button[onclick*="openTimetableEditor"],
     body:not(.can-edit) button[onclick*="deleteCallOut"],
     body:not(.can-edit) #restoreFileInput,
     body:not(.can-edit) .senior-only { display: none !important; }
@@ -557,7 +557,6 @@
     body:not(.has-cadet) .cadet-only { display: none !important; }
     /* Administrator-only controls (roster, timetables, data import, deleting tasks) are hidden from seniors too. */
     body:not(.is-admin) button[onclick*="openRosterModal"],
-    body:not(.is-admin) button[onclick*="openTimetableEditor"],
     body:not(.is-admin) button[onclick*="handleDeleteCurrentEventDirectly"],
     body:not(.is-admin) button[onclick*="deleteParade("],
     body:not(.is-admin) button[onclick*="restoreFileInput"],
@@ -633,6 +632,11 @@
     #recordPrint table { width: 100%; border-collapse: collapse; font-size: 10pt; }
     #recordPrint td, #recordPrint th { border: 1px solid #bbb; padding: 3pt 5pt; text-align: left; vertical-align: top; }
     #recordPrint .rp-muted { color: #555; font-size: 9pt; }
+    .unit-report h1 { font-size: 1.15rem; font-weight: 800; }
+    .unit-report h2 { font-size: .95rem; font-weight: 800; margin: .9rem 0 .3rem; border-bottom: 1px solid #ccc; padding-bottom: .15rem; }
+    .unit-report table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .3rem 0; }
+    .unit-report td, .unit-report th { border: 1px solid #ccc; padding: .2rem .4rem; text-align: left; vertical-align: top; }
+    .unit-report .rp-muted { color: #555; font-size: .75rem; }
     /* Trends chart (validated palette on the dark surface: companies blue, orange, aqua) */
     .trend-wrap { position: relative; }
     .trend-svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -652,7 +656,7 @@
   </style>
   <!-- Tailwind classes, built from this page by tools/build_css.mjs (npm run build:css). After its
        own styles, as the Tailwind CDN used to put them. Settings: tools/tailwind.config.cjs. -->
-  <link rel="stylesheet" href="cadetflow.css?v=10edd5a161">
+  <link rel="stylesheet" href="cadetflow.css?v=06b580acda">
 </head>
 <body class="locked bg-slate-950 text-slate-200 min-h-screen flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200">
   <!-- Sign-in screen (body.locked): sign in, register, or wait for approval. Drawn by renderGate(). -->
@@ -705,6 +709,9 @@
             <button type="button" onclick="closeAccountMenu(); openSuggestBox()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestion box</button>
             <button type="button" onclick="closeAccountMenu(); openSuggestions()" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Suggestions received <span data-suggest-new class="ml-1 text-amber-400"></span></button>
             <button type="button" onclick="closeAccountMenu(); openPasswordModal()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Change password</button>
+            <button type="button" onclick="closeAccountMenu(); openNotifyPrefs()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Notification choices</button>
+            <button type="button" onclick="closeAccountMenu(); switchCadetFlowPage('help')" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">Help</button>
+            <button type="button" onclick="closeAccountMenu(); openPreviewPicker()" class="admin-only w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800">See it as a cadet</button>
             <button id="accountAction" type="button" onclick="handleAccountAction()" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800">Sign out</button>
           </div>
         </div>
@@ -743,6 +750,7 @@
       <p class="home-lede">Tasks, availability and the roster for Jessami, Kohima and Naushera companies, kept in one place for every cadet of the unit.</p>
       <div id="homeNow" class="home-now" aria-label="Today"></div>
       <section id="myDay" class="my-day hidden" aria-label="Your day"></section>
+      <section id="trophyCard" class="hidden bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5" aria-label="Rolling trophy"></section>
       <section id="noticeBoard" class="notice-board" aria-labelledby="noticeHeading">
         <div class="nb-head">
           <h3 id="noticeHeading">Notice board</h3>
@@ -868,6 +876,9 @@
           <button type="button" class="block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800 border-t border-slate-800" onclick="closeMemoryMenu(); switchCadetFlowPage('activity')">Activity log</button>
           <button type="button" class="attendance-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); switchCadetFlowPage('register')">Attendance register</button>
           <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); openBackups()">Backups</button>
+          <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="downloadEverythingExcel()">Download everything (Excel)</button>
+          <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); openSystemCheck()">System check</button>
+          <button type="button" class="requests-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="openUnitReport()">Unit report</button>
           <button type="button" class="admin-only block w-full text-left px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-800" onclick="closeMemoryMenu(); openSuggestions()">Suggestions</button>
         </div>
       </div>
@@ -1474,7 +1485,7 @@
         <p class="text-xs text-slate-500 mt-1 mb-3">Cadets (matching the filters) without a timetable yet. These cadets are not assumed to be unavailable.</p>
         <div id="availabilityUnassigned" class="space-y-2"></div>
       </div>
-      <p class="text-[11px] text-slate-500 px-1">Timetables are set by the administrator with “Edit timetables”. A missing schedule means “not assigned/unknown”, not “unavailable”. 3rd years are left out of availability. Anyone can view this page; only approved editors can record call-outs or change cycle details.</p>
+      <p class="text-[11px] text-slate-500 px-1">Timetables are set by the administrator and POCs with “Edit timetables”. A missing schedule means “not assigned/unknown”, not “unavailable”. 3rd years are left out of availability. Anyone can view this page; only approved editors can record call-outs or change cycle details.</p>
     </section>
 
     <section id="activityPage" class="hidden space-y-4" aria-labelledby="activityHeading">
@@ -1551,6 +1562,17 @@
       </div>
       <div id="learnQuiz" class="space-y-4"></div>
       <div id="learnLibrary" class="hidden space-y-4"></div>
+      <div id="learnSyllabus" class="hidden"></div>
+    </section>
+
+    <section id="helpPage" class="hidden space-y-4" aria-labelledby="helpHeading">
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-6">
+        <p class="text-[10px] uppercase tracking-[.18em] font-black text-amber-400">Help</p>
+        <h2 id="helpHeading" class="text-xl sm:text-2xl font-black text-white mt-1">How to use CadetFlow</h2>
+        <p class="text-sm text-slate-400 mt-1">Short answers for every part of the site. The parts for seniors say who can do them.</p>
+        <input id="helpSearch" type="search" oninput="renderHelpPage()" placeholder="Search the help, for example leave, mess duty, password" class="mt-3 w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-500" aria-label="Search the help">
+      </div>
+      <div id="helpBody" class="space-y-3"></div>
     </section>
 
   </main>
@@ -2421,6 +2443,82 @@
     </div>
   </div>
 
+  <div id="systemCheckModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Data</p><h3 class="text-lg font-extrabold text-white mt-1">System check</h3><p class="text-xs text-slate-400 mt-1">Whether the parts of CadetFlow that run on their own are working, and how close the data is to the free plan's limits.</p></div>
+        <button type="button" onclick="app.closeModal('systemCheckModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="systemCheckBody"><p class="text-sm text-slate-400">Checking…</p></div>
+    </div>
+  </div>
+
+  <div id="trophyModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Rolling trophy</p><h3 class="text-lg font-extrabold text-white mt-1">Company standings</h3><p class="text-xs text-slate-400 mt-1">Points across the tenure between Jessami, Kohima and Naushera.</p></div>
+        <button type="button" onclick="app.closeModal('trophyModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="trophyBody"></div>
+    </div>
+  </div>
+
+  <div id="trophyEventModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Rolling trophy</p><h3 id="trophyEventHeading" class="text-lg font-extrabold text-white mt-1">Add event</h3></div>
+        <button type="button" onclick="app.closeModal('trophyEventModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <form onsubmit="event.preventDefault(); saveTrophyEvent()" class="space-y-3">
+        <label class="block text-xs text-slate-400">Event<input id="trTitle" type="text" maxlength="100" placeholder="For example Drill competition" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"></label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block text-xs text-slate-400">Date<input id="trDate" type="date" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"></label>
+          <label class="block text-xs text-slate-400">Kind<select id="trType" onchange="setTrophyType()" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"><option value="group">Company event</option><option value="individual">Individual</option></select></label>
+        </div>
+        <div id="trWinners" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+        <div id="trCompanies" class="space-y-2"></div>
+        <p id="trError" class="hidden text-sm text-rose-300" role="alert"></p>
+        <button type="submit" class="w-full px-4 py-2.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="prefsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Account</p><h3 class="text-lg font-extrabold text-white mt-1">Notification choices</h3><p class="text-xs text-slate-400 mt-1">Which notifications this account gets.</p></div>
+        <button type="button" onclick="app.closeModal('prefsModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div id="prefsBody"></div>
+    </div>
+  </div>
+
+  <div id="previewModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Administrator</p><h3 class="text-lg font-extrabold text-white mt-1">See it as a cadet</h3><p class="text-xs text-slate-400 mt-1">Pick a cadet to see the site with their rank's buttons and their Your day. Only what is shown changes: anything you do is still done as the administrator.</p></div>
+        <button type="button" onclick="app.closeModal('previewModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <input id="previewSearch" type="search" oninput="renderPreviewPicker()" placeholder="Search name, rank or company" aria-label="Search cadets" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white">
+      <ul id="previewList" class="max-h-80 overflow-y-auto space-y-0.5"></ul>
+    </div>
+  </div>
+
+  <div id="reportModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3">
+        <div><p class="text-[11px] font-semibold text-amber-400">Data</p><h3 class="text-lg font-extrabold text-white mt-1">Unit report</h3><p class="text-xs text-slate-400 mt-1">The chosen dates on one page, ready to print or save as PDF.</p></div>
+        <button type="button" onclick="app.closeModal('reportModal')" class="text-slate-500 hover:text-slate-300 p-1" aria-label="Close"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="flex flex-wrap items-end gap-2">
+        <label class="text-xs text-slate-400">From<input id="urFrom" type="date" onchange="renderUnitReport()" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"></label>
+        <label class="text-xs text-slate-400">To<input id="urTo" type="date" onchange="renderUnitReport()" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white mt-1"></label>
+        <button type="button" onclick="printUnitReport()" class="px-4 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Print</button>
+      </div>
+      <div id="reportBody" class="unit-report rounded-xl bg-white text-slate-900 p-4 text-sm"></div>
+    </div>
+  </div>
+
   <div id="signupModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto">
       <div class="flex items-start justify-between gap-3">
@@ -2513,6 +2611,10 @@
   <div id="recordPrint" aria-hidden="true"></div>
 
   <!-- Toast Notification Popup -->
+  <div id="previewBanner" class="hidden fixed left-4 right-4 sm:left-auto sm:right-5 sm:w-96 top-20 z-50 flex items-center gap-3 bg-sky-950 border border-sky-500/60 text-white px-4 py-2.5 rounded-xl shadow-2xl" role="status">
+    <p class="text-xs flex-1">Seeing it as <strong id="previewWho" class="text-sky-200"></strong></p>
+    <button type="button" onclick="stopPreview()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950">Stop</button>
+  </div>
   <div id="updateBanner" class="hidden fixed left-4 right-4 sm:left-auto sm:right-5 sm:w-96 z-50 flex items-center gap-3 bg-slate-800 border border-amber-500/60 text-white px-4 py-3 rounded-xl shadow-2xl" role="status">
     <span class="flex-1 text-sm">A new version of CadetFlow is ready.</span>
     <button type="button" onclick="location.reload()" class="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg">Reload</button>
@@ -2791,18 +2893,18 @@
       //   JUO, SUO: creating parades · CQMS: uniform orders, payments, prices · administrator: the rest
       isApproved() { return !!this.user && this.profile?.status === 'approved'; }
       /** The roster entry this account belongs to, if it is linked to one. */
-      myCadet() { const id = this.profile?.cadet_id; return id != null ? (this.state.cadets.find(c => c.id === String(id)) || null) : null; }
+      myCadet() { const id = this.previewId ?? this.profile?.cadet_id; return id != null ? (this.state.cadets.find(c => c.id === String(id)) || null) : null; }
       myRank() { const c = this.myCadet(); return c ? (c.rank || 'CDT') : null; }
-      can(perm) { return this.isApproved() && canDo({ admin: this.profile.role === 'admin', poc: this.myCadet()?.poc === true, rank: this.myRank() }, perm); }
+      can(perm) { return this.isApproved() && canDo({ admin: !this.previewId && this.profile.role === 'admin', poc: this.myCadet()?.poc === true, rank: this.myRank() }, perm); }
       accessLevel() {
         if (!this.isApproved()) return 'viewer';
-        if (this.profile.role === 'admin') return 'admin';
+        if (this.profile.role === 'admin' && !this.previewId) return 'admin';
         return this.can('write') ? 'senior' : 'viewer';
       }
       /** Lance corporals and above (and the administrator) can change the shared data. */
       canEdit() { return this.can('write'); }
       /** Only the administrator can change the roster, timetables, accounts, restore data or delete. */
-      isAdmin() { return this.isApproved() && this.profile.role === 'admin'; }
+      isAdmin() { return this.isApproved() && this.profile.role === 'admin' && !this.previewId; }
 
       openAuthModal() {
         if (this.user) { this.signOut(); return; }
@@ -3194,6 +3296,7 @@
         body.toggle('can-requests', this.can('requests'));
         body.toggle('can-attendance', this.can('attendance'));
         body.toggle('can-uniform', this.can('uniform'));
+        body.toggle('can-timetables', this.isAdmin() || (this.isApproved() && this.myCadet()?.poc === true));
         body.toggle('signed-in', this.isApproved());
         body.toggle('has-cadet', !!this.myCadet());
         if (typeof renderUniformPage === 'function') renderUniformPage();
@@ -5720,7 +5823,7 @@
     function cloneData(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
     function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
     // Newer parts of the shared data: lists of items with plain ids, plus the mess duty settings.
-    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment'];
+    const EXTRA_LISTS = ['notices', 'camps', 'alumni', 'messDuty', 'leaves', 'signups', 'messSwaps', 'messStandby', 'library', 'equipment', 'trophy', 'awards'];
     function extraLists(data) {
       const out = {};
       EXTRA_LISTS.forEach(k => { out[k] = (Array.isArray(data?.[k]) ? data[k] : []).filter(x => isPlainObject(x) && safeId(x.id)); });
@@ -6039,7 +6142,9 @@
       const showAccounts = page === 'accounts';
       const showActivity = page === 'activity';
       const showLearn = page === 'learn';
-      const showTasks = !isHome && !showAvailability && !showDirectory && !showUniform && !showParades && !showAccounts && !showActivity && !showRegister && !showLearn;
+      const showHelp = page === 'help';
+      const showTasks = !isHome && !showAvailability && !showDirectory && !showUniform && !showParades && !showAccounts && !showActivity && !showRegister && !showLearn && !showHelp;
+      document.getElementById('helpPage').classList.toggle('hidden', !showHelp);
       document.getElementById('learnPage').classList.toggle('hidden', !showLearn);
       document.getElementById('learnTab').setAttribute('aria-selected', String(showLearn));
       document.getElementById('activityPage').classList.toggle('hidden', !showActivity);
@@ -6059,7 +6164,7 @@
       document.getElementById('rosterTab').setAttribute('aria-selected', String(showTasks));
       document.getElementById('availabilityTab').setAttribute('aria-selected', String(showAvailability));
       document.getElementById('directoryTab').setAttribute('aria-selected', String(showDirectory));
-      const navPage = isHome ? 'home' : showAvailability ? 'availability' : showDirectory ? 'directory' : showUniform ? 'uniform' : showParades || showRegister ? 'parades' : showAccounts ? 'accounts' : showActivity ? 'activity' : showLearn ? 'learn' : 'roster';
+      const navPage = isHome ? 'home' : showAvailability ? 'availability' : showDirectory ? 'directory' : showUniform ? 'uniform' : showParades || showRegister ? 'parades' : showAccounts ? 'accounts' : showActivity ? 'activity' : showLearn ? 'learn' : showHelp ? 'help' : 'roster';
       document.querySelectorAll('#phoneNav button').forEach(b => { if (b.dataset.page === navPage) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
       if (showAvailability) renderAvailabilityResults();
       if (showDirectory) renderRosterDirectory();
@@ -6068,6 +6173,7 @@
       if (showActivity) renderActivityPage();
       if (showRegister) renderRegisterPage();
       if (showLearn) renderLearnPage();
+      if (showHelp) renderHelpPage();
       if (showAccounts) { renderAccountsPage(); loadAccounts(true); } // always fresh: someone may have just registered
       if (showTasks) { document.getElementById('rosterPage').classList.remove('hidden'); showTaskMasterSection('home'); renderOngoingTasks(); }
       if (isHome && typeof app !== 'undefined' && app && app.state && Array.isArray(app.state.cadets)) document.getElementById('homeCadetCount').textContent = `${app.state.cadets.length} active cadets`;
@@ -6283,7 +6389,7 @@
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${c.wing === 'SD' ? 'bg-sky-900/40 text-sky-400 border-sky-700/50' : 'bg-rose-900/40 text-rose-400 border-rose-700/50'}">${esc(c.wing || '')}</span>
               ${cycleBadgeHtml(c)}
-              ${app?.isAdmin?.() ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="ml-auto text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">Timetable</button>` : ''}
+              ${canEditTimetables() ? `<button type="button" onclick="openTimetableEditor('${c.id}')" class="ml-auto text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">Timetable</button>` : ''}
               ${canEdit ? `<button type="button" onclick="app.recordCallOut(['${c.id}'])" class="${app?.isAdmin?.() ? '' : 'ml-auto '}text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-700/60 text-amber-300 hover:bg-amber-900/30" title="Record that ${esc(c.name)} was called for work">+1 called</button>` : ''}
             </div>
           </div>
@@ -6307,7 +6413,7 @@
       return availCadets().slice().sort((a, b) => (COMPANY_ORDER[a.company] ?? 3) - (COMPANY_ORDER[b.company] ?? 3) || a.name.localeCompare(b.name));
     }
     function openTimetableEditor(cadetId) {
-      if (!app?.isAdmin?.()) { app?.showToast?.('Only administrators can edit timetables.'); return; }
+      if (!canEditTimetables()) { app?.showToast?.('Only POCs and the administrator can edit timetables.'); return; }
       const all = timetableCadets();
       if (!all.length) { app.showToast('No cadets to edit.'); return; }
       const cur = document.getElementById('ttCadet');
@@ -6376,17 +6482,19 @@
         Object.keys(DAY_NAMES).map(d => `<span class="self-center font-semibold text-slate-300">${DAY_NAMES[d]}</span>${cell(d + '1')}${cell(d + '2')}`).join('');
       document.getElementById('ttSummary').textContent = free.size ? `Free in ${free.size} of 12 halves` : 'No timetable set (shown as “Schedule not assigned”)';
     }
+    /** POCs and the administrator edit timetables (POCs through the server, as the roster is the administrator's). */
+    function canEditTimetables() { return !!app?.isAdmin?.() || (!!app?.isApproved?.() && app.myCadet()?.poc === true); }
     function saveCadetTimetable(c, slots, detail) {
       c.free = SLOT_ORDER.filter(s => slots.has(s));
-      app.logHistory('timetable-edited', c.id, `${c.name}: ${detail}`);
-      app.saveStorage();
+      if (app.isAdmin()) { app.logHistory('timetable-edited', c.id, `${c.name}: ${detail}`); app.saveStorage(); }
+      else api('setTimetable', { cadetId: c.id, free: c.free, detail }).then(() => app.refreshFromRemote()).catch(e => { app.showToast(e.message || 'Could not save the timetable.'); app.refreshFromRemote(); });
       renderTimetableList();
       renderTimetableEditor();
       renderAvailabilityResults();
       renderHomeStats();
     }
     function toggleTimetableSlot(slot) {
-      if (!app?.isAdmin?.()) return;
+      if (!canEditTimetables()) return;
       const c = timetableCadet(); if (!c || !SLOT_ORDER.includes(slot)) return;
       const slots = new Set(getCadetAvailability(c));
       const nowFree = !slots.has(slot);
@@ -6394,7 +6502,7 @@
       saveCadetTimetable(c, slots, `${DAY_NAMES[slot.slice(0, 3)]} ${slot.endsWith('1') ? 'first' : 'second'} half set to ${nowFree ? 'free' : 'busy'}`);
     }
     async function clearTimetable() {
-      if (!app?.isAdmin?.()) return;
+      if (!canEditTimetables()) return;
       const c = timetableCadet(); if (!c || !getCadetAvailability(c).length) return;
       if (!(await askConfirm(`Clear ${c.name}'s timetable? They will show under “Schedule not assigned”.`, { ok: 'Clear', danger: true }))) return;
       saveCadetTimetable(c, new Set(), 'timetable cleared');
@@ -6858,6 +6966,7 @@
             ${fact('Reporting', paradeClock(pd.reportAt))}${fact('Venue', pd.venue || 'Not set')}
             ${pd.dress ? fact('Turnout', pd.dress) : ''}${pd.kit ? fact('Bring', pd.kit) : ''}
           </dl>
+          ${pd.venue ? `<a id="paradeDirections" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pd.venue)}" target="_blank" rel="noopener" class="inline-block text-xs font-bold text-sky-300 hover:text-sky-200 underline underline-offset-2">Directions to ${esc(pd.venue)}</a>` : ''}
           ${pd.agenda ? `<div class="par-fact"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Agenda</p><p class="text-sm text-slate-200 mt-1 whitespace-pre-wrap break-words">${esc(pd.agenda)}</p></div>` : ''}
           ${app.canEdit() && pd.reportAt + 3 * 3600000 >= Date.now() ? `<div class="nb-actions">${seenButton('parade:' + pd.id)}</div>${seenPanel('parade:' + pd.id)}` : ''}
         </div>`;
@@ -7188,6 +7297,12 @@
       if (!findParade(id)) return; // deleted elsewhere meanwhile
       const gone = new Set([id, ...(alsoLater ? later.map(x => x.id) : [])]);
       app.state.parades = paradeList().filter(x => !gone.has(x.id));
+      // No parade, no mess duty: its list and the swaps and let-off requests about it go too.
+      const messGone = new Set((app.state.messDuty || []).filter(d => d && gone.has(d.paradeId)).map(d => d.id));
+      if (messGone.size) {
+        app.state.messDuty = (app.state.messDuty || []).filter(d => !messGone.has(d?.id));
+        app.state.messSwaps = (app.state.messSwaps || []).filter(x => !messGone.has(x?.dayId) && !messGone.has(x?.takeDayId));
+      }
       app.logHistory('parade-deleted', null, `Deleted parade: ${pd.title} (${paradeDay(pd.reportAt)})${alsoLater ? ` and ${later.length} later in the series` : ''}`);
       app.saveStorage();
       PAR.openId = null;
@@ -8719,7 +8834,7 @@
     }
     {
       const switchPage = switchCadetFlowPage;
-      const ORDER = ['home', 'roster', 'parades', 'register', 'availability', 'uniform', 'learn', 'directory', 'activity', 'accounts'];
+      const ORDER = ['home', 'roster', 'parades', 'register', 'availability', 'uniform', 'learn', 'directory', 'activity', 'accounts', 'help'];
       let current = 'home';
       switchCadetFlowPage = function (page) {
         const from = ORDER.indexOf(current), to = ORDER.indexOf(page);
@@ -8727,7 +8842,7 @@
         current = page;
         const r = switchPage(page);
         renderFeatures();
-        const id = { home: 'homePage', availability: 'availabilityPage', directory: 'directoryPage', parades: 'paradePage', uniform: 'uniformPage', accounts: 'accountsPage', activity: 'activityPage', learn: 'learnPage', register: app?.can?.('attendance') ? 'registerPage' : 'paradePage' }[page] || 'rosterPage';
+        const id = { home: 'homePage', availability: 'availabilityPage', directory: 'directoryPage', parades: 'paradePage', uniform: 'uniformPage', accounts: 'accountsPage', activity: 'activityPage', learn: 'learnPage', help: 'helpPage', register: app?.can?.('attendance') ? 'registerPage' : 'paradePage' }[page] || 'rosterPage';
         if (page !== 'home') playEnter(document.getElementById(id));
         staggerIn(document.getElementById(id));
         setTimeout(() => revealBelow(document.getElementById(id)), 60);
@@ -9300,7 +9415,7 @@
       return (cfState()?.messDuty || []).some(d => d && d.paradeId === pd.id);
     }
     /** Mess duty that is shown: parades with refreshments (and older days that belong to no parade). */
-    function messShown(d) { const pd = d.paradeId ? findParade(d.paradeId) : null; return !pd || hasRefreshments(pd); }
+    function messShown(d) { const pd = d.paradeId ? findParade(d.paradeId) : null; return d.paradeId ? !!pd && hasRefreshments(pd) : true; }
     function messDays() { return messList().filter(messShown); }
     function messDayById(id) { return (app.state.messDuty || []).find(x => x && x.id === id) || null; }
     function messVolunteers(d) { return (Array.isArray(d?.volunteers) ? d.volunteers : []).filter(id => (d.cadetIds || []).includes(id)); }
@@ -10086,7 +10201,7 @@
       if (typeof app === 'undefined' || !app || !app.isApproved()) return;
       const page = PENDING_OPEN.page, parade = PENDING_OPEN.parade;
       PENDING_OPEN.page = PENDING_OPEN.parade = null;
-      if (['parades', 'uniform', 'accounts', 'availability', 'directory', 'roster', 'learn', 'home'].includes(page)) switchCadetFlowPage(page);
+      if (['parades', 'uniform', 'accounts', 'availability', 'directory', 'roster', 'learn', 'help', 'home'].includes(page)) switchCadetFlowPage(page);
       if (parade) openParadeFromNotification(parade);
     }
 
@@ -11127,6 +11242,7 @@
     const QF_PAGES = [
       ['home', 'Home'], ['roster', 'Task Master'], ['parades', 'Parades'], ['availability', 'Cadet Availability'],
       ['directory', 'Cadet Roster'], ['uniform', 'Uniform'], ['activity', 'Activity log'], ['learn', 'Learn: practice questions and study links'],
+      ['help', 'Help: how to use CadetFlow'],
     ];
     function quickFindAllowed() { return !document.body.classList.contains('locked') && !!app?.isApproved?.(); }
     function openQuickFind() {
@@ -11229,7 +11345,7 @@
         }
         // Attendance so far.
         const t = attendanceTally(me.id), pct = pctOf(t.attended, t.counted);
-        if (t.counted) cards.push(card('Your attendance', `${pct}%`, `${t.attended} of ${t.counted} parades${t.excused ? ` · ${t.excused} excused` : ''}${pct < 75 ? ` · below 75%, ${esc(needFor75Text(t))}` : ''}`, { go: `openCadetProfile('${esc(me.id)}')`, warn: pct < 75 }));
+        if (t.counted) cards.push(card('Your attendance', `${pct}%`, `${t.attended} of ${t.counted} parades${t.excused ? ` · ${t.excused} excused` : ''}${pct < 75 ? ` · below 75%, ${esc(needFor75Text(t))}` : ''}${attendanceStreak(me.id) >= 3 ? ` · ${attendanceStreak(me.id)} parades in a row` : ''}`, { go: `openCadetProfile('${esc(me.id)}')`, warn: pct < 75 }));
         // Leave now or coming up, or waiting.
         const myLeave = leaveList().filter(l => l.cadetId === me.id && l.to >= today).sort((a, b) => a.from.localeCompare(b.from))[0];
         const waitingLeave = leaveRequests().filter(r => r.cadetId === me.id && r.status === 'pending');
@@ -11424,6 +11540,10 @@
           <div><p class="text-xs text-slate-300">Camps <b class="${r.campsOk ? 'text-emerald-300' : 'text-amber-300'}">${r.camps}</b> <span class="text-slate-500">of ${r.rule.camps} needed</span></p>${bar(r.camps, r.rule.camps, r.campsOk)}</div>
         </div>`;
     }
+    /** The same as certLine, as one plain sentence (for printing). */
+    function certPlainText(r) {
+      return `attendance ${r.pct == null ? 'not counted yet' : r.pct + '%'} of ${r.rule.pct}% needed (${r.attended} of ${r.counted} parades), camps ${r.camps} of ${r.rule.camps} needed. ${r.ready ? 'Ready.' : 'Not ready yet.'}`;
+    }
     function cadetCertHtml(c) {
       const cfg = certConfig(), esc = escapeHtml, admin = app.isAdmin(), cert = certFor(c, cfg);
       const results = CERTS.filter(k => isPlainObject(c.certs?.[k]));
@@ -11589,7 +11709,7 @@
     function renderBackups() {
       const host = document.getElementById('backupsBody'); if (!host) return;
       const esc = escapeHtml, dis = BK.busy ? 'disabled' : '';
-      const kind = k => ({ manual: 'Made by hand', 'before-restore': 'Before a restore' })[k] || k;
+      const kind = k => ({ manual: 'Made by hand', 'before-restore': 'Before a restore', archive: 'Archive: everything as it was before archiving' })[k] || k;
       const size = n => n == null ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
       host.innerHTML = `
         <button type="button" ${dis} onclick="backupNow()" class="mb-3 px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Make a backup now</button>
@@ -12016,7 +12136,7 @@
     function messOutWaiting(pid = null) {
       if (!app?.can?.('requests')) return [];
       const today = ymd(new Date()), me = app.myCadet();
-      return swapList().filter(x => x.kind === 'out' && x.status === 'asked' && x.date >= today && x.from !== me?.id && (!pid || messDayById(x.dayId)?.paradeId === pid));
+      return swapList().filter(x => x.kind === 'out' && x.status === 'asked' && x.date >= today && x.from !== me?.id && requestsForCadet(x.from) && (!pid || messDayById(x.dayId)?.paradeId === pid));
     }
     /** Can I take this open swap? Same rules as picking: a cadet expected at that parade, not a local, not on leave. */
     function canTakeSwap(x, me = app.myCadet()) {
@@ -12868,7 +12988,7 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         ${all.length ? `<table><thead><tr><th>Date</th><th>Parade</th><th>Status</th></tr></thead><tbody>${all.slice().reverse().slice(0, 80).map(x => `<tr><td>${esc(day(x.pd.reportAt))}</td><td>${esc(x.pd.title)}</td><td>${stText[x.st] || ''}${x.mark === 'late' ? ' (late)' : ''}</td></tr>`).join('')}</tbody></table>` : ''}
         ${ranks.length ? `<h2>Rank history</h2><table><tbody>${ranks.map(x => `<tr><td>${esc(x.on || ymd(new Date(x.at)))}</td><td>${esc(x.from)} to ${esc(x.to)}</td><td>${x.order ? 'Order ' + esc(x.order) : ''}</td></tr>`).join('')}</tbody></table>` : ''}
         <h2>Camps and courses</h2>${camps.length ? `<table><tbody>${camps.map(k => `<tr><td>${esc(campTitle(k))}</td><td>${esc(campDates(k))}</td><td>${esc(k.place || '')}</td></tr>`).join('')}</tbody></table>` : '<p>None recorded.</p>'}
-        <h2>Certificates</h2>${certs.length ? `<table><tbody>${certs.map(([k, v]) => `<tr><td>'${esc(k)}' certificate</td><td>Grade ${esc(v.grade || '')}</td><td>${esc(v.year || '')}</td></tr>`).join('')}</tbody></table>` : ''}${ready ? `<p>'${esc(cert)}' certificate: ${esc(certLine(ready))}</p>` : certs.length ? '' : '<p>None yet.</p>'}
+        <h2>Certificates</h2>${certs.length ? `<table><tbody>${certs.map(([k, v]) => `<tr><td>'${esc(k)}' certificate</td><td>Grade ${esc(v.grade || '')}</td><td>${esc(v.year || '')}</td></tr>`).join('')}</tbody></table>` : ''}${ready ? `<p>'${esc(cert)}' certificate: ${esc(certPlainText(ready))}</p>` : certs.length ? '' : '<p>None yet.</p>'}
         ${signups.length ? `<h2>Selected for</h2><ul>${signups.map(x => `<li>${esc(x.title)}</li>`).join('')}</ul>` : ''}
         <h2>Other</h2><table><tbody>
           <tr><td>Mess duty done</td><td>${mess} day${mess === 1 ? '' : 's'}</td></tr>
@@ -12944,6 +13064,705 @@ Rules: start each block of questions with "Cert:" (B, C or both) and "Subject:" 
         }
         return r;
       };
+    }
+
+    // ==================== 2026-11-13: HELP, RECORDS, SYSTEM CHECK, ROLLING TROPHY, AWARDS, BIRTHDAYS, SYLLABUS,
+    // NOTIFICATION CHOICES, UNIT REPORT, PREVIEW AS A CADET, ON LEAVE, ERROR REPORTS ====================
+
+    // ---- Requests: a sergeant sees and decides only those of cadets in their own company; the CQMS, CSM, JUOs,
+    // SUOs and the administrator see all (rules.mjs requestsFor; the server filters the requests it sends).
+    const ALL_REQUEST_RANKS = ['CQMS', 'CSM', 'JUO', 'SUO'];
+    function requestsForCadet(cadetId) {
+      if (!app?.can?.('requests')) return false;
+      if (app.isAdmin() || ALL_REQUEST_RANKS.includes(app.myRank())) return true;
+      const mine = app.myCadet()?.company || '';
+      if (!mine || mine === 'No company') return true;
+      return cadetById(cadetId)?.company === mine;
+    }
+
+    // ---- Attendance streak: counted parades attended in a row, latest first (excused ones are skipped).
+    function attendanceStreak(cadetId) {
+      const list = cadetParades(cadetId).filter(x => x.pd.reportAt <= Date.now() && (x.st === 'attended' || x.st === 'missed')).sort((a, b) => b.pd.reportAt - a.pd.reportAt);
+      let n = 0;
+      for (const x of list) { if (x.st !== 'attended') break; n++; }
+      return n;
+    }
+
+    // ---- Rolling trophy: a tenure-long competition between the three companies. state.trophy =
+    // [{ id, title, date, type: 'group'|'individual', places: { company: 1|2|3 }, points: { company: n },
+    //    winners: [cadetId 1st, 2nd, 3rd] (individual), mvps: { company: cadetId } (group), by, at }]
+    // Sergeants and above add and change events. Cadets see the totals and the results, not each event's points.
+    const TROPHY_COYS = ['Jessami', 'Kohima', 'Naushera'];
+    const TROPHY_COLOURS = { Jessami: '#3987e5', Kohima: '#d95926', Naushera: '#199e70' };
+    const TROPHY_UI = { editId: null };
+    function trophyList() { return (cfState()?.trophy || []).filter(x => x && safeId(x.id)).slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.at || 0) - (a.at || 0)); }
+    function trophyTotals(list = trophyList()) { const t = Object.fromEntries(TROPHY_COYS.map(k => [k, 0])); list.forEach(e => TROPHY_COYS.forEach(k => { t[k] += Number(e.points?.[k]) || 0; })); return t; }
+    function canTrophy() { return !!app?.can?.('requests'); }
+    const placeWord = n => ['1st', '2nd', '3rd'][n - 1] || '';
+    const trophyNum = n => (Math.round(n * 10) / 10).toLocaleString('en-IN');
+    function trophyResultText(e) {
+      if (e.type === 'individual') return (e.winners || []).map((id, i) => id ? `${placeWord(i + 1)} ${cadetLabel(id)}${cadetById(id)?.company ? ` (${cadetById(id).company})` : ''}` : '').filter(Boolean).join(' · ') || 'No result yet';
+      const order = TROPHY_COYS.filter(k => Number(e.places?.[k]) >= 1).sort((a, b) => e.places[a] - e.places[b]);
+      return order.map(k => `${placeWord(e.places[k])} ${k}`).join(' · ') || 'No result yet';
+    }
+    function trophyEventHtml(e, full) {
+      const esc = escapeHtml, mvps = TROPHY_COYS.filter(k => e.mvps?.[k]).map(k => `${k}: ${cadetLabel(e.mvps[k])}`);
+      return `<li class="px-3 py-2.5" data-trophy="${esc(e.id)}">
+        <div class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-sm font-bold text-white">${esc(e.title)}</span><span class="text-[11px] text-slate-500">${esc(e.date || '')} · ${e.type === 'individual' ? 'Individual' : 'Company event'}</span></div>
+        <p class="text-xs text-slate-200 mt-0.5">${esc(trophyResultText(e))}</p>
+        ${mvps.length ? `<p class="text-[11px] text-amber-300 mt-0.5">MVP · ${esc(mvps.join(' · '))}</p>` : ''}
+        ${full && canTrophy() ? `<p class="text-[11px] text-slate-400 mt-0.5">Points: ${TROPHY_COYS.map(k => `${esc(k)} ${trophyNum(Number(e.points?.[k]) || 0)}`).join(', ')}</p>
+          <div class="flex gap-2 mt-1.5"><button type="button" onclick="openTrophyEvent('${esc(e.id)}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Edit</button>
+          <button type="button" onclick="removeTrophyEvent('${esc(e.id)}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-900/60 text-rose-300">Remove</button></div>` : ''}
+      </li>`;
+    }
+    function trophyTallyHtml() {
+      const t = trophyTotals(), max = Math.max(1, ...Object.values(t)), order = TROPHY_COYS.slice().sort((a, b) => t[b] - t[a]);
+      return `<div class="space-y-2">${order.map((k, i) => `<div><div class="flex justify-between text-sm"><span class="font-bold text-white">${i === 0 && t[k] > 0 && t[k] > t[order[1]] ? 'Leading · ' : ''}${escapeHtml(k)}</span><span class="font-mono-num text-white">${trophyNum(t[k])}</span></div>
+        <div class="h-2 rounded-full bg-slate-800 mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${Math.round(t[k] / max * 100)}%;background:${TROPHY_COLOURS[k]}"></div></div></div>`).join('')}</div>`;
+    }
+    function renderTrophyCard() {
+      const host = document.getElementById('trophyCard'); if (!host) return;
+      const list = trophyList();
+      if (!app?.isApproved?.() || (!list.length && !canTrophy())) { host.classList.add('hidden'); host.innerHTML = ''; return; }
+      host.classList.remove('hidden');
+      host.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h3 class="text-base font-extrabold text-white">Rolling trophy</h3>
+          <span class="flex gap-2">${list.length ? '<button type="button" onclick="openTrophy()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-800 border border-slate-700 text-slate-200">All results</button>' : ''}
+          ${canTrophy() ? '<button type="button" onclick="openTrophyEvent()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950">Add event</button>' : ''}</span></div>
+        ${list.length ? trophyTallyHtml() + `<ul class="mt-3 divide-y divide-slate-800 border border-slate-800 rounded-xl">${list.slice(0, 2).map(e => trophyEventHtml(e, false)).join('')}</ul>` : '<p class="text-sm text-slate-400">No events yet. Add each event as it happens: who came where, the points, and the MVPs.</p>'}`;
+    }
+    function trophyPerformers() {
+      const by = new Map(), add = (id, what) => { if (!id || !cadetById(id)) return; const x = by.get(id) || { id, mvp: 0, first: 0, podium: 0 }; x[what]++; by.set(id, x); };
+      trophyList().forEach(e => { TROPHY_COYS.forEach(k => add(e.mvps?.[k], 'mvp')); (e.winners || []).forEach((id, i) => { add(id, 'podium'); if (i === 0) add(id, 'first'); }); });
+      return [...by.values()].sort((a, b) => (b.mvp + b.first * 2 + b.podium) - (a.mvp + a.first * 2 + a.podium)).slice(0, 8);
+    }
+    function openTrophy() {
+      document.getElementById('trophyModal').classList.remove('hidden');
+      renderTrophyModal();
+    }
+    function renderTrophyModal() {
+      const host = document.getElementById('trophyBody'); if (!host) return;
+      const list = trophyList(), top = trophyPerformers(), esc = escapeHtml;
+      host.innerHTML = `${trophyTallyHtml()}
+        ${canTrophy() ? '<button type="button" onclick="openTrophyEvent()" class="mt-3 px-3 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950">Add event</button>' : ''}
+        ${top.length ? `<h4 class="text-xs font-bold text-slate-400 mt-4 mb-1">Top performers</h4><ul class="text-sm text-slate-200 space-y-1">${top.map(x => `<li>${esc(cadetLabel(x.id))} <span class="text-[11px] text-slate-500">${esc([x.mvp ? `${x.mvp} MVP` : '', x.first ? `${x.first} first place${x.first === 1 ? '' : 's'}` : '', x.podium - x.first ? `${x.podium - x.first} other podium` : ''].filter(Boolean).join(' · '))}</span></li>`).join('')}</ul>` : ''}
+        <h4 class="text-xs font-bold text-slate-400 mt-4 mb-1">Events (${list.length})</h4>
+        ${list.length ? `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${list.map(e => trophyEventHtml(e, true)).join('')}</ul>` : '<p class="text-sm text-slate-400">No events yet.</p>'}`;
+    }
+    function openTrophyEvent(id = null) {
+      if (!canTrophy()) return;
+      TROPHY_UI.editId = id;
+      const e = id ? trophyList().find(x => x.id === id) : null;
+      document.getElementById('trophyEventHeading').textContent = e ? 'Edit event' : 'Add event';
+      document.getElementById('trTitle').value = e?.title || '';
+      document.getElementById('trDate').value = e?.date || ymd(new Date());
+      document.getElementById('trType').value = e?.type === 'individual' ? 'individual' : 'group';
+      const cadets = (cfState()?.cadets || []).slice().sort((a, b) => a.name.localeCompare(b.name)), esc = escapeHtml;
+      const opts = (list, sel) => `<option value="">None</option>${list.map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.rank || 'CDT')} ${esc(c.name)}${c.company ? ' · ' + esc(c.company) : ''}</option>`).join('')}`;
+      const field = 'w-full px-2 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white';
+      document.getElementById('trCompanies').innerHTML = TROPHY_COYS.map(k => `<div class="rounded-xl border border-slate-800 p-3 space-y-2">
+          <p class="text-sm font-bold text-white">${esc(k)}</p>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="tr-group text-[11px] text-slate-400">Place<select id="trPlace-${k}" class="${field} mt-1"><option value="">–</option>${[1, 2, 3].map(n => `<option value="${n}" ${Number(e?.places?.[k]) === n ? 'selected' : ''}>${placeWord(n)}</option>`).join('')}</select></label>
+            <label class="text-[11px] text-slate-400">Points<input id="trPts-${k}" type="number" step="0.5" min="-1000" max="1000" value="${e ? (Number(e.points?.[k]) || 0) : ''}" class="${field} mt-1" placeholder="0"></label>
+          </div>
+          <label class="tr-group block text-[11px] text-slate-400">MVP (optional)<select id="trMvp-${k}" class="${field} mt-1">${opts(cadets.filter(c => c.company === k), e?.mvps?.[k])}</select></label>
+        </div>`).join('');
+      document.getElementById('trWinners').innerHTML = [1, 2, 3].map(n => `<label class="block text-[11px] text-slate-400">${placeWord(n)}<select id="trWin${n}" class="${field} mt-1">${opts(cadets, e?.winners?.[n - 1])}</select></label>`).join('');
+      document.getElementById('trError').classList.add('hidden');
+      setTrophyType();
+      document.getElementById('trophyEventModal').classList.remove('hidden');
+    }
+    function setTrophyType() {
+      const ind = document.getElementById('trType').value === 'individual';
+      document.getElementById('trWinners').classList.toggle('hidden', !ind);
+      document.querySelectorAll('#trCompanies .tr-group').forEach(el => el.classList.toggle('hidden', ind));
+    }
+    function saveTrophyEvent() {
+      if (!canTrophy()) return;
+      const err = document.getElementById('trError'), fail = m => { err.textContent = m; err.classList.remove('hidden'); };
+      const title = document.getElementById('trTitle').value.trim().slice(0, 100), date = document.getElementById('trDate').value;
+      const type = document.getElementById('trType').value === 'individual' ? 'individual' : 'group';
+      if (!title) { fail('Write the name of the event.'); return; }
+      if (!DAY_RE.test(date)) { fail('Pick the date.'); return; }
+      const points = {}, places = {}, mvps = {};
+      for (const k of TROPHY_COYS) {
+        const p = Number(document.getElementById(`trPts-${k}`).value || 0);
+        if (!Number.isFinite(p)) { fail(`Points for ${k} must be a number.`); return; }
+        points[k] = p;
+        if (type === 'group') {
+          const pl = Number(document.getElementById(`trPlace-${k}`).value);
+          if (pl >= 1 && pl <= 3) places[k] = pl;
+          const m = document.getElementById(`trMvp-${k}`).value; if (m) mvps[k] = m;
+        }
+      }
+      const winners = type === 'individual' ? [1, 2, 3].map(n => document.getElementById(`trWin${n}`).value || '') : [];
+      if (type === 'individual') { while (winners.length && !winners[winners.length - 1]) winners.pop(); if (!winners.length) { fail('Pick who came first.'); return; } }
+      if (type === 'group' && !Object.keys(places).length) { fail('Give at least one company its place.'); return; }
+      const data = { title, date, type, points, ...(type === 'group' ? { places, mvps } : { winners }) };
+      if (!Array.isArray(app.state.trophy)) app.state.trophy = [];
+      if (TROPHY_UI.editId) {
+        const e = app.state.trophy.find(x => x.id === TROPHY_UI.editId);
+        if (!e) { fail('This event was removed meanwhile.'); return; }
+        delete e.places; delete e.mvps; delete e.winners;
+        Object.assign(e, data, { editedBy: app.authorName(), editedAt: Date.now() });
+        app.logHistory('trophy-edited', null, `Rolling trophy: edited ${title}`);
+      } else {
+        app.state.trophy.push({ id: newId('trophy'), ...data, by: app.authorName(), at: Date.now() });
+        app.logHistory('trophy-added', null, `Rolling trophy: ${title} (${date}) · ${TROPHY_COYS.map(k => `${k} ${points[k]}`).join(', ')}`);
+      }
+      app.saveStorage();
+      app.closeModal('trophyEventModal');
+      renderTrophyCard(); renderTrophyModal();
+      app.showToast('Saved.');
+    }
+    function removeTrophyEvent(id) {
+      if (!canTrophy()) return;
+      const list = app.state.trophy || [], i = list.findIndex(x => x.id === id); if (i < 0) return;
+      const [e] = list.splice(i, 1);
+      app.logHistory('trophy-removed', null, `Rolling trophy: removed ${e.title}`);
+      app.saveStorage(); renderTrophyCard(); renderTrophyModal();
+      app.showToast(`Removed ${e.title}.`, { undo: () => { app.state.trophy = putBack(app.state.trophy, e, i); app.saveStorage(); renderTrophyCard(); renderTrophyModal(); } });
+    }
+
+    // ---- Awards on profiles: state.awards = [{ id, cadetId, title, date, by, at }]; sergeants and above add them.
+    function awardList() { return (cfState()?.awards || []).filter(x => x && safeId(x.id) && x.cadetId); }
+    /** Awards plus the cadet's rolling trophy honours (MVPs and podium places). */
+    function cadetHonours(id) {
+      const out = awardList().filter(a => a.cadetId === id).map(a => ({ id: a.id, title: a.title, date: a.date || '', award: true }));
+      trophyList().forEach(e => {
+        if (TROPHY_COYS.some(k => e.mvps?.[k] === id)) out.push({ title: `MVP · ${e.title}`, date: e.date || '' });
+        (e.winners || []).forEach((w, i) => { if (w === id) out.push({ title: `${placeWord(i + 1)} · ${e.title}`, date: e.date || '' }); });
+      });
+      return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    }
+    function cadetAwardsHtml(c) {
+      const list = cadetHonours(c.id), esc = escapeHtml;
+      if (!list.length && !canTrophy()) return '';
+      return `<section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-4" id="profileAwards">
+        <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="font-extrabold text-white">Awards and honours</h4>
+        ${canTrophy() ? `<button type="button" data-id="${esc(c.id)}" onclick="addAward(this.dataset.id)" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-700 text-slate-200">Add award</button>` : ''}</div>
+        ${list.length ? `<ul class="mt-2 space-y-1">${list.map(a => `<li class="flex items-center justify-between gap-2 text-sm text-slate-200"><span>${esc(a.title)} <span class="text-[11px] text-slate-500">${esc(a.date)}</span></span>
+          ${a.award && canTrophy() ? `<button type="button" data-id="${esc(a.id)}" onclick="removeAward(this.dataset.id)" class="text-[11px] text-rose-300" aria-label="Remove award">Remove</button>` : ''}</li>`).join('')}</ul>` : '<p class="text-xs text-slate-500 mt-2">None yet.</p>'}
+      </section>`;
+    }
+    async function addAward(cadetId) {
+      if (!canTrophy() || !cadetById(cadetId)) return;
+      const title = (await askText(`Award for ${cadetLabel(cadetId)}, for example Best cadet, Republic Day camp`, '', { title: 'Add award', ok: 'Next' }) || '').trim().slice(0, 100);
+      if (!title) return;
+      let date = (await askText('Date (YYYY-MM-DD)', ymd(new Date()), { title: 'Add award', ok: 'Add' }) || '').trim();
+      if (!DAY_RE.test(date)) date = ymd(new Date());
+      if (!Array.isArray(app.state.awards)) app.state.awards = [];
+      app.state.awards.push({ id: newId('award'), cadetId, title, date, by: app.authorName(), at: Date.now() });
+      app.logHistory('award-added', cadetId, `${cadetLabel(cadetId)}: award "${title}" (${date})`);
+      app.saveStorage();
+      renderCadetProfile();
+      app.showToast('Award added.');
+    }
+    function removeAward(id) {
+      if (!canTrophy()) return;
+      const list = app.state.awards || [], i = list.findIndex(x => x.id === id); if (i < 0) return;
+      const [a] = list.splice(i, 1);
+      app.logHistory('award-removed', a.cadetId, `${cadetLabel(a.cadetId)}: award "${a.title}" removed`);
+      app.saveStorage(); renderCadetProfile();
+      app.showToast('Award removed.', { undo: () => { app.state.awards = putBack(app.state.awards, a, i); app.saveStorage(); renderCadetProfile(); } });
+    }
+
+    // ---- Birthdays: cadets add their own (day and month only) from their profile; Home shows them on the day.
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function birthdayText(md) { const [m, d] = String(md || '').split('-').map(Number); return m && d ? `${d} ${MONTHS[m - 1]}` : ''; }
+    function parseBirthday(text) {
+      const t = String(text || '').trim().toLowerCase();
+      if (!t) return '';
+      let m = /^(\d{1,2})\s*[-\/. ]\s*(\d{1,2})$/.exec(t), day, mon;
+      if (m) { day = +m[1]; mon = +m[2]; }
+      else if ((m = /^(\d{1,2})\s*([a-z]{3})[a-z]*$/.exec(t)) || (m = /^([a-z]{3})[a-z]*\s*(\d{1,2})$/.exec(t))) {
+        const word = isNaN(+m[1]) ? m[1] : m[2]; day = isNaN(+m[1]) ? +m[2] : +m[1];
+        mon = MONTHS.findIndex(x => x.toLowerCase() === word) + 1;
+      }
+      if (!(mon >= 1 && mon <= 12 && day >= 1 && day <= [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mon - 1])) return null;
+      return `${String(mon).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    async function setMyBirthday() {
+      const me = app.myCadet(); if (!me) return;
+      const text = await askText('Your birthday: the day and month, for example 14 Aug. Only these are kept, never the year. Leave it empty to remove it.', birthdayText(me.birthday), { title: 'Birthday', ok: 'Save' });
+      if (text === null) return;
+      const md = parseBirthday(text);
+      if (md === null) { app.showToast('Write the day and month, for example 14 Aug.'); return; }
+      try { await api('myBirthday', { md }); await app.refreshFromRemote(); app.showToast(md ? `Birthday saved: ${birthdayText(md)}.` : 'Birthday removed.'); renderCadetProfile(); }
+      catch (e) { app.showToast(e.message || 'Could not save it.'); }
+    }
+    function birthdaysToday() {
+      const d = new Date(), md = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return (cfState()?.cadets || []).filter(c => c.birthday === md);
+    }
+
+    // ---- Syllabus: what each parade covered (pd.topics), ticked under the minutes; the Learn page counts them.
+    const SYLLABUS = ['Drill', 'Weapon training', 'Map reading', 'Field craft and battle craft', 'Leadership', 'National integration', 'Disaster management',
+      'Social service', 'Health and hygiene', 'First aid', 'Adventure training', 'Environment', 'Communication', 'Armed forces', 'Self defence', 'Obstacle training', 'Personality development'];
+    function paradeTopicsHtml(pd) {
+      const on = Array.isArray(pd.topics) ? pd.topics : [], esc = escapeHtml, edit = typeof canWriteMinutes === 'function' && canWriteMinutes();
+      if (!edit && !on.length) return '';
+      const chips = edit ? SYLLABUS.map((t, i) => `<button type="button" onclick="toggleParadeTopic('${esc(pd.id)}', ${i})" aria-pressed="${on.includes(t)}" class="af-chip text-[11px]">${esc(t)}</button>`).join('')
+        : on.map(t => `<span class="af-chip text-[11px]" aria-pressed="true">${esc(t)}</span>`).join('');
+      return `<div id="paradeTopics"><p class="text-[11px] font-bold text-slate-400 mb-1.5">Syllabus covered${edit ? ' (tap to tick)' : ''}</p><div class="flex flex-wrap gap-1.5">${chips}</div></div>`;
+    }
+    function toggleParadeTopic(pid, i) {
+      if (typeof canWriteMinutes !== 'function' || !canWriteMinutes()) return;
+      const pd = findParade(pid), t = SYLLABUS[i]; if (!pd || !t) return;
+      const on = new Set(Array.isArray(pd.topics) ? pd.topics : []);
+      if (on.has(t)) on.delete(t); else on.add(t);
+      pd.topics = SYLLABUS.filter(x => on.has(x));
+      if (!pd.topics.length) delete pd.topics;
+      app.saveStorage(); renderParadePage();
+    }
+    function renderSyllabusCoverage() {
+      const host = document.getElementById('learnSyllabus'); if (!host) return;
+      const past = paradeList().filter(pd => pd.reportAt <= Date.now() && Array.isArray(pd.topics) && pd.topics.length);
+      if (!past.length) { host.innerHTML = ''; host.classList.add('hidden'); return; }
+      host.classList.remove('hidden');
+      const esc = escapeHtml, rows = SYLLABUS.map(t => { const ps = past.filter(pd => pd.topics.includes(t)); return { t, n: ps.length, last: ps.length ? Math.max(...ps.map(p => p.reportAt)) : 0 }; });
+      host.innerHTML = `<div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5"><h3 class="font-extrabold text-white">Syllabus covered at parades</h3>
+        <p class="text-xs text-slate-400 mt-0.5">From what seniors ticked under each parade's minutes.</p>
+        <ul class="mt-3 grid sm:grid-cols-2 gap-x-6 gap-y-1">${rows.map(r => `<li class="flex justify-between gap-3 text-sm ${r.n ? 'text-slate-200' : 'text-slate-500'}"><span>${esc(r.t)}</span><span class="text-[11px] ${r.n ? 'text-slate-400' : 'text-amber-300'}">${r.n ? `${r.n} parade${r.n === 1 ? '' : 's'}, last ${esc(new Date(r.last).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }))}` : 'Not yet'}</span></li>`).join('')}</ul></div>`;
+    }
+
+    // ---- Notification choices (server myPrefs / setPrefs; NOTIFY_KINDS in rules.mjs)
+    const NOTIFY_CHOICES = [['parades', 'New parades for you'], ['reminders', 'Parade reminders 2 hours before'], ['notices', 'Notices'], ['signups', 'Sign-ups (camps, selections)'],
+      ['messCalls', 'Mess duty volunteer calls'], ['weekly', 'Weekly summary (administrator)']];
+    async function openNotifyPrefs() {
+      document.getElementById('prefsModal').classList.remove('hidden');
+      const host = document.getElementById('prefsBody');
+      host.innerHTML = '<p class="text-sm text-slate-400">Loading…</p>';
+      let off = [];
+      try { off = (await api('myPrefs')).off || []; } catch (e) { host.innerHTML = `<p class="text-sm text-rose-300">${escapeHtml(e.message || 'Could not load them.')}</p>`; return; }
+      host.innerHTML = `<ul class="space-y-2">${NOTIFY_CHOICES.filter(([k]) => k !== 'weekly' || app.isAdmin()).map(([k, label]) => `<li><label class="flex items-center gap-3 text-sm text-slate-200"><input type="checkbox" data-kind="${k}" ${off.includes(k) ? '' : 'checked'} class="w-4 h-4 accent-amber-500"> ${escapeHtml(label)}</label></li>`).join('')}</ul>
+        <p class="text-[11px] text-slate-500 mt-3">Always sent: decisions on your requests, your mess duty, parade changes and cancellations, uniform and payments, attendance warnings and equipment reminders. These choices are for this account on every device.</p>
+        <button type="button" onclick="saveNotifyPrefs()" class="mt-3 px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl">Save</button>`;
+    }
+    async function saveNotifyPrefs() {
+      const off = [...document.querySelectorAll('#prefsBody input[data-kind]')].filter(b => !b.checked).map(b => b.dataset.kind);
+      try { await api('setPrefs', { off }); app.closeModal('prefsModal'); app.showToast('Notification choices saved.'); }
+      catch (e) { app.showToast(e.message || 'Could not save them.'); }
+    }
+
+    // ---- See the site as a cadet sees it (administrator): only what is shown changes; the server still treats
+    // every action as the administrator's.
+    function openPreviewPicker() {
+      if (!app?.isAdmin?.()) return;
+      document.getElementById('previewModal').classList.remove('hidden');
+      document.getElementById('previewSearch').value = '';
+      renderPreviewPicker();
+      document.getElementById('previewSearch').focus();
+    }
+    function renderPreviewPicker() {
+      const q = document.getElementById('previewSearch').value.trim().toLowerCase(), esc = escapeHtml;
+      const list = (cfState()?.cadets || []).filter(c => !q || `${c.rank} ${c.name} ${c.company}`.toLowerCase().includes(q)).sort((a, b) => RANKS_ORDER(b) - RANKS_ORDER(a) || a.name.localeCompare(b.name)).slice(0, 40);
+      document.getElementById('previewList').innerHTML = list.map(c => `<li><button type="button" data-id="${esc(c.id)}" onclick="startPreview(this.dataset.id)" class="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 rounded-lg">${esc(c.rank || 'CDT')} ${esc(c.name)} <span class="text-[11px] text-slate-500">${esc(c.company || '')}${c.poc === true ? ' · POC' : ''}</span></button></li>`).join('') || '<li class="text-sm text-slate-500 px-3">No cadet matches.</li>';
+    }
+    function RANKS_ORDER(c) { return ['CDT', 'LCPL', 'CPL', 'SGT', 'CQMS', 'CSM', 'JUO', 'SUO'].indexOf(c.rank || 'CDT'); }
+    function startPreview(id) {
+      const c = cadetById(id); if (!c || !app?.isAdmin?.()) return;
+      app.previewId = id;
+      app.closeModal('previewModal');
+      document.getElementById('previewBanner').classList.remove('hidden');
+      document.getElementById('previewWho').textContent = `${c.rank || 'CDT'} ${c.name}${c.poc === true ? ' (POC)' : ''}`;
+      app.applyAccessUI(); switchCadetFlowPage('home'); renderMyDay(); renderTrophyCard();
+    }
+    function stopPreview() {
+      app.previewId = null;
+      document.getElementById('previewBanner').classList.add('hidden');
+      app.applyAccessUI(); switchCadetFlowPage('home'); renderMyDay(); renderTrophyCard();
+    }
+
+    // ---- Unit report (sergeants and above): the year in one printable page.
+    function unitReportHtml(from, to) {
+      const esc = escapeHtml, st = cfState() || {}, inRange = d => d >= from && d <= to;
+      const saved = { ...REG }; Object.assign(REG, { coy: 'all', year: 'all', from, to });
+      let reg; try { reg = registerData(); } finally { Object.assign(REG, saved); }
+      const sum = rows => { const a = rows.reduce((s, r) => s + r.a, 0), n = rows.reduce((s, r) => s + r.n, 0); return { a, n, pct: pctOf(a, n) }; };
+      const all = sum(reg.rows), byCoy = TROPHY_COYS.map(k => ({ k, ...sum(reg.rows.filter(r => r.c.company === k)) })), byYear = YEARS.map(y => ({ y, ...sum(reg.rows.filter(r => r.c.year === y)) }));
+      const full = reg.rows.filter(r => r.n >= 3 && r.pct === 100).map(r => `${r.c.rank || 'CDT'} ${r.c.name}`);
+      const low = reg.rows.filter(r => r.n >= 3 && r.pct < 75).length;
+      const camps = (st.camps || []).filter(k => inRange(k.start || ''));
+      const certs = (st.cadets || []).flatMap(c => Object.entries(c.certs || {}).filter(([, v]) => v && v.grade).map(([k, v]) => `${c.rank || 'CDT'} ${c.name}: '${k}' grade ${v.grade}${v.year ? ` (${v.year})` : ''}`));
+      const events = trophyList().filter(e => inRange(e.date || '')), tally = trophyTotals(events);
+      const awards = awardList().filter(a => inRange(a.date || ''));
+      const mess = (st.messDuty || []).filter(d => inRange(d.date || '') && d.date <= ymd(new Date()));
+      const leaves = (st.leaves || []).filter(l => (l.from || '') <= to && (l.to || '') >= from);
+      const pctTxt = x => x.pct == null ? '–' : `${x.pct}% (${x.a} of ${x.n})`;
+      return `<h1>Unit report: ${esc(from)} to ${esc(to)}</h1>
+        <p class="rp-muted">Jessami, Kohima and Naushera companies · from CadetFlow, ${esc(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))}</p>
+        <h2>Parades and attendance</h2>
+        <p>${reg.parades.length} parade${reg.parades.length === 1 ? '' : 's'} held. Attendance overall ${esc(pctTxt(all))}. ${low} cadet${low === 1 ? '' : 's'} under 75% (with 3 or more counted parades).</p>
+        <table><thead><tr><th>Company</th><th>Attendance</th></tr></thead><tbody>${byCoy.map(x => `<tr><td>${esc(x.k)}</td><td>${esc(pctTxt(x))}</td></tr>`).join('')}</tbody></table>
+        <table><thead><tr><th>Year</th><th>Attendance</th></tr></thead><tbody>${byYear.map(x => `<tr><td>${esc(yearLabel(x.y))}</td><td>${esc(pctTxt(x))}</td></tr>`).join('')}</tbody></table>
+        <p>Full attendance (3 or more parades): ${full.length ? esc(full.join(', ')) : 'none'}.</p>
+        <h2>Rolling trophy</h2>${events.length ? `<p>${TROPHY_COYS.map(k => `${esc(k)} ${trophyNum(tally[k])}`).join(' · ')}</p><table><tbody>${events.map(e => `<tr><td>${esc(e.date)}</td><td>${esc(e.title)}</td><td>${esc(trophyResultText(e))}</td></tr>`).join('')}</tbody></table>` : '<p>No events in these dates.</p>'}
+        <h2>Camps and courses</h2>${camps.length ? `<table><tbody>${camps.map(k => `<tr><td>${esc(campTitle(k))}</td><td>${esc(k.start || '')}${k.end && k.end !== k.start ? ' to ' + esc(k.end) : ''}</td><td>${(k.cadetIds || []).length} cadets</td></tr>`).join('')}</tbody></table>` : '<p>None in these dates.</p>'}
+        <h2>Certificates</h2><p>${certs.length ? esc(certs.join('; ')) : 'No results recorded.'}</p>
+        <h2>Awards</h2><p>${awards.length ? esc(awards.map(a => `${cadetLabel(a.cadetId)}: ${a.title} (${a.date})`).join('; ')) : 'None recorded.'}</p>
+        <h2>Other</h2><p>${mess.length} mess duty day${mess.length === 1 ? '' : 's'} · ${leaves.length} approved leave${leaves.length === 1 ? '' : 's'} · ${(st.cadets || []).length} cadets on the roster.</p>`;
+    }
+    function openUnitReport() {
+      closeMemoryMenu();
+      if (!app?.can?.('requests')) return;
+      const to = ymd(new Date()), d = new Date(); d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + 1);
+      if (!document.getElementById('urFrom').value) { document.getElementById('urFrom').value = ymd(d); document.getElementById('urTo').value = to; }
+      document.getElementById('reportModal').classList.remove('hidden');
+      renderUnitReport();
+    }
+    function renderUnitReport() {
+      const from = document.getElementById('urFrom').value, to = document.getElementById('urTo').value;
+      document.getElementById('reportBody').innerHTML = DAY_RE.test(from) && DAY_RE.test(to) && from <= to ? unitReportHtml(from, to) : '<p>Pick the dates.</p>';
+    }
+    function printUnitReport() {
+      document.getElementById('recordPrint').innerHTML = document.getElementById('reportBody').innerHTML;
+      document.body.classList.add('printing-record');
+      const done = () => { document.body.classList.remove('printing-record'); window.removeEventListener('afterprint', done); };
+      window.addEventListener('afterprint', done);
+      window.print();
+    }
+
+    // ---- Problems a page runs into go to the administrator's System check (server reportError), a few per visit.
+    (function reportProblems() {
+      let sent = 0; const seen = new Set();
+      const page = () => [...document.querySelectorAll('main > section[id$="Page"], main > div[id$="Page"]')].find(el => !el.classList.contains('hidden'))?.id || '';
+      const send = (message, place) => {
+        try {
+          if (sent >= 5 || !message || !app?.isApproved?.()) return;
+          const key = `${message}|${place}`; if (seen.has(key)) return;
+          seen.add(key); sent++;
+          api('reportError', { message: String(message).slice(0, 300), place: String(place || '').slice(0, 200), page: page() }).catch(() => {});
+        } catch (_) {}
+      };
+      window.addEventListener('error', e => {
+        const f = String(e.filename || ''), here = location.href.split('#')[0].split('?')[0];
+        if (f && f.split('#')[0].split('?')[0] !== here && !(location.origin !== 'null' && f.startsWith(location.origin))) return; // extensions and other sites
+        send(e.message, `${f.split('/').pop().split('?')[0]}:${e.lineno || 0}:${e.colno || 0}`);
+      });
+      window.addEventListener('unhandledrejection', e => { const r = e.reason; send(r?.message || String(r), String(r?.stack || '').split('\n')[1]?.trim() || ''); });
+    })();
+
+    // ---- Hooks into the existing pages.
+    {
+      const baseExtra = myDayExtraCards;
+      myDayExtraCards = function (card) {
+        const out = baseExtra(card), esc = escapeHtml, me = app.myCadet();
+        const bdays = birthdaysToday();
+        if (bdays.length) {
+          const mine = me && bdays.some(c => c.id === me.id), others = bdays.filter(c => c.id !== me?.id);
+          out.unshift(card(mine ? 'Happy birthday' : 'Birthday today', esc(mine && !others.length ? `${me.rank || 'CDT'} ${me.name}` : others.map(c => `${c.rank || 'CDT'} ${c.name}`).join(', ')), mine ? (others.length ? 'Happy birthday to you too' : 'From everyone at CadetFlow') : 'Wish them at the next parade'));
+        }
+        if (app.can('requests')) {
+          const today = ymd(new Date()), week = ymd(new Date(Date.now() + 6 * 86400000));
+          const mine = leaveList().filter(l => requestsForCadet(l.cadetId));
+          const now = mine.filter(l => l.from <= today && today <= l.to), soon = mine.filter(l => l.from <= week && l.to >= today);
+          if (soon.length) out.push(card('On leave', `${now.length} today`, `${now.length ? esc(now.slice(0, 6).map(l => cadetLabel(l.cadetId)).join(', ')) + (now.length > 6 ? ` and ${now.length - 6} more` : '') + ' · ' : ''}${soon.length} this week`));
+        }
+        return out;
+      };
+      const baseMinutes = renderMinutesCard;
+      renderMinutesCard = function (pd) {
+        const html = baseMinutes(pd);
+        if (!html) return html;
+        const topics = paradeTopicsHtml(pd);
+        return topics ? html.replace(/<\/div>$/, `${topics}</div>`) : html;
+      };
+      const baseLearn = renderLearnPage;
+      renderLearnPage = function () { const r = baseLearn.apply(this, arguments); if (isVisible('learnPage')) renderSyllabusCoverage(); return r; };
+      const baseBackups = renderBackups;
+      renderBackups = function () {
+        const r = baseBackups.apply(this, arguments);
+        const host = document.getElementById('backupsBody');
+        if (host && app.isAdmin()) host.insertAdjacentHTML('beforeend', `<div class="mt-5 border-t border-slate-800 pt-4" id="archiveBox"><h4 class="text-sm font-extrabold text-white">Archive old records</h4>
+          <p class="text-xs text-slate-400 mt-1">Parades, finished tasks, mess duty, leave, sign-ups, notices and activity from before the date leave the shared data, so the site stays quick on every phone. Attendance percentages then count only the parades left. A full copy of everything as it was is kept above as an Archive (never deleted) and can be restored.</p>
+          <div class="flex flex-wrap items-center gap-2 mt-2"><input type="date" id="archiveBefore" class="px-2 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs" aria-label="Archive records from before">
+          <button type="button" ${BK.busy ? 'disabled' : ''} onclick="archiveOld()" class="px-3 py-2 text-xs font-bold rounded-xl border border-rose-900/60 text-rose-300">Archive</button></div></div>`);
+        return r;
+      };
+      const baseProfile = renderCadetProfile;
+      renderCadetProfile = function () {
+        const r = baseProfile.apply(this, arguments);
+        const modal = document.getElementById('profileModal'), c = cadetById(PROF.id);
+        if (c && modal && !modal.classList.contains('hidden')) {
+          const body = document.getElementById('profileBody'), n = attendanceStreak(c.id);
+          if (n >= 3) body.insertAdjacentHTML('afterbegin', `<p class="rounded-xl border border-emerald-800/60 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200" id="profileStreak">Attended the last ${n} parades in a row.</p>`);
+          body.insertAdjacentHTML('beforeend', cadetAwardsHtml(c));
+          if (c.id === app.myCadet()?.id && !app.previewId) body.insertAdjacentHTML('beforeend', `<p class="text-xs text-slate-400" id="profileBirthday">Birthday: ${c.birthday ? escapeHtml(birthdayText(c.birthday)) : 'not added'} <button type="button" onclick="setMyBirthday()" class="ml-1 font-bold text-sky-300 underline">${c.birthday ? 'Change' : 'Add'}</button></p>`);
+        }
+        return r;
+      };
+      const baseRerender = CadetTrackerApp.prototype.rerenderAfterRemote;
+      CadetTrackerApp.prototype.rerenderAfterRemote = function () { const r = baseRerender.apply(this, arguments); renderTrophyCard(); if (isVisible('helpPage')) renderHelpPage(); return r; };
+      const baseSwitch = switchCadetFlowPage;
+      switchCadetFlowPage = function (page) { const r = baseSwitch.apply(this, arguments); if (page === 'home') renderTrophyCard(); return r; };
+    }
+    async function archiveOld() {
+      const before = document.getElementById('archiveBefore')?.value || '';
+      if (!DAY_RE.test(before)) { app.showToast('Pick the date first.'); return; }
+      if (!(await askConfirm(`Archive everything from before ${before}? It leaves the shared data for everyone; a full copy is kept in Backups as an Archive.`, { ok: 'Archive', danger: true }))) return;
+      BK.busy = true; renderBackups();
+      try {
+        await app.flushRemoteSave();
+        const r = await api('archive', { before });
+        await app.refreshFromRemote();
+        BK.list = (await api('backups')).backups || [];
+        app.showToast(`Archived ${r.parades} parades, ${r.tasks} tasks and ${r.history} activity entries.`);
+      } catch (e) { app.showToast(e.message || 'Could not archive.'); }
+      finally { BK.busy = false; renderBackups(); }
+    }
+
+
+    // ---- Everything in one Excel workbook (administrator): the unit's records stay readable without the site.
+    function everythingSheets() {
+      const st = cfState() || {}, cadets = Array.isArray(st.cadets) ? st.cadets : [];
+      const day = ts => (Number(ts) > 0 ? ymd(new Date(Number(ts))) : '');
+      const time = ts => (Number(ts) > 0 ? new Date(Number(ts)).toTimeString().slice(0, 5) : '');
+      const names = ids => (Array.isArray(ids) ? ids : []).map(id => cadetLabel(id)).join(', ');
+      const saved = { ...REG };
+      Object.assign(REG, { coy: 'all', year: 'all', from: '2000-01-01', to: ymd(new Date()) });
+      let reg;
+      try { reg = registerData(); } finally { Object.assign(REG, saved); }
+      const totals = new Map(reg.rows.map(r => [r.c.id, r]));
+      const camps = (Array.isArray(st.camps) ? st.camps : []);
+      const sheets = [];
+      sheets.push(['Cadets', [['Rank', 'Name', 'Company', 'Year', 'Wing', 'Regimental no.', 'POC', 'Attended', 'Counted', 'Attendance %', 'B certificate', 'C certificate', 'Camps'],
+        ...cadets.map(c => { const t = totals.get(c.id); return [c.rank || 'CDT', c.name || '', c.company || '', c.year || '', c.wing || '', c.regNo || '', c.poc === true ? 'Yes' : '',
+          t ? t.a : 0, t ? t.n : 0, t && t.pct != null ? t.pct : '', c.certs?.B?.grade || '', c.certs?.C?.grade || '', camps.filter(k => (k.cadetIds || []).includes(c.id)).length]; })]]);
+      sheets.push(['Attendance', [['Rank', 'Name', 'Company', 'Year', 'Regimental no.', ...reg.parades.map(pd => `${day(pd.reportAt)} ${pd.title}`), 'Attended', 'Counted', '%'],
+        ...reg.rows.map(r => [r.c.rank || 'CDT', r.c.name, r.c.company || '', r.c.year || '', r.c.regNo || '', ...r.cells.map(x => x === '-' ? '' : x), r.a, r.n, r.pct == null ? '' : r.pct])]]);
+      sheets.push(['Parades', [['Date', 'Time', 'Title', 'Venue', 'Turnout', 'Bring', 'For', 'Present', 'Late', 'Absent', 'Excused', 'Not marked', 'Minutes'],
+        ...paradeList().slice().sort((a, b) => a.reportAt - b.reportAt).map(pd => { const n = paradeCounts(pd);
+          return [day(pd.reportAt), time(pd.reportAt), pd.title || '', pd.venue || '', pd.dress || '', pd.kit || '', paradeAudience(pd), n.present, n.late, n.absent, n.excused, n.unmarked, pd.minutes?.text || '']; })]]);
+      sheets.push(['Leave', [['Cadet', 'From', 'To', 'Approved by', 'Approved on'],
+        ...(Array.isArray(st.leaves) ? st.leaves : []).map(l => [cadetLabel(l.cadetId), l.from || '', l.to || '', l.by || '', day(l.at)])]]);
+      sheets.push(['Mess duty', [['Date', 'Parade', 'On duty', 'Volunteered'],
+        ...(Array.isArray(st.messDuty) ? st.messDuty : []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(d => {
+          const pd = d.paradeId ? paradeList().find(p => p.id === d.paradeId) : null;
+          return [d.date || '', pd ? pd.title : '', names(d.cadetIds), names((d.volunteers || []).filter(v => (d.cadetIds || []).includes(v)))]; })]]);
+      sheets.push(['Uniform', [['Cadet', 'Item', 'Size', 'Qty', 'Status', 'Price each', 'Payment', 'Requested', 'Received'],
+        ...(Array.isArray(st.uniform) ? st.uniform : []).map(r => { const unit = uniformUnitPrice(r);
+          return [cadetLabel(r.cadetId), uniformLabel(r), r.size || '', r.qty || 1, r.status || '', unit == null ? '' : unit, r.pay?.status || (r.paid === true ? 'approved' : ''), day(r.requestedAt), day(r.receivedAt)]; })]]);
+      sheets.push(['Equipment', [['Cadet', 'Item', 'Qty', 'Issued', 'Due back', 'Returned'],
+        ...(Array.isArray(st.equipment) ? st.equipment : []).map(e => [cadetLabel(e.cadetId), e.item || '', e.qty || 1, day(e.at), e.dueDate || '', day(e.returnedAt)])]]);
+      sheets.push(['Camps', [['Camp', 'Place', 'From', 'To', 'Cadets', 'Names'],
+        ...camps.map(k => [campTitle(k), k.place || '', k.start || '', k.end || '', (k.cadetIds || []).length, names(k.cadetIds)])]]);
+      sheets.push(['Rolling trophy', [['Date', 'Event', 'Kind', 'Result', ...TROPHY_COYS.map(k => `${k} points`), 'MVPs'],
+        ...trophyList().slice().reverse().map(e => [e.date || '', e.title || '', e.type === 'individual' ? 'Individual' : 'Company', trophyResultText(e), ...TROPHY_COYS.map(k => Number(e.points?.[k]) || 0),
+          TROPHY_COYS.filter(k => e.mvps?.[k]).map(k => `${k}: ${cadetLabel(e.mvps[k])}`).join(', ')])]]);
+      sheets.push(['Awards', [['Cadet', 'Award', 'Date', 'Added by'], ...awardList().map(x => [cadetLabel(x.cadetId), x.title || '', x.date || '', x.by || ''])]]);
+      sheets.push(['Past cadets', [['Rank', 'Name', 'Company', 'Year', 'Regimental no.'],
+        ...(Array.isArray(st.alumni) ? st.alumni : []).map(c => [c.rank || 'CDT', c.name || '', c.company || '', c.year || '', c.regNo || ''])]]);
+      sheets.push(['Activity', [['Date', 'Time', 'Kind', 'Details'],
+        ...(Array.isArray(st.history) ? st.history : []).map(h => [day(h.at), time(h.at), h.action || '', h.details || ''])]]);
+      return sheets;
+    }
+    async function downloadEverythingExcel() {
+      closeMemoryMenu();
+      if (!app?.isAdmin?.()) { app?.showToast?.('Only the administrator can download everything.'); return; }
+      const sheets = everythingSheets(), name = `cadetflow-records-${ymd(new Date())}`;
+      try {
+        await loadExcelReader();
+        const wb = XLSX.utils.book_new();
+        sheets.forEach(([title, rows]) => {
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          ws['!cols'] = rows[0].map((h, i) => ({ wch: Math.min(40, Math.max(8, ...rows.slice(0, 200).map(r => String(r[i] ?? '').length))) }));
+          XLSX.utils.book_append_sheet(wb, ws, title);
+        });
+        XLSX.writeFile(wb, name + '.xlsx');
+        app.showToast('All records saved as Excel.');
+      } catch (e) {
+        // No connection for the Excel library: one CSV with every table one after another.
+        const cell = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+        const csv = '\ufeff' + sheets.map(([title, rows]) => [[title], ...rows].map(r => r.map(cell).join(',')).join('\r\n')).join('\r\n\r\n');
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        const a = document.createElement('a'); a.href = url; a.download = name + '.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        app.showToast('Saved as CSV (opens in Excel).');
+      }
+    }
+
+    // ---- Help page: short answers for every part of the site, by who can do it.
+    const HELP = [
+      { id: 'start', title: 'Getting started', who: 'Everyone', items: [
+        ['Install the app', 'Android: open the site in Chrome, tap the menu (three dots), then Install app or Add to Home screen. iPhone: open it in Safari, tap Share, then Add to Home Screen, and open CadetFlow from that icon. Laptop: use the install icon at the right of the address bar. The Get the app box on Home shows the steps for your device.'],
+        ['Turn on notifications', 'Use the Parade notifications box on Home or on the Parades page. You then hear about your parades, reminders 2 hours before, mess duty, requests and decisions. On iPhone, add the app to the Home Screen first and turn notifications on from inside it (iOS 16.4 or newer). Do this on every phone or laptop you use.'],
+        ['Add your regimental number', 'If the roster has no regimental number for you, open My profile from the account menu and use Add mine. You can add it once. To change it later, ask the administrator.'],
+        ['Forgot or change password', 'Signed in: account menu, Change password. Forgot it: tap Forgot password on the sign-in page. The administrator is told and sends you a link to set a new one.'],
+        ['Find anything', 'Use Find in the header, or press Ctrl+K (Cmd+K on a Mac). It finds cadets, parades, tasks, camps and pages. On a phone, pull down at the top of a page to refresh.'],
+      ] },
+      { id: 'parades', title: 'Parades and attendance', who: 'Everyone', items: [
+        ['Your next parade', 'Your day on Home shows the next parade you are expected at, with turnout and what to bring. The Parades page lists all of them. Open one to see its details, agenda and minutes.'],
+        ['Coming late or cannot come', 'Open the parade and tap I\'ll be late or I can\'t come. Write the reason and add a screenshot if you have one (ticket, medical paper). You can do this until 30 minutes before reporting time. A sergeant or above approves it or not, and you get a notification. A request that was not approved can be cleared from your view.'],
+        ['Leave for several days', 'Parades page, Leave box, Ask for leave: pick the first and last day and write the reason. A sergeant or above decides it. Parades in those days count as excused, you get no parade reminders, and you are left out of mess duty. You can have 3 leave requests waiting at most.'],
+        ['Attendance percentage', 'Your day and your profile show your attendance and, below 75%, how many parades in a row you need to get back to 75%. Excused parades and leave do not count against you. You are told if a parade takes you below 75%.'],
+        ['Add parades to your calendar', 'Parades page, My parades (calendar file), or on one parade, More, Add to calendar. The file works with Google Calendar and the phone\'s calendar and reminds you an hour before.'],
+      ] },
+      { id: 'mess', title: 'Mess duty', who: 'Cadets (rank CDT)', items: [
+        ['Who does it', 'Cadets with rank CDT who are expected at a parade with refreshments, except locals and anyone excused or on leave. 4 cadets a parade unless the administrator changed it.'],
+        ['Volunteer', 'Turn on Ask me first in the Mess duty dialog to be asked first whenever a parade gets refreshments. Or volunteer for one parade from its Mess duty box while there are places.'],
+        ['How places are filled', 'First the cadets on the Ask me first list are asked, then every cadet who can do it, and if places are still empty the lance corporals and corporals pick cadets fairly. You get a reminder the evening before your duty.'],
+        ['Can\'t do it?', 'Tap Can\'t do it? on your duty. Ask a cadet by name (they must accept, then it is theirs), put it up so anyone can take it, or ask a senior with a reason (a sergeant or above lets you off or keeps you on it). You cannot just step back on your own.'],
+      ] },
+      { id: 'uniform', title: 'Uniform and equipment', who: 'Everyone', items: [
+        ['Ask for uniform items', 'Uniform page: pick the items (beret size if you need one). The CQMS adds them to the next order. You can withdraw an item until the order is placed.'],
+        ['Pay and collect', 'When the item has a price, pay with the QR code or UPI ID on the Uniform page and upload the payment screenshot. The CQMS checks it. Once the order has arrived and your payment is approved, collect the item and tap Received.'],
+        ['Equipment', 'Equipment the CQMS issued to you shows on the Uniform page with the date it is due back. You are told when it is overdue.'],
+      ] },
+      { id: 'notices', title: 'Notices, questions and sign-ups', who: 'Everyone', items: [
+        ['Notice board', 'Notices are on Home. Some ask a question: tap your answer (you can change it). The poster can see who has seen a notice.'],
+        ['Sign-ups', 'For camps, selections and drives: tap Apply before the closing time. You can withdraw until you are selected. Selected cadets are told.'],
+        ['Notification choices', 'Account menu, Notification choices: turn off the kinds you do not want (new parades, reminders, notices, sign-ups, mess duty calls). Decisions on your own requests and your own duties always come.'],
+        ['Rolling trophy', 'Home shows the rolling trophy: the points tally between Jessami, Kohima and Naushera for the tenure, and each event\'s result, winners and MVPs. All results lists every event and the top performers.'],
+        ['Birthday', 'Open your profile and add your birthday (day and month only). Home shows birthdays on the day.'],
+        ['Suggestion box', 'Account menu, Suggestion box. Send it with your name or without. The administrator can reply to named suggestions.'],
+      ] },
+      { id: 'learn', title: 'Learn', who: 'Everyone', items: [
+        ['Practice questions', 'Learn page, Practice: questions for the B and C certificate exams by subject. Your scores are kept so you can see your progress.'],
+        ['Study library', 'Links to notes, videos and handbooks. Anyone can suggest a link; a lance corporal or above approves it.'],
+      ] },
+      { id: 'writers', title: 'Tasks, notices and call-outs', who: 'Lance corporals and above, and POCs', items: [
+        ['Tasks', 'Task Master: New task, pick cadets, track who did what. Special events and updates are there too. Only the administrator can delete tasks.'],
+        ['Post a notice', 'Home, Post a notice. Tick Notify everyone to send a notification. Tick Ask a question to add 2 to 6 answers and see who answered what. Choose Sign-up to open applications with places and a closing time.'],
+        ['Call-outs', 'Cadet Availability: +1 call-outs for work done.'],
+        ['Timetables (POCs)', 'POCs and the administrator fill in any cadet\'s free periods from Cadet Availability, so availability searches work.'],
+        ['Mess duty picks', 'Lance corporals and corporals: the Pick mess duty button in the Mess duty dialog picks by hand or fills the rest fairly.'],
+      ] },
+      { id: 'seniors', title: 'Requests, attendance and the register', who: 'Sergeants and above (attendance also POCs)', items: [
+        ['Decide requests', 'Parades page, Requests box: late and absence requests, leave and mess duty let-off requests, with filters. Approve or not. For leave you can excuse a cadet from one parade while the leave itself still waits.'],
+        ['Mark attendance', 'Open the parade once it starts: P, L or A for each cadet. Copy attendance gives a text for WhatsApp. Write the minutes after the parade and tick the syllabus subjects it covered; the Learn page shows what has been covered and what not yet.'],
+        ['Attendance register', 'Data menu, Attendance register: by company, year and dates, with Excel download and Print. Trends shows attendance by company over 12 weeks and cadets who are slipping.'],
+        ['Who sees which request', 'A sergeant sees and decides the requests of cadets in their own company only. The CSM, CQMS, JUOs, SUOs and the administrator see all of them.'],
+        ['Rolling trophy and awards', 'Home, Rolling trophy, Add event: the event, date, company event or individual, the place of each company or the first three cadets, the points for each company, and an MVP for each company. Cadets see the totals and results, not each event\'s points. Add awards on a cadet\'s profile.'],
+        ['On leave', 'Your day shows who is on leave today and this week (your company, or everyone for the CSM, CQMS, JUOs and SUOs).'],
+        ['Unit report', 'Data menu, Unit report: the year on one printable page: parades and attendance by company and year, full attendance, rolling trophy, camps, certificates, awards.'],
+        ['Certificates', 'The certificate card on the Cadet Roster page shows who is ready for B and C (attendance and camps).'],
+      ] },
+      { id: 'parade-power', title: 'Creating parades and camps', who: 'JUO, SUO and the administrator', items: [
+        ['New parade', 'Parades page, New parade: kind, date and reporting time, venue, turnout (required), what to bring, and who it is for (company, years or picked cadets). Repeat makes weekly copies. Cadets it is for are notified.'],
+        ['Change or cancel', 'Changing the time or venue of an upcoming parade offers to tell its cadets. Deleting one offers to tell them it is cancelled first.'],
+        ['Refreshments', 'Switch Refreshments on in the parade (JUO, SUO, CQMS, administrator) to start the mess duty calls for it.'],
+        ['Camps', 'Cadet Roster page, Camps: record who went where. Camps count towards certificates.'],
+      ] },
+      { id: 'cqms', title: 'Uniform orders and payments', who: 'CQMS and the administrator', items: [
+        ['Orders', 'Uniform page: place the order for everything requested (prices are copied onto it), mark it arrived when the items come. Use current prices re-prices a placed order.'],
+        ['Payments', 'Set the UPI ID, payee and QR code under payment details. Approve or turn down each payment screenshot. The payment summary shows who still owes what.'],
+        ['Equipment', 'Issue equipment to a cadet with a return date, and mark it Returned.'],
+      ] },
+      { id: 'admin', title: 'Running the site', who: 'Administrator', items: [
+        ['Accounts', 'Account menu, Accounts: approve or reject registrations (check that the regimental number matches), link an account to its cadet, change the role, send or copy a password link, set a password, remove. Invite one cadet or Import list from Excel (name, email, regimental number). Not on the app yet lists cadets with no account.'],
+        ['Roster', 'Cadet Roster page: add and edit cadets, ranks, the POC tick, regimental numbers and timetables, or import cadets from a sheet. Powers follow the rank on the roster at once.'],
+        ['New academic year', 'Cadet Roster page, New academic year: 1st years become 2nd, 2nd become 3rd, and 3rd years move to Past cadets (Bring back undoes one). Then add the new 1st years.'],
+        ['Backups and records', 'Data menu, Backups: make one before a big change; restore keeps a copy of the data as it was first. Download everything (Excel) saves every record in one workbook.'],
+        ['System check', 'Data menu, System check: whether reminders are running, how big the data is, accounts and devices, the last backup, problems pages ran into (with Clear), and this device.'],
+        ['Archive old years', 'Data menu, Backups, Archive old records: parades, finished tasks, activity and the rest from before a date leave the shared data so the site stays quick. A full copy is kept as an Archive backup and can be restored.'],
+        ['See it as a cadet', 'Account menu, See it as a cadet: pick a cadet to see the site with their rank\'s buttons. Stop in the banner returns to normal. Anything you do meanwhile is still done as the administrator.'],
+        ['Handover', 'HANDOVER.md in the code repository explains how the site is set up and what to do when the administrator changes.'],
+      ] },
+      { id: 'trouble', title: 'Something not working?', who: 'Everyone', items: [
+        ['The page looks old', 'Pull down at the top on a phone, or reload. When a new version is out, a banner offers Update.'],
+        ['Offline', 'The header shows Offline when there is no connection. Changes made meanwhile stay on the device and are saved when the connection is back.'],
+        ['No notifications', 'Turn them on again in the notifications box, and allow notifications for the browser or app in the phone settings. On iPhone, open CadetFlow from the Home Screen icon. Each phone or laptop must be turned on separately.'],
+        ['Cannot sign in', 'Use Forgot password, then wait for the administrator\'s link. If your account is waiting for approval, the administrator has to approve it.'],
+        ['Wrong name, rank or company', 'Ask the administrator: only they change the roster.'],
+      ] },
+    ];
+    function renderHelpPage() {
+      const host = document.getElementById('helpBody');
+      if (!host || !isVisible('helpPage')) return;
+      const esc = escapeHtml, q = (document.getElementById('helpSearch')?.value || '').trim().toLowerCase();
+      const words = q.split(/\s+/).filter(Boolean);
+      const hit = text => words.every(w => text.toLowerCase().includes(w));
+      const sections = HELP.map(s => ({ ...s, items: words.length ? s.items.filter(([t, a]) => hit(`${s.title} ${s.who} ${t} ${a}`)) : s.items })).filter(s => s.items.length);
+      host.innerHTML = !sections.length ? '<p class="text-sm text-slate-400 px-1">Nothing matches. Try another word, or ask a senior.</p>'
+        : sections.map((s, i) => `<details class="bg-slate-900 rounded-2xl border border-slate-800 group" data-help="${s.id}" ${words.length || i === 0 ? 'open' : ''}>
+          <summary class="cursor-pointer select-none px-4 sm:px-5 py-3.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span class="text-base font-extrabold text-white">${esc(s.title)}</span><span class="text-[11px] text-slate-400">${esc(s.who)}</span></summary>
+          <dl class="px-4 sm:px-5 pb-4 space-y-3">${s.items.map(([t, a]) => `<div><dt class="text-sm font-bold text-amber-300">${esc(t)}</dt><dd class="text-sm text-slate-300 mt-0.5 leading-relaxed">${esc(a)}</dd></div>`).join('')}</dl>
+        </details>`).join('');
+    }
+
+
+    // ---- System check (administrator): are the parts that run on their own working, and how big is the data?
+    const SYS = { data: null, error: '', busy: false, ran: '' };
+    async function openSystemCheck() {
+      if (!app?.isAdmin?.()) return;
+      document.getElementById('systemCheckModal').classList.remove('hidden');
+      SYS.data = null; SYS.error = ''; SYS.ran = ''; renderSystemCheck();
+      await loadSystemCheck();
+    }
+    async function loadSystemCheck() {
+      try { SYS.data = await api('health'); SYS.error = ''; }
+      catch (e) { SYS.error = /unknown action/i.test(e.message || '') ? 'The server does not have the system check yet.' : (e.message || 'Could not reach the server.'); }
+      renderSystemCheck();
+    }
+    async function runRemindersNow() {
+      if (SYS.busy) return;
+      SYS.busy = true; renderSystemCheck();
+      try {
+        const r = await api('remind');
+        const said = [['parades', 'parade reminders'], ['mess', 'mess duty reminders'], ['calls', 'mess duty calls'], ['drops', 'attendance warnings'], ['overdue', 'equipment reminders'], ['weekly', 'weekly summary']]
+          .filter(([k]) => r && r[k]).map(([k, t]) => `${r[k]} ${t}`);
+        SYS.ran = said.length ? `Sent: ${said.join(', ')}.` : 'Ran. Nothing was due.';
+        await loadSystemCheck();
+      } catch (e) { SYS.ran = e.message || 'Could not run them.'; }
+      finally { SYS.busy = false; renderSystemCheck(); }
+    }
+    function renderSystemCheck() {
+      const host = document.getElementById('systemCheckBody'); if (!host) return;
+      const esc = escapeHtml, d = SYS.data;
+      const size = n => n == null ? '–' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+      const row = (state, label, value, hint = '') => `<li class="px-3 py-2.5">
+        <div class="flex items-start justify-between gap-3"><span class="text-sm text-slate-200 inline-flex items-center gap-2"><i class="inline-block w-2 h-2 rounded-full ${state === 'ok' ? 'bg-emerald-400' : state === 'warn' ? 'bg-amber-400' : 'bg-slate-500'}" aria-hidden="true"></i>${esc(label)}<span class="sr-only">: ${state === 'ok' ? 'fine' : state === 'warn' ? 'look at this' : 'information'}</span></span>
+        <span class="text-sm text-white font-semibold text-right">${esc(value)}</span></div>${hint ? `<p class="text-[11px] ${state === 'warn' ? 'text-amber-300' : 'text-slate-500'} mt-1 ml-4">${esc(hint)}</p>` : ''}</li>`;
+      const list = rows => `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl">${rows.join('')}</ul>`;
+      const server = [];
+      if (d) {
+        const remAge = d.remind?.at ? Date.now() - Date.parse(d.remind.at) : null;
+        server.push(row(remAge != null && remAge < 30 * 60000 ? 'ok' : 'warn', 'Reminders', remAge == null ? 'Never ran' : ago(Date.parse(d.remind.at)),
+          remAge != null && remAge < 30 * 60000 ? 'Run every 10 minutes by the scheduled job.' : 'The scheduled job should run every 10 minutes. If the Supabase project was paused and restored, schedule it again with supabase/launch/reminders_cron.sql (see HANDOVER.md).'));
+        const big = (d.state?.size || 0) > 3 * 1048576;
+        server.push(row(big ? 'warn' : 'ok', 'Shared data', size(d.state?.size), `${d.state?.cadets ?? 0} cadets, ${d.state?.parades ?? 0} parades, ${d.state?.history ?? 0} activity entries${d.state?.updatedAt ? ', saved ' + ago(Date.parse(d.state.updatedAt)) : ''}.${big ? ' It is getting large: every open page downloads it when it changes. Make a backup and ask whoever looks after the site to archive old tasks.' : ''}`));
+        const a = d.accounts || {};
+        server.push(row(a.waiting ? 'warn' : 'ok', 'Accounts', `${a.approved ?? 0} approved`, `${a.waiting ? a.waiting + ' waiting for approval. ' : ''}${a.admins ?? 0} administrator${a.admins === 1 ? '' : 's'}, ${a.unlinked ?? 0} not linked to a cadet, ${a.withDevice ?? 0} with notifications on (${a.devices ?? 0} devices).`));
+        server.push(row(d.waiting?.requests ? 'warn' : 'ok', 'Requests waiting', String(d.waiting?.requests ?? 0), d.waiting?.suggestions ? `${d.waiting.suggestions} new suggestion${d.waiting.suggestions === 1 ? '' : 's'}.` : ''));
+        const bAge = d.backups?.last ? Date.now() - Date.parse(d.backups.last) : null;
+        server.push(row(bAge != null && bAge < 30 * 86400000 ? 'ok' : 'warn', 'Last backup', bAge == null ? 'None' : fmtWhen(Date.parse(d.backups.last)), 'Make one before a big change (Data menu, Backups). Copies are kept 30 days.'));
+        server.push(row('info', 'Server', d.build || '–', 'Free plan: 500 MB database, 5 GB transfer a month, 500,000 server calls a month. The project pauses after a week with no use; restore it from the Supabase dashboard.'));
+      }
+      let installed = false; try { installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (_) {}
+      const perm = typeof Notification === 'undefined' ? 'Not supported here' : ({ granted: 'Allowed', denied: 'Blocked', default: 'Not asked yet' })[Notification.permission] || Notification.permission;
+      let local = 0; try { local = (localStorage.getItem(app.storageKey) || '').length; } catch (_) {}
+      const device = [
+        row(navigator.onLine ? 'ok' : 'warn', 'Connection', navigator.onLine ? 'Online' : 'Offline'),
+        row(perm === 'Allowed' ? 'ok' : 'info', 'Notifications', perm, perm === 'Blocked' ? 'Allow them for this site in the browser or phone settings.' : ''),
+        row('info', 'Installed as an app', installed ? 'Yes' : 'No'),
+        row(navigator.serviceWorker?.controller ? 'ok' : 'info', 'Works offline', navigator.serviceWorker?.controller ? 'Yes' : 'Not yet', navigator.serviceWorker?.controller ? '' : 'Comes on after the site has been opened once over https.'),
+        row('info', 'Saved on this device', size(local), document.lastModified ? 'Page version from ' + document.lastModified + '.' : ''),
+      ];
+      host.innerHTML = `
+        <h4 class="text-xs font-bold text-slate-400 mb-2">Server and shared data</h4>
+        ${SYS.error ? `<p class="text-sm text-rose-300 mb-2">${esc(SYS.error)}</p>` : !d ? '<p class="text-sm text-slate-400 mb-2">Checking…</p>' : list(server)}
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          <button type="button" ${SYS.busy ? 'disabled' : ''} onclick="runRemindersNow()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 rounded-xl">Run reminders now</button>
+          <button type="button" ${SYS.busy ? 'disabled' : ''} onclick="loadSystemCheck()" class="px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 rounded-xl">Check again</button>
+          ${SYS.ran ? `<span class="text-xs text-slate-300" role="status">${esc(SYS.ran)}</span>` : ''}
+        </div>
+        ${d ? `<h4 class="text-xs font-bold text-slate-400 mt-5 mb-2">Problems pages ran into${d.errors?.length ? ` (${d.errors.length})` : ''}</h4>
+          ${d.errors?.length ? `<ul class="divide-y divide-slate-800 border border-slate-800 rounded-xl max-h-64 overflow-y-auto" id="sysErrors">${d.errors.map(e => `<li class="px-3 py-2"><p class="text-xs text-slate-200 break-words">${esc(e.message)}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5 break-words">${e.count} time${e.count === 1 ? '' : 's'}, last ${esc(ago(e.last))}${e.page ? ' · ' + esc(e.page) : ''}${e.name ? ' · ' + esc(e.name) : ''}${e.place ? ' · ' + esc(e.place) : ''}</p></li>`).join('')}</ul>
+            <button type="button" ${SYS.busy ? 'disabled' : ''} onclick="clearSystemErrors()" class="mt-2 px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 rounded-xl">Clear the list</button>`
+          : '<p class="text-sm text-slate-400">None reported.</p>'}` : ''}
+        <h4 class="text-xs font-bold text-slate-400 mt-5 mb-2">This device</h4>
+        ${list(device)}`;
+    }
+
+    async function clearSystemErrors() {
+      SYS.busy = true; renderSystemCheck();
+      try { await api('errorsClear'); await loadSystemCheck(); } catch (e) { app.showToast(e.message || 'Could not clear them.'); }
+      finally { SYS.busy = false; renderSystemCheck(); }
     }
   </script>
 </body>

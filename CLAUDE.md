@@ -23,11 +23,12 @@ NCC cadet management website for Jessami, Kohima and Naushera companies. Everyth
 - Powers come from the rank of the cadet the account is linked to (`profile.cadet_id`). The `admin` role can do everything. The same table is in `index.html` (`RANK_POWERS`, `canDo`) and `supabase/functions/cadetflow-api/rules.mjs` (`PERMISSIONS`, `can`): change both together.
   - `write`, `task`, `callout`: LCPL and above (tasks, special events, updates, +1 call-outs)
   - `parade`: JUO, SUO (create and edit parades, send parade notifications)
-  - `requests`: SGT and above (see and decide late/absence requests, add reports)
+  - `requests`: SGT and above (see and decide late/absence requests, add reports). A SGT sees and decides only cadets of their own company (a SGT with no company sees all); CQMS, CSM, JUO, SUO and the administrator see all (`requestsFor` in rules.mjs, `requestsForCadet` on the site; the server filters `requests` and checks `decide`, `excuse`, `reportImage`, `messOutDecide`, and tells only those seniors about `messOut`)
   - `attendance`: SGT and above, and POCs (mark parade attendance)
   - POC (point of contact): a tick next to the rank in the roster editor (`cadet.poc === true`). A POC also gets `write`, `task` and `attendance` whatever their rank (`POC_POWERS` in both files; `cadetflow_my_access()` counts them as writers).
   - `uniform`: CQMS (place orders, mark arrived, approve payments, prices, payment details)
-  - Administrator only: roster (including regimental numbers), timetables, accounts, deleting tasks and parades, restoring data
+  - Timetables: the administrator and POCs (`canEditTimetables`, body class `can-timetables`); a POC saves through server `setTimetable` because `cadets` is locked.
+  - Administrator only: roster (including regimental numbers), accounts, deleting tasks and parades, restoring data
 - Every approved cadet, whatever their rank: their own uniform requests, payment screenshots and "received", and their own late/absence requests.
 - Powers always follow the current roster: a rank or POC change reaches every open page with the next sync (`rerenderAfterRemote` re-applies `applyAccessUI`), and the server and database read the roster on every request. Setting a second CQMS warns that the old one keeps uniform powers until their rank changes.
 - Checks: `app.can(perm)`, `app.canEdit()` (= `write`), `app.isAdmin()`, `app.myCadet()`. Body classes `can-edit`, `can-parade`, `can-requests`, `can-attendance`, `can-uniform`, `is-admin`, `has-cadet`, `signed-in` hide buttons through CSS.
@@ -169,3 +170,21 @@ To go back to the old public site, follow `supabase/launch/rollback_to_public_si
 ## Turnout, question import (2026-11-12)
 - Parade dialog: turnout is required for a new parade: "Full turnout in uniform", "Turnout in tracks" or Custom (own text) (`#paradeTurnout`, `setParadeTurnout`, `paradeTurnoutValue`; stored as `pd.dress`, shown as "Turnout").
 - Learn: questions import from PDF (pdf.js 3.11.174 from cdnjs, loaded on use), .txt, pasted text (`parseQuizText`, format in `QUIZ_FORMAT_SAMPLE`, ChatGPT prompt `QUIZ_CHATGPT_PROMPT`), as well as Excel/CSV.
+
+## Help, records, trophy and the rest (2026-11-13)
+- `HANDOVER.md`: plain-language guide for the next administrator or maintainer (no secrets).
+- Help page (`#helpPage`, page `help`, `HELP`, `renderHelpPage`, search): account menu > Help. Update `HELP` when a feature changes.
+- Data menu (administrator): Download everything (`everythingSheets`, `downloadEverythingExcel`, CSV fallback), System check (`#systemCheckModal`, server `health`: reminders last run from settings key `remind`, data size, accounts, waiting, last backup, `cadetflow_errors` with Clear `errorsClear`); Unit report for SGT and above (`#reportModal`, `unitReportHtml`, printed through `#recordPrint`/`printing-record`).
+- Error reports: window errors and unhandled rejections from approved accounts go to server `reportError` (at most 5 per visit, deduped; table `cadetflow_errors`, id = hash, `count`, at most 500 rows; migration `20261113_errors.sql`).
+- Archive (Backups dialog, `archiveOld`, server `archive { before }`, at least a month ago): keeps a full copy as backup kind `archive` (never deleted by the 30-day cleanup), then drops parades, archived tasks, history, mess duty, swaps, leave, sign-ups and notices from before the date.
+- Rolling trophy (`state.trophy`, `EXTRA_LISTS`): Home `#trophyCard`, `#trophyModal`, `#trophyEventModal`; events `{ id, title, date, type: group|individual, places {company: 1-3}, points {company: n}, mvps {company: cadetId} | winners [cadetIds], by, at }`; SGT and above (`canTrophy` = `requests` power) add, edit, remove (Undo). Cadets see totals and results; per-event points are only hidden on screen (anyone approved can read the shared data).
+- Awards (`state.awards` `{ id, cadetId, title, date, by, at }`, SGT and above) and trophy MVPs/podiums on the profile (`#profileAwards`, `cadetHonours`).
+- Birthdays: `cadet.birthday` = 'MM-DD' only, own via server `myBirthday` (profile `#profileBirthday`, `parseBirthday`); Your day shows birthdays today.
+- Attendance streak (`attendanceStreak`): Your day and profile (`#profileStreak`) at 3 or more.
+- Syllabus: `pd.topics` (from `SYLLABUS`) ticked under the minutes (`toggleParadeTopic`, `canWriteMinutes`); Learn page `#learnSyllabus` counts coverage.
+- Directions: `#paradeDirections` Google Maps link for the venue on the parade page.
+- Notification choices (account menu, `#prefsModal`): server `myPrefs`/`setPrefs`, settings key `prefs:<user id>` `{ off: [...] }`, kinds `NOTIFY_KINDS` (parades, reminders, notices, signups, messCalls, weekly); `tell(..., kind)` skips users who turned it off. Personal things (decisions, own duty, changes, cancellations, uniform) always go.
+- See it as a cadet (administrator, account menu, `#previewModal`, `#previewBanner`, `app.previewId`): `myCadet()`, `can()`, `isAdmin()` follow the picked cadet; only the screen changes, the server still sees the administrator.
+- On leave card on Your day for `requests` power (today and this week, own company for a SGT).
+- Deleting a parade removes its mess duty days and their swaps; `remind` and the Mess duty list skip days whose parade is gone.
+- Printed record: certificates print as plain text (`certPlainText`).

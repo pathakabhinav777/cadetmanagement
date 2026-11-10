@@ -22,7 +22,7 @@ const KEYS = {
   cadetflow_state: ['id'], cadetflow_profiles: ['user_id'], cadetflow_requests: ['id'], cadetflow_settings: ['key'],
   cadetflow_push_subscriptions: ['endpoint'], cadetflow_push_keys: ['id'], cadetflow_push_sent: ['parade_id'],
   cadetflow_seen: ['item', 'user_id'], cadetflow_answers: ['notice_id', 'user_id'], cadetflow_backups: ['id'],
-  cadetflow_quiz: ['id'], cadetflow_quiz_scores: ['id'], cadetflow_suggestions: ['id'],
+  cadetflow_quiz: ['id'], cadetflow_quiz_scores: ['id'], cadetflow_suggestions: ['id'], cadetflow_errors: ['id'],
 };
 const UNIQUE = {
   cadetflow_profiles: [{ cols: ['cadet_id'], where: r => r.cadet_id != null && r.status !== 'rejected' }],
@@ -38,6 +38,7 @@ const DEFAULTS = {
   cadetflow_push_sent: () => ({ sent_at: now(), sent_by: null, delivered: null, failed: null }),
   cadetflow_seen: () => ({ seen_at: now() }),
   cadetflow_answers: () => ({ answered_at: now() }),
+  cadetflow_errors: () => ({ count: 1, first_at: now(), last_at: now(), place: '', agent: '', page: '', name: '' }),
   cadetflow_backups: () => ({ id: crypto.randomUUID(), taken_at: now(), kind: 'daily', taken_by: null }),
   cadetflow_quiz: () => ({ id: crypto.randomUUID(), explain: '', created_at: now(), updated_at: now(), created_by: null }),
   cadetflow_quiz_scores: () => ({ id: crypto.randomUUID(), cadet_id: null, subject: '', taken_at: now() }),

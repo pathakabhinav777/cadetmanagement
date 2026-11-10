@@ -4103,7 +4103,8 @@ test('mess duty: a cadet on duty asks a senior to let them off with a reason, or
   const db = makeDb();
   const admin = await openAs(browser, db, 'user-a');
   await setYears(admin);
-  await run(admin, () => { app.updateCadetField('cadet-31', 'rank', 'SGT'); app.updateCadetField('cadet-1', 'rank', 'LCPL'); });
+  // The sergeant is in cadet 3's company: a sergeant hears only about cadets of their own company.
+  await run(admin, () => { app.updateCadetField('cadet-31', 'rank', 'SGT'); app.updateCadetField('cadet-31', 'company', cadetById('cadet-3').company); app.updateCadetField('cadet-1', 'rank', 'LCPL'); });
   const pid = await makeParade(admin, 48, 'Drill');
   await run(admin, ({ pid, date }) => {
     app.state.messConfig = { perDay: 2, years: ['1st', '2nd'], exempt: [] };
@@ -4343,4 +4344,273 @@ test('trends chart and slipping cadets, rank history with order number, and the 
   const four = await openAs(browser, db, 'user-4');
   assert.deepEqual(await run(four, () => [canPrintRecord(cadetById('cadet-4')), canPrintRecord(cadetById('cadet-3'))]), [true, false]);
   noErrors(admin, four);
+}));
+
+// ==================== 2026-11-13 ====================
+const waitPushes = async (db, test, ms = 4000) => { const end = Date.now() + ms; while (Date.now() < end) { if (test()) return true; await new Promise(r => setTimeout(r, 50)); } return test(); };
+/** A past parade put straight into the shared data: marks { cadetId: 'present'|'absent'|... } */
+const pastParade = (page, id, daysAgo, marks = {}) => run(page, ({ id, daysAgo, marks }) => {
+  app.state.parades.push({ id, kind: 'drill', title: 'Drill', reportAt: Date.now() - daysAgo * 86400000, venue: 'Ground', scope: 'All', marks, reports: [], createdAt: Date.now() });
+  app.saveStorage();
+}, { id, daysAgo, marks });
+
+test('requests: a sergeant sees and decides only their own company; the CSM, CQMS, JUOs and SUOs see all', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => {
+    app.updateCadetField('cadet-3', 'company', 'Jessami'); app.updateCadetField('cadet-4', 'company', 'Kohima');
+    app.updateCadetField('cadet-31', 'rank', 'SGT'); app.updateCadetField('cadet-31', 'company', 'Jessami');
+    app.updateCadetField('cadet-32', 'rank', 'SGT'); app.updateCadetField('cadet-32', 'company', 'Kohima');
+    app.updateCadetField('cadet-33', 'rank', 'CSM'); app.updateCadetField('cadet-33', 'company', 'No company');
+  });
+  const pid = await makeParade(admin, 48, 'Drill');
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-4', { cadetId: 'cadet-4' }).account('user-j', { cadetId: 'cadet-31' })
+    .account('user-k', { cadetId: 'cadet-32' }).account('user-m', { cadetId: 'cadet-33' });
+  const one = (await db.api('user-c', 'report', { paradeId: pid, kind: 'absent', reason: 'Exam in the morning' })).request;
+  await db.api('user-4', 'report', { paradeId: pid, kind: 'absent', reason: 'Fever' });
+  const who = async u => (await db.api(u, 'requests')).requests.map(r => r.cadetId).sort();
+  assert.deepEqual(await who('user-j'), ['cadet-3']);
+  assert.deepEqual(await who('user-k'), ['cadet-4']);
+  assert.deepEqual(await who('user-m'), ['cadet-3', 'cadet-4']);
+  assert.deepEqual(await who('user-a'), ['cadet-3', 'cadet-4']);
+  await assert.rejects(db.api('user-k', 'decide', { id: one.id, approve: true }), /company/);
+  await assert.rejects(db.api('user-k', 'reportImage', { id: one.id }), /company/);
+  await db.api('user-j', 'decide', { id: one.id, approve: true });
+  const k = await openAs(browser, db, 'user-k');
+  assert.deepEqual(await run(k, () => [requestsForCadet('cadet-4'), requestsForCadet('cadet-3')]), [true, false]);
+  const m = await openAs(browser, db, 'user-m');
+  assert.deepEqual(await run(m, () => [requestsForCadet('cadet-4'), requestsForCadet('cadet-3')]), [true, true]);
+  noErrors(admin, k, m);
+}));
+
+test('rolling trophy: seniors add events with places, points and MVPs; cadets see the tally and results but not the points', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => {
+    ['cadet-1', 'cadet-2'].forEach(id => app.updateCadetField(id, 'company', 'Jessami'));
+    ['cadet-3', 'cadet-4'].forEach(id => app.updateCadetField(id, 'company', 'Kohima'));
+    ['cadet-5', 'cadet-6'].forEach(id => app.updateCadetField(id, 'company', 'Naushera'));
+  });
+  await run(admin, () => switchCadetFlowPage('home'));
+  await admin.click('#trophyCard button:has-text("Add event")');
+  await admin.fill('#trTitle', 'Drill competition');
+  await admin.click('#trophyEventModal button[type="submit"]');
+  assert.match(await admin.textContent('#trError'), /place/);
+  await admin.selectOption('#trPlace-Kohima', '1'); await admin.fill('#trPts-Kohima', '10');
+  await admin.selectOption('#trPlace-Jessami', '2'); await admin.fill('#trPts-Jessami', '6');
+  await admin.selectOption('#trPlace-Naushera', '3'); await admin.fill('#trPts-Naushera', '3');
+  await admin.selectOption('#trMvp-Kohima', 'cadet-3');
+  await admin.click('#trophyEventModal button[type="submit"]');
+  await waitToast(admin, 'Saved.');
+  // An individual event
+  await run(admin, () => openTrophyEvent());
+  await admin.fill('#trTitle', 'Firing');
+  await admin.selectOption('#trType', 'individual');
+  await admin.selectOption('#trWin1', 'cadet-5'); await admin.fill('#trPts-Naushera', '5');
+  await admin.click('#trophyEventModal button[type="submit"]');
+  await flush(admin);
+  const ev = db.row.state.trophy;
+  assert.equal(ev.length, 2);
+  assert.deepEqual(ev[0].places, { Kohima: 1, Jessami: 2, Naushera: 3 });
+  assert.deepEqual(ev[0].mvps, { Kohima: 'cadet-3' });
+  assert.deepEqual(ev[1].winners, ['cadet-5']);
+  assert.match(await admin.textContent('#trophyCard'), /Kohima\s*10[\s\S]*Naushera\s*8[\s\S]*Jessami\s*6/);
+
+  // A cadet: the totals and results, no points per event and no buttons
+  db.account('user-c', { cadetId: 'cadet-3' });
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => switchCadetFlowPage('home'));
+  assert.equal(await c.isVisible('#trophyCard button:has-text("Add event")'), false);
+  await c.click('#trophyCard button:has-text("All results")');
+  const text = await c.textContent('#trophyBody');
+  assert.match(text, /1st Kohima · 2nd Jessami · 3rd Naushera/);
+  assert.match(text, /MVP · Kohima: .*/);
+  assert.match(text, /1st .*\(Naushera\)/);
+  assert.doesNotMatch(text, /Points:/);
+  assert.match(text, /Top performers/);
+  // The MVP shows on the cadet's profile
+  await run(c, () => { app.closeModal('trophyModal'); openCadetProfile('cadet-3'); });
+  assert.match(await c.textContent('#profileAwards'), /MVP · Drill competition/);
+
+  // Removing an event, with Undo
+  await run(admin, () => { openTrophy(); });
+  await admin.click('#trophyBody li[data-trophy] button:has-text("Remove") >> nth=0');
+  await waitToast(admin, 'Removed');
+  assert.equal(await run(admin, () => app.state.trophy.length), 1);
+  await admin.click('#toast button:has-text("Undo")').catch(() => run(admin, () => document.querySelector('#toast button')?.click()));
+  assert.equal(await run(admin, () => app.state.trophy.length), 2);
+  noErrors(admin, c);
+}));
+
+test('awards on profiles, birthdays on Home, attendance streak, on leave card, syllabus, directions, print without markup', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await run(admin, () => app.updateCadetField('cadet-3', 'company', 'Jessami'));
+  for (let i = 1; i <= 4; i++) await pastParade(admin, `pp${i}`, 10 - i, { 'cadet-3': 'present' });
+  await pastParade(admin, 'pp0', 20, { 'cadet-3': 'absent' });
+  // Award by a senior (the two questions are answered natively)
+  await admin.evaluate(() => { let n = 0; window.prompt = () => (n++ === 0 ? 'Best cadet, annual camp' : '2026-10-01'); });
+  await run(admin, () => openCadetProfile('cadet-3'));
+  await admin.click('#profileAwards button:has-text("Add award")');
+  await waitToast(admin, 'Award added.');
+  await flush(admin);
+  assert.deepEqual(db.row.state.awards.map(a => [a.cadetId, a.title, a.date]), [['cadet-3', 'Best cadet, annual camp', '2026-10-01']]);
+
+  // Streak, award and birthday on the cadet's own profile
+  db.account('user-c', { cadetId: 'cadet-3' });
+  const c = await openAs(browser, db, 'user-c');
+  const streak = await run(c, () => attendanceStreak('cadet-3'));
+  assert.equal(streak, 4, 'four parades in a row since the miss');
+  assert.deepEqual(await run(c, () => [parseBirthday('14 Aug'), parseBirthday('Aug 14'), parseBirthday('14/8'), parseBirthday('31 Feb'), parseBirthday('')]), ['08-14', '08-14', '08-14', null, '']);
+  await run(c, () => openCadetProfile('cadet-3'));
+  assert.match(await c.textContent('#profileAwards'), /Best cadet, annual camp/);
+  assert.equal(await c.isVisible('#profileAwards button:has-text("Add award")'), false);
+  const today = await run(c, () => { const d = new Date(); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; });
+  await setPrompt(c, today);
+  await c.click('#profileBirthday button');
+  await waitToast(c, 'Birthday saved');
+  assert.match(db.row.state.cadets.find(x => x.id === 'cadet-3').birthday, /^\d\d-\d\d$/);
+  await run(c, () => { app.closeModal('profileModal'); switchCadetFlowPage('home'); renderMyDay(); });
+  assert.match(await c.textContent('#myDay'), /Happy birthday/);
+  await assert.rejects(db.api('user-c', 'myBirthday', { md: '13-40' }), /./);
+
+  // On leave: seniors see who is away today and this week
+  await run(admin, () => { app.state.leaves = [{ id: 'leave-x', cadetId: 'cadet-3', from: ymd(new Date()), to: ymd(new Date(Date.now() + 2 * 86400000)), at: Date.now(), by: 'x' }]; app.saveStorage(); switchCadetFlowPage('home'); renderMyDay(); });
+  assert.match(await admin.textContent('#myDay'), /On leave[\s\S]*1 today/);
+
+  // Syllabus ticked under the minutes, counted on the Learn page
+  await run(admin, () => { toggleParadeTopic('pp4', 0); toggleParadeTopic('pp4', 2); });
+  assert.deepEqual(await run(admin, () => findParade('pp4').topics), ['Drill', 'Map reading']);
+  await run(admin, () => switchCadetFlowPage('learn'));
+  assert.match(await admin.textContent('#learnSyllabus'), /Drill\s*1 parade[\s\S]*Weapon training\s*Not yet/);
+
+  // Directions on an upcoming parade
+  const pid = await makeParade(admin, 24, 'Drill');
+  await run(admin, id => { findParade(id).venue = 'Parade Ground, Kohima'; app.saveStorage(); switchCadetFlowPage('parades'); openParadeDetail(id); }, pid);
+  assert.match(await admin.getAttribute('#paradeDirections', 'href'), /google\.com\/maps.*Parade%20Ground/);
+
+  // The printed record has no markup in it
+  await run(admin, () => { window.print = () => {}; printRecord('cadet-3'); });
+  const printed = await admin.innerHTML('#recordPrint');
+  assert.doesNotMatch(await admin.textContent('#recordPrint'), /<div|class=/);
+  assert.match(printed, /Certificates|certificate/i);
+  noErrors(admin, c);
+}));
+
+test('notification choices, POC timetables, error reports and the System check, help, export everything, archive, preview, unit report', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  await run(admin, () => { app.updateCadetField('cadet-5', 'rank', 'LCPL'); const c = cadetById('cadet-5'); c.poc = true; app.saveStorage(); });
+  await flush(admin);
+  db.account('user-c', { cadetId: 'cadet-3' }).account('user-4', { cadetId: 'cadet-4' }).account('user-p', { cadetId: 'cadet-5' });
+  ['user-c', 'user-4'].forEach(u => device(db, u));
+
+  // Notification choices: cadet 3 turns off new parades
+  const c = await openAs(browser, db, 'user-c');
+  await run(c, () => openNotifyPrefs());
+  await c.waitForSelector('#prefsBody input[data-kind="parades"]');
+  assert.equal(await c.isVisible('#prefsBody input[data-kind="weekly"]'), false, 'weekly summary only for the administrator');
+  await c.uncheck('#prefsBody input[data-kind="parades"]');
+  await c.click('#prefsBody button:has-text("Save")');
+  await waitToast(c, 'Notification choices saved');
+  assert.deepEqual((await db.api('user-c', 'myPrefs')).off, ['parades']);
+  assert.deepEqual((await db.api('user-c', 'setPrefs', { off: ['parades', 'nonsense'] })).off, ['parades'], 'unknown kinds are dropped');
+  const pid = await makeParade(admin, 30, 'Drill');
+  await waitPushes(db, () => db.pushes.some(p => p.userId === 'user-4'));
+  assert.ok(db.pushes.some(p => p.userId === 'user-4'), 'cadet 4 is told');
+  assert.ok(!db.pushes.some(p => p.userId === 'user-c' && p.payload.url?.includes(pid)), 'cadet 3 turned new parades off');
+
+  // POCs fill in anyone's timetable; others cannot
+  await db.api('user-p', 'setTimetable', { cadetId: 'cadet-7', free: ['MON1', 'TUE2', 'BAD'] });
+  assert.deepEqual(db.row.state.cadets.find(x => x.id === 'cadet-7').free, ['MON1', 'TUE2']);
+  await assert.rejects(db.api('user-c', 'setTimetable', { cadetId: 'cadet-7', free: [] }), /./);
+  const p = await openAs(browser, db, 'user-p');
+  assert.equal(await run(p, () => [document.body.classList.contains('can-timetables'), canEditTimetables()].join()), 'true,true');
+  assert.equal(await run(c, () => canEditTimetables()), false);
+
+  // Error reports reach the System check, counted, and can be cleared
+  await db.api('user-c', 'reportError', { message: 'x is not defined', place: 'index.html:10:5', page: 'homePage' });
+  await db.api('user-c', 'reportError', { message: 'x is not defined', place: 'index.html:10:5', page: 'homePage' });
+  assert.equal(db.tables.cadetflow_errors.length, 1);
+  assert.equal(db.tables.cadetflow_errors[0].count, 2);
+  await assert.rejects(db.api('user-c', 'health'), /./);
+  await run(admin, () => openSystemCheck());
+  await admin.waitForFunction(() => /x is not defined/.test(document.getElementById('systemCheckBody').textContent));
+  assert.match(await admin.textContent('#systemCheckBody'), /2 times/);
+  await admin.click('#systemCheckBody button:has-text("Clear the list")');
+  await admin.waitForFunction(() => /None reported/.test(document.getElementById('systemCheckBody').textContent));
+  assert.equal(db.tables.cadetflow_errors.length, 0);
+  await run(admin, () => app.closeModal('systemCheckModal'));
+
+  // Help page with search
+  await run(c, () => switchCadetFlowPage('help'));
+  assert.equal(await c.isVisible('#helpPage'), true);
+  await c.fill('#helpSearch', 'rolling trophy');
+  assert.match(await c.textContent('#helpBody'), /Rolling trophy/);
+  await c.fill('#helpSearch', 'zzzqqq');
+  assert.match(await c.textContent('#helpBody'), /Nothing matches/);
+
+  // Export everything (Excel, or CSV when the library cannot load)
+  const names = await run(admin, () => everythingSheets().map(s => s[0]));
+  assert.ok(['Cadets', 'Attendance', 'Parades', 'Rolling trophy', 'Awards', 'Activity'].every(n => names.includes(n)), names.join());
+  const [dl] = await Promise.all([admin.waitForEvent('download'), run(admin, () => downloadEverythingExcel())]);
+  assert.match(dl.suggestedFilename(), /^cadetflow-records-\d{4}-\d\d-\d\d\.(xlsx|csv)$/);
+
+  // Unit report (sergeants and above)
+  await run(admin, () => openUnitReport());
+  assert.match(await admin.textContent('#reportBody'), /Unit report[\s\S]*Parades and attendance[\s\S]*Rolling trophy[\s\S]*Camps/);
+  await run(admin, () => app.closeModal('reportModal'));
+  assert.equal(await run(c, () => { openUnitReport(); return isVisible('reportModal'); }), false, 'not for cadets');
+
+  // See it as a cadet
+  await run(admin, () => openPreviewPicker());
+  await admin.fill('#previewSearch', await run(admin, () => cadetById('cadet-3').name));
+  await admin.click('#previewList button >> nth=0');
+  assert.equal(await admin.isVisible('#previewBanner'), true);
+  assert.deepEqual(await run(admin, () => [app.isAdmin(), document.body.classList.contains('is-admin'), app.myCadet()?.id]), [false, false, 'cadet-3']);
+  await admin.click('#previewBanner button:has-text("Stop")');
+  assert.deepEqual(await run(admin, () => [app.isAdmin(), document.body.classList.contains('is-admin'), isVisible('previewBanner')]), [true, true, false]);
+
+  // Archive: old records leave the shared data, a full copy is kept as an archive backup
+  await pastParade(admin, 'old1', 90);
+  await pastParade(admin, 'new1', 5);
+  await flush(admin);
+  await assert.rejects(db.api('user-a', 'archive', { before: ymdIn(-3) }), /month ago/);
+  await assert.rejects(db.api('user-c', 'archive', { before: ymdIn(-60) }), /./);
+  const r = await db.api('user-a', 'archive', { before: ymdIn(-60) });
+  assert.equal(r.parades, 1);
+  const ids = db.row.state.parades.map(x => x.id);
+  assert.ok(!ids.includes('old1') && ids.includes('new1'));
+  const arch = db.tables.cadetflow_backups.filter(b => b.kind === 'archive');
+  assert.equal(arch.length, 1);
+  assert.ok(arch[0].state.parades.some(x => x.id === 'old1'), 'the copy has everything');
+  await run(admin, () => openBackups());
+  await admin.waitForSelector('#archiveBox');
+  noErrors(admin, c, p);
+}));
+
+test('deleting a parade removes its mess duty; remind skips mess duty whose parade is gone', () => withBrowser(async browser => {
+  const db = makeDb();
+  const admin = await openAs(browser, db, 'user-a');
+  await setYears(admin);
+  const pid = await makeParade(admin, 30, 'Drill');
+  await run(admin, ({ pid }) => {
+    findParade(pid).refreshments = true;
+    app.state.messDuty = [{ id: 'mess-' + pid, paradeId: pid, date: ymd(new Date(findParade(pid).reportAt)), cadetIds: ['cadet-3'], at: Date.now(), by: 'x' },
+      { id: 'mess-ghost', paradeId: 'gone', date: ymd(new Date(Date.now() + 86400000)), cadetIds: ['cadet-4'], at: Date.now(), by: 'x' }];
+    app.state.messSwaps = [{ id: 'swap-1', kind: 'out', dayId: 'mess-' + pid, from: 'cadet-3', status: 'asked', reason: 'x', at: Date.now() }];
+    app.saveStorage();
+  }, { pid });
+  await flush(admin);
+  await run(admin, id => deleteParade(id), pid);
+  await admin.waitForFunction(id => !findParade(id), pid);
+  await flush(admin);
+  assert.deepEqual(db.row.state.messDuty.map(d => d.id), ['mess-ghost']);
+  assert.deepEqual(db.row.state.messSwaps, []);
+  db.account('user-4', { cadetId: 'cadet-4' }); device(db, 'user-4');
+  await db.api(null, 'remind', {});
+  assert.ok(!db.pushes.some(p => p.userId === 'user-4' && /mess/i.test(p.payload.title)), 'no reminder for a parade that is gone');
+  noErrors(admin);
 }));
